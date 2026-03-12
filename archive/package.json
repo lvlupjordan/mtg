@@ -1,0 +1,10 @@
+{
+  "name": "mtg-collection",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "enrich": "node enrich.js",
+    "dev": "npx serve public -l 3000",
+    "start": "npx serve public -l 3000"
+  }
+}
