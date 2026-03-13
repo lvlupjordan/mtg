@@ -129,6 +129,139 @@ def matchup_stats(db: Session = Depends(get_db)):
     ]
 
 
+@router.get("/timeseries")
+def timeseries_stats(
+    metric: str = "win_rate",
+    group_by: str = "player",
+    over: str = "month",
+    filter_by: str | None = None,
+    filter_value: str | None = None,
+    db: Session = Depends(get_db),
+):
+    if metric not in {"win_rate", "games", "avg_placement", "wins"}:
+        raise HTTPException(400, "Invalid metric")
+    if group_by not in {"player", "deck"}:
+        raise HTTPException(400, "Invalid group_by")
+    if over not in {"month", "game"}:
+        raise HTTPException(400, "Invalid over")
+
+    params = {"excl1": EXCLUDED_PLAYERS[0], "excl2": EXCLUDED_PLAYERS[1]}
+    base_where = "u.name NOT IN (:excl1, :excl2)"
+    filter_where = ""
+
+    if filter_by and filter_value:
+        if filter_by == "player":
+            filter_where = "AND u.name = :fv"
+            params["fv"] = filter_value
+        elif filter_by == "colour":
+            filter_where = "AND :fv = ANY(d.color_identity)"
+            params["fv"] = filter_value.upper()
+        elif filter_by == "deck":
+            filter_where = "AND d.commander = :fv"
+            params["fv"] = filter_value
+
+    where_sql = f"WHERE {base_where} {filter_where}"
+    series_col = "u.name" if group_by == "player" else "d.commander"
+
+    if over == "month":
+        rows = db.execute(text(f"""
+            SELECT
+                {series_col} AS series_key,
+                DATE_TRUNC('month', g.played_at) AS period,
+                TO_CHAR(DATE_TRUNC('month', g.played_at), 'Mon YYYY') AS period_label,
+                COUNT(gs.id)::int AS games,
+                SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::int AS wins,
+                ROUND(AVG(gs.placement)::numeric, 2) AS avg_placement
+            FROM game_seats gs
+            JOIN decks d ON gs.deck_id = d.id
+            JOIN users u ON gs.pilot_id = u.id
+            JOIN games g ON gs.game_id = g.id
+            {where_sql}
+            GROUP BY {series_col}, DATE_TRUNC('month', g.played_at)
+            ORDER BY {series_col}, period
+        """), params).fetchall()
+
+        # Collect all periods in order
+        periods_ordered = sorted({r.period for r in rows})
+        period_labels = {r.period: r.period_label for r in rows}
+
+        # Build per-series lookup: series_key -> {period -> row}
+        series_data: dict = {}
+        for r in rows:
+            series_data.setdefault(r.series_key, {})[r.period] = r
+
+        all_series = sorted(series_data.keys())
+        data = []
+        for period in periods_ordered:
+            point = {"x": period_labels[period]}
+            for name in all_series:
+                r = series_data[name].get(period)
+                if r:
+                    if metric == "win_rate":
+                        point[name] = round(r.wins / r.games, 3) if r.games else 0
+                    elif metric == "games":
+                        point[name] = r.games
+                    elif metric == "wins":
+                        point[name] = r.wins
+                    else:
+                        point[name] = float(r.avg_placement) if r.avg_placement else None
+                else:
+                    point[name] = None
+            data.append(point)
+
+        return {"series": all_series, "data": data}
+
+    else:  # over == "game"
+        rows = db.execute(text(f"""
+            SELECT
+                {series_col} AS series_key,
+                g.played_at::text AS played_at,
+                gs.placement,
+                ROW_NUMBER() OVER (PARTITION BY {series_col} ORDER BY g.played_at, g.id)::int AS game_num,
+                SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)
+                    OVER (PARTITION BY {series_col} ORDER BY g.played_at, g.id
+                          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::int AS cum_wins,
+                AVG(gs.placement)
+                    OVER (PARTITION BY {series_col} ORDER BY g.played_at, g.id
+                          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_avg,
+                COUNT(gs.id)
+                    OVER (PARTITION BY {series_col} ORDER BY g.played_at, g.id
+                          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::int AS cum_games
+            FROM game_seats gs
+            JOIN decks d ON gs.deck_id = d.id
+            JOIN users u ON gs.pilot_id = u.id
+            JOIN games g ON gs.game_id = g.id
+            {where_sql}
+            ORDER BY {series_col}, g.played_at, g.id
+        """), params).fetchall()
+
+        series_data: dict = {}
+        for r in rows:
+            if metric == "win_rate":
+                val = round(r.cum_wins / r.cum_games, 3) if r.cum_games else 0
+            elif metric == "games":
+                val = r.cum_games
+            elif metric == "wins":
+                val = r.cum_wins
+            else:
+                val = round(float(r.running_avg), 2) if r.running_avg else None
+            series_data.setdefault(r.series_key, []).append({"game_num": r.game_num, "value": val, "played_at": r.played_at})
+
+        all_series = sorted(series_data.keys())
+        max_games = max((len(v) for v in series_data.values()), default=0)
+
+        data = []
+        for i in range(max_games):
+            game_num = i + 1
+            point = {"x": game_num}
+            for name in all_series:
+                pts = series_data.get(name, [])
+                point[name] = pts[i]["value"] if i < len(pts) else None
+            data.append(point)
+
+        return {"series": all_series, "data": data}
+
+
 @router.get("/query")
 def query_stats(
     metric: str = "win_rate",

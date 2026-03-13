@@ -33,6 +33,10 @@ export const api = {
 
   stats: () => req("/api/stats/overview"),
   statColours: () => req("/api/stats/colours"),
+  statsTimeseries: (params = {}) => {
+    const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString()
+    return req(`/api/stats/timeseries${qs ? `?${qs}` : ""}`)
+  },
   statsQuery: (params = {}) => {
     const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString()
     return req(`/api/stats/query${qs ? `?${qs}` : ""}`)
