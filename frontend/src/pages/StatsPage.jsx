@@ -163,6 +163,7 @@ function MultiLineChart({ tsData, metric }) {
 
 function BarChartView({ data, metric, dimension }) {
   const isHorizontal = ['player', 'deck'].includes(dimension)
+  data = data.filter(d => d.value !== null && d.value !== undefined)
 
   if (isHorizontal) {
     const yWidth = Math.min(240, Math.max(80, Math.max(...data.map(d => (d.label || '').length)) * 8))

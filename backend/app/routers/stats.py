@@ -227,7 +227,7 @@ def timeseries_stats(
             else:
                 val = round(float(r.cum_placement) / r.cum_games, 2) if r.cum_games else None
             series_at.setdefault(r.series_key, {})[r.month] = val
-            series_max_games[r.series_key] = r.cum_games
+            series_max_games[r.series_key] = max(series_max_games.get(r.series_key, 0), r.cum_games)
 
         all_series = sorted(k for k in series_at if series_max_games.get(k, 0) >= min_games)
         data = []
@@ -240,6 +240,7 @@ def timeseries_stats(
                 point[name] = last[name]
             data.append(point)
 
+        all_series = [s for s in all_series if any(p.get(s) is not None for p in data)]
         return {"series": all_series, "data": data}
 
     else:  # over == "game" — global game number as x-axis, carry forward on absent games
@@ -290,7 +291,7 @@ def timeseries_stats(
             else:
                 val = round(float(r.running_avg), 2) if r.running_avg else None
             series_at.setdefault(r.series_key, {})[r.game_num] = val
-            series_max_games[r.series_key] = r.cum_games
+            series_max_games[r.series_key] = max(series_max_games.get(r.series_key, 0), r.cum_games)
 
         total_games = db.execute(text("SELECT COUNT(*)::int FROM games")).scalar()
         all_series = sorted(k for k in series_at if series_max_games.get(k, 0) >= min_games)
@@ -306,6 +307,7 @@ def timeseries_stats(
                 point[name] = last[name]
             data.append(point)
 
+        all_series = [s for s in all_series if any(p.get(s) is not None for p in data)]
         return {"series": all_series, "data": data}
 
 
