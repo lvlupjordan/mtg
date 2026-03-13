@@ -140,7 +140,7 @@ def timeseries_stats(
 ):
     if metric not in {"win_rate", "games", "avg_placement", "wins"}:
         raise HTTPException(400, "Invalid metric")
-    if group_by not in {"player", "deck"}:
+    if group_by not in {"player", "deck", "colour", "identity"}:
         raise HTTPException(400, "Invalid group_by")
     if over not in {"month", "game"}:
         raise HTTPException(400, "Invalid over")
@@ -161,12 +161,24 @@ def timeseries_stats(
             params["fv"] = filter_value
 
     where_sql = f"WHERE {base_where} {filter_where}"
-    series_col = "u.name" if group_by == "player" else "d.commander"
+
+    if group_by == "player":
+        series_expr = "u.name"
+        extra_from = ""
+    elif group_by == "deck":
+        series_expr = "d.commander"
+        extra_from = ""
+    elif group_by == "colour":
+        series_expr = "col.c"
+        extra_from = "CROSS JOIN LATERAL unnest(d.color_identity) AS col(c)"
+    else:  # identity
+        series_expr = "COALESCE(id_agg.key, 'C')"
+        extra_from = "CROSS JOIN LATERAL (SELECT string_agg(x ORDER BY x) AS key FROM unnest(COALESCE(d.color_identity, ARRAY[]::text[])) AS t(x)) AS id_agg"
 
     if over == "month":
         rows = db.execute(text(f"""
             SELECT
-                {series_col} AS series_key,
+                {series_expr} AS series_key,
                 DATE_TRUNC('month', g.played_at) AS period,
                 TO_CHAR(DATE_TRUNC('month', g.played_at), 'Mon YYYY') AS period_label,
                 COUNT(gs.id)::int AS games,
@@ -176,9 +188,10 @@ def timeseries_stats(
             JOIN decks d ON gs.deck_id = d.id
             JOIN users u ON gs.pilot_id = u.id
             JOIN games g ON gs.game_id = g.id
+            {extra_from}
             {where_sql}
-            GROUP BY {series_col}, DATE_TRUNC('month', g.played_at)
-            ORDER BY {series_col}, period
+            GROUP BY {series_expr}, DATE_TRUNC('month', g.played_at)
+            ORDER BY series_key, period
         """), params).fetchall()
 
         # Collect all periods in order
@@ -217,25 +230,33 @@ def timeseries_stats(
             WITH global_games AS (
                 SELECT id, ROW_NUMBER() OVER (ORDER BY played_at, id)::int AS game_num
                 FROM games
+            ),
+            base AS (
+                SELECT
+                    {series_expr} AS series_key,
+                    gg.game_num,
+                    gs.placement
+                FROM game_seats gs
+                JOIN decks d ON gs.deck_id = d.id
+                JOIN users u ON gs.pilot_id = u.id
+                JOIN global_games gg ON gs.game_id = gg.id
+                {extra_from}
+                {where_sql}
             )
             SELECT
-                {series_col} AS series_key,
-                gg.game_num,
-                SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)
-                    OVER (PARTITION BY {series_col} ORDER BY gg.game_num
+                series_key,
+                game_num,
+                SUM(CASE WHEN placement = 1 THEN 1 ELSE 0 END)
+                    OVER (PARTITION BY series_key ORDER BY game_num
                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::int AS cum_wins,
-                AVG(gs.placement)
-                    OVER (PARTITION BY {series_col} ORDER BY gg.game_num
+                AVG(placement)
+                    OVER (PARTITION BY series_key ORDER BY game_num
                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_avg,
-                COUNT(gs.id)
-                    OVER (PARTITION BY {series_col} ORDER BY gg.game_num
+                COUNT(*)
+                    OVER (PARTITION BY series_key ORDER BY game_num
                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::int AS cum_games
-            FROM game_seats gs
-            JOIN decks d ON gs.deck_id = d.id
-            JOIN users u ON gs.pilot_id = u.id
-            JOIN global_games gg ON gs.game_id = gg.id
-            {where_sql}
-            ORDER BY {series_col}, gg.game_num
+            FROM base
+            ORDER BY series_key, game_num
         """), params).fetchall()
 
         # Map: series_key -> {global_game_num -> cumulative value}

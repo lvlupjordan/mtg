@@ -205,8 +205,8 @@ function BarChartView({ data, metric, dimension }) {
   )
 }
 
-// Dimensions that support "over time"
-const TIME_DIMS = ['player', 'deck']
+// All dimensions except 'month' support "over time"
+const TIME_DIMS = ['player', 'deck', 'colour', 'identity']
 
 export default function StatsPage() {
   const [metric, setMetric] = useState('win_rate')
