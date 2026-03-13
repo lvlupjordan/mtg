@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/decks", tags=["decks"])
 @router.get("")
 def list_decks(
     owner: int | None = Query(default=None, description="Filter by builder user id"),
-    colour: str | None = Query(default=None, description="Single colour e.g. W"),
+    colours: str | None = Query(default=None, description="Comma-separated colours e.g. U,G"),
     budget: str | None = Query(default=None),
     active: bool | None = Query(default=None),
     sort: str = Query(default="games", description="games | win_rate | avg_placement | cmc"),
@@ -46,8 +46,9 @@ def list_decks(
 
     if owner is not None:
         q = q.filter(Deck.builder_id == owner)
-    if colour:
-        q = q.filter(text(":c = ANY(decks.color_identity)").bindparams(c=colour.upper()))
+    if colours:
+        for i, c in enumerate(colours.split(",")):
+            q = q.filter(text(f":c{i} = ANY(decks.color_identity)").bindparams(**{f"c{i}": c.strip().upper()}))
     if budget:
         q = q.filter(Deck.budget == budget)
     if active is not None:
