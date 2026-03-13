@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session
@@ -71,6 +72,20 @@ def _fmt_deck(d):
         "win_rate": round(d.wins / d.games, 3) if d.games else 0,
         "avg_placement": round(float(d.avg_placement), 2) if d.avg_placement else None,
     }
+
+
+@router.post("")
+def create_player(payload: dict, db: Session = Depends(get_db)):
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if db.query(User).filter(User.name == name).first():
+        raise HTTPException(status_code=409, detail="Player already exists")
+    user = User(name=name, created_at=datetime.utcnow())
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "name": user.name}
 
 
 @router.get("")
