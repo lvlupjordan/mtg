@@ -45,11 +45,11 @@ game_id,date,player,commander,position,victory_condition,archenemy,variant
 11,09/02/2025,Matt,"Niv-Mizzet, Visionary",1,Combat,,Commander
 11,09/02/2025,Jon,"Aminatou, Veil Piercer",2,,,Commander
 12,01/03/2025,Jordan,"Karlach, Fury of Avernus",3.5,,,Commander
-12,01/03/2025,Rae,"Shadowheart, Drak Justicar / Inspiring Leader",3.5,,1,Commander
+12,01/03/2025,Rae,"Shadowheart, Dark Justiciar / Inspiring Leader",3.5,,1,Commander
 12,01/03/2025,Matt,"Minthara, Merciless Soul",2,,,Commander
 12,01/03/2025,Jon,"Wyll, Blade of Frontiers",1,Combat,,Commander
 13,01/03/2025,Jordan,"Karlach, Fury of Avernus",1,Combat,1,Commander
-13,01/03/2025,Rae,"Shadowheart, Drak Justicar / Inspiring Leader",3.5,,,Commander
+13,01/03/2025,Rae,"Shadowheart, Dark Justiciar / Inspiring Leader",3.5,,,Commander
 13,01/03/2025,Matt,"Minthara, Merciless Soul",2,,,Commander
 13,01/03/2025,Jon,"Wyll, Blade of Frontiers",3.5,,,Commander
 14,02/04/2025,Matt,"Ulalek, Fused Atrocity",1,Combat,1,Commander
@@ -57,7 +57,7 @@ game_id,date,player,commander,position,victory_condition,archenemy,variant
 14,02/04/2025,Rae,"Disa, The Restless",2,,,Commander
 15,02/04/2025,Matt,Satoru Umezawa,2,,1,Commander
 15,02/04/2025,Jordan,"Karlach, Fury of Avernus",1,Commander,,Commander
-15,02/04/2025,Rae,"Shadowheart, Drak Justicar / Inspiring Leader",3,,,Commander
+15,02/04/2025,Rae,"Shadowheart, Dark Justiciar / Inspiring Leader",3,,,Commander
 16,19/04/2025,Matt,Felothar the Steadfast,1,Combo,1,Commander
 16,19/04/2025,Jordan,"Shiko & Narsett, Unified",4,,,Commander
 16,19/04/2025,Rae,"Teval, The Balanced Scale",2.5,,,Commander
