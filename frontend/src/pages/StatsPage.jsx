@@ -213,10 +213,10 @@ const TIME_DIMS = ['player', 'deck', 'colour', 'identity']
 export default function StatsPage() {
   const [metric, setMetric] = useState('win_rate')
   const [dimension, setDimension] = useState('player')
-  const [over, setOver] = useState('')
+  const [over, setOver] = useState('game')
   const [filterBy, setFilterBy] = useState('')
   const [filterValue, setFilterValue] = useState('')
-  const [minGames, setMinGames] = useState(3)
+  const [minGames, setMinGames] = useState(5)
   const [limit, setLimit] = useState(10)
 
   const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
