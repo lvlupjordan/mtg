@@ -211,31 +211,35 @@ def timeseries_stats(
 
         return {"series": all_series, "data": data}
 
-    else:  # over == "game"
+    else:  # over == "game" — global game number as x-axis, carry forward on absent games
+        # Use a CTE to number all games globally, then join only the filtered seats
         rows = db.execute(text(f"""
+            WITH global_games AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY played_at, id)::int AS game_num
+                FROM games
+            )
             SELECT
                 {series_col} AS series_key,
-                g.played_at::text AS played_at,
-                gs.placement,
-                ROW_NUMBER() OVER (PARTITION BY {series_col} ORDER BY g.played_at, g.id)::int AS game_num,
+                gg.game_num,
                 SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)
-                    OVER (PARTITION BY {series_col} ORDER BY g.played_at, g.id
+                    OVER (PARTITION BY {series_col} ORDER BY gg.game_num
                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::int AS cum_wins,
                 AVG(gs.placement)
-                    OVER (PARTITION BY {series_col} ORDER BY g.played_at, g.id
+                    OVER (PARTITION BY {series_col} ORDER BY gg.game_num
                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_avg,
                 COUNT(gs.id)
-                    OVER (PARTITION BY {series_col} ORDER BY g.played_at, g.id
+                    OVER (PARTITION BY {series_col} ORDER BY gg.game_num
                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::int AS cum_games
             FROM game_seats gs
             JOIN decks d ON gs.deck_id = d.id
             JOIN users u ON gs.pilot_id = u.id
-            JOIN games g ON gs.game_id = g.id
+            JOIN global_games gg ON gs.game_id = gg.id
             {where_sql}
-            ORDER BY {series_col}, g.played_at, g.id
+            ORDER BY {series_col}, gg.game_num
         """), params).fetchall()
 
-        series_data: dict = {}
+        # Map: series_key -> {global_game_num -> cumulative value}
+        series_at: dict = {}
         for r in rows:
             if metric == "win_rate":
                 val = round(r.cum_wins / r.cum_games, 3) if r.cum_games else 0
@@ -245,18 +249,20 @@ def timeseries_stats(
                 val = r.cum_wins
             else:
                 val = round(float(r.running_avg), 2) if r.running_avg else None
-            series_data.setdefault(r.series_key, []).append({"game_num": r.game_num, "value": val, "played_at": r.played_at})
+            series_at.setdefault(r.series_key, {})[r.game_num] = val
 
-        all_series = sorted(series_data.keys())
-        max_games = max((len(v) for v in series_data.values()), default=0)
+        total_games = db.execute(text("SELECT COUNT(*)::int FROM games")).scalar()
+        all_series = sorted(series_at.keys())
 
+        # Build unified data: carry forward last known value when absent
         data = []
-        for i in range(max_games):
-            game_num = i + 1
-            point = {"x": game_num}
+        last = {name: None for name in all_series}
+        for gn in range(1, total_games + 1):
+            point = {"x": gn}
             for name in all_series:
-                pts = series_data.get(name, [])
-                point[name] = pts[i]["value"] if i < len(pts) else None
+                if gn in series_at[name]:
+                    last[name] = series_at[name][gn]
+                point[name] = last[name]
             data.append(point)
 
         return {"series": all_series, "data": data}
