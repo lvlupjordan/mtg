@@ -117,7 +117,7 @@ def _format_game(game: Game, detail: bool = False):
             {
                 "seat": s.seat,
                 "pilot": {"id": s.pilot.id, "name": s.pilot.name},
-                "deck": {"id": s.deck.id, "name": s.deck.name, "commander": s.deck.commander, "color_identity": s.deck.color_identity},
+                "deck": {"id": s.deck.id, "name": s.deck.name, "commander": s.deck.commander, "color_identity": s.deck.color_identity, "image_uri": s.deck.image_uri},
                 "placement": s.placement,
                 "victory_condition": s.victory_condition,
                 "is_archenemy": s.is_archenemy,
