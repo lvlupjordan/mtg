@@ -176,50 +176,65 @@ def timeseries_stats(
         extra_from = "CROSS JOIN LATERAL (SELECT string_agg(x ORDER BY x) AS key FROM unnest(COALESCE(d.color_identity, ARRAY[]::text[])) AS t(x)) AS id_agg"
 
     if over == "month":
+        # Cumulative stats per month — carry forward when absent
         rows = db.execute(text(f"""
+            WITH monthly AS (
+                SELECT
+                    {series_expr} AS series_key,
+                    DATE_TRUNC('month', g.played_at) AS month,
+                    COUNT(gs.id)::int AS games,
+                    SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::int AS wins,
+                    SUM(gs.placement) AS total_placement
+                FROM game_seats gs
+                JOIN decks d ON gs.deck_id = d.id
+                JOIN users u ON gs.pilot_id = u.id
+                JOIN games g ON gs.game_id = g.id
+                {extra_from}
+                {where_sql}
+                GROUP BY {series_expr}, DATE_TRUNC('month', g.played_at)
+            )
             SELECT
-                {series_expr} AS series_key,
-                DATE_TRUNC('month', g.played_at) AS period,
-                TO_CHAR(DATE_TRUNC('month', g.played_at), 'Mon YYYY') AS period_label,
-                COUNT(gs.id)::int AS games,
-                SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::int AS wins,
-                ROUND(AVG(gs.placement)::numeric, 2) AS avg_placement
-            FROM game_seats gs
-            JOIN decks d ON gs.deck_id = d.id
-            JOIN users u ON gs.pilot_id = u.id
-            JOIN games g ON gs.game_id = g.id
-            {extra_from}
-            {where_sql}
-            GROUP BY {series_expr}, DATE_TRUNC('month', g.played_at)
-            ORDER BY series_key, period
+                series_key,
+                month,
+                TO_CHAR(month, 'Mon YYYY') AS period_label,
+                SUM(games)  OVER w::int AS cum_games,
+                SUM(wins)   OVER w::int AS cum_wins,
+                SUM(total_placement) OVER w AS cum_placement
+            FROM monthly
+            WINDOW w AS (PARTITION BY series_key ORDER BY month
+                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+            ORDER BY series_key, month
         """), params).fetchall()
 
-        # Collect all periods in order
-        periods_ordered = sorted({r.period for r in rows})
-        period_labels = {r.period: r.period_label for r in rows}
+        # All months that exist across the full game history
+        all_months_rows = db.execute(text("""
+            SELECT DISTINCT DATE_TRUNC('month', played_at) AS month,
+                   TO_CHAR(DATE_TRUNC('month', played_at), 'Mon YYYY') AS label
+            FROM games ORDER BY month
+        """)).fetchall()
+        all_months = [(r.month, r.label) for r in all_months_rows]
 
-        # Build per-series lookup: series_key -> {period -> row}
-        series_data: dict = {}
+        series_at: dict = {}
         for r in rows:
-            series_data.setdefault(r.series_key, {})[r.period] = r
+            if metric == "win_rate":
+                val = round(r.cum_wins / r.cum_games, 3) if r.cum_games else 0
+            elif metric == "games":
+                val = r.cum_games
+            elif metric == "wins":
+                val = r.cum_wins
+            else:
+                val = round(float(r.cum_placement) / r.cum_games, 2) if r.cum_games else None
+            series_at.setdefault(r.series_key, {})[r.month] = val
 
-        all_series = sorted(series_data.keys())
+        all_series = sorted(series_at.keys())
         data = []
-        for period in periods_ordered:
-            point = {"x": period_labels[period]}
+        last = {name: None for name in all_series}
+        for month, label in all_months:
+            point = {"x": label}
             for name in all_series:
-                r = series_data[name].get(period)
-                if r:
-                    if metric == "win_rate":
-                        point[name] = round(r.wins / r.games, 3) if r.games else 0
-                    elif metric == "games":
-                        point[name] = r.games
-                    elif metric == "wins":
-                        point[name] = r.wins
-                    else:
-                        point[name] = float(r.avg_placement) if r.avg_placement else None
-                else:
-                    point[name] = None
+                if month in series_at.get(name, {}):
+                    last[name] = series_at[name][month]
+                point[name] = last[name]
             data.append(point)
 
         return {"series": all_series, "data": data}
