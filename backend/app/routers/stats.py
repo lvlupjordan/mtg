@@ -136,6 +136,7 @@ def timeseries_stats(
     over: str = "month",
     filter_by: str | None = None,
     filter_value: str | None = None,
+    min_games: int = 1,
     db: Session = Depends(get_db),
 ):
     if metric not in {"win_rate", "games", "avg_placement", "wins"}:
@@ -215,6 +216,7 @@ def timeseries_stats(
         all_months = [(r.month, r.label) for r in all_months_rows]
 
         series_at: dict = {}
+        series_max_games: dict = {}
         for r in rows:
             if metric == "win_rate":
                 val = round(r.cum_wins / r.cum_games, 3) if r.cum_games else 0
@@ -225,8 +227,9 @@ def timeseries_stats(
             else:
                 val = round(float(r.cum_placement) / r.cum_games, 2) if r.cum_games else None
             series_at.setdefault(r.series_key, {})[r.month] = val
+            series_max_games[r.series_key] = r.cum_games
 
-        all_series = sorted(series_at.keys())
+        all_series = sorted(k for k in series_at if series_max_games.get(k, 0) >= min_games)
         data = []
         last = {name: None for name in all_series}
         for month, label in all_months:
@@ -276,6 +279,7 @@ def timeseries_stats(
 
         # Map: series_key -> {global_game_num -> cumulative value}
         series_at: dict = {}
+        series_max_games: dict = {}
         for r in rows:
             if metric == "win_rate":
                 val = round(r.cum_wins / r.cum_games, 3) if r.cum_games else 0
@@ -286,9 +290,10 @@ def timeseries_stats(
             else:
                 val = round(float(r.running_avg), 2) if r.running_avg else None
             series_at.setdefault(r.series_key, {})[r.game_num] = val
+            series_max_games[r.series_key] = r.cum_games
 
         total_games = db.execute(text("SELECT COUNT(*)::int FROM games")).scalar()
-        all_series = sorted(series_at.keys())
+        all_series = sorted(k for k in series_at if series_max_games.get(k, 0) >= min_games)
 
         # Build unified data: carry forward last known value when absent
         data = []
@@ -310,6 +315,7 @@ def query_stats(
     dimension: str = "player",
     filter_by: str | None = None,
     filter_value: str | None = None,
+    min_games: int = 1,
     db: Session = Depends(get_db),
 ):
     if metric not in {"win_rate", "games", "avg_placement", "wins"}:
@@ -384,6 +390,8 @@ def query_stats(
 
         result = []
         for label, v in buckets.items():
+            if v["games"] < min_games:
+                continue
             if metric == "win_rate":
                 val = round(v["wins"] / v["games"], 3) if v["games"] else 0
             elif metric == "games":
@@ -419,6 +427,7 @@ def query_stats(
         group_by = "DATE_TRUNC('month', g.played_at)"
         order_by = "sort_key ASC"
 
+    params["min_games"] = min_games
     sql = f"""
         SELECT {group_select}, {metric_sql} AS value, COUNT(gs.id)::int AS games
         FROM game_seats gs
@@ -427,6 +436,7 @@ def query_stats(
         JOIN games g ON gs.game_id = g.id
         {where_sql}
         GROUP BY {group_by}
+        HAVING COUNT(gs.id) >= :min_games
         ORDER BY {order_by}
     """
 

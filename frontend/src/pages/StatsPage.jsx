@@ -165,12 +165,13 @@ function BarChartView({ data, metric, dimension }) {
   const isHorizontal = ['player', 'deck'].includes(dimension)
 
   if (isHorizontal) {
+    const yWidth = Math.min(240, Math.max(80, Math.max(...data.map(d => (d.label || '').length)) * 8))
     return (
       <ResponsiveContainer width="100%" height={Math.max(320, data.length * 44)}>
         <BarChart data={data} layout="vertical" margin={{ top: 8, right: 48, bottom: 8, left: 8 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
           <XAxis type="number" tickFormatter={v => fmt(metric, v)} tick={{ fill: 'var(--text-dim)', fontSize: 11 }} />
-          <YAxis type="category" dataKey="label" width={110} tick={{ fill: 'var(--text-bright)', fontSize: 12, fontFamily: 'Cinzel, serif' }} />
+          <YAxis type="category" dataKey="label" width={yWidth} tick={{ fill: 'var(--text-bright)', fontSize: 11, fontFamily: 'Cinzel, serif' }} />
           <Tooltip content={<BarCustomTooltip metric={metric} />} />
           <Bar dataKey="value" radius={[0, 3, 3, 0]}>
             {data.map((_, i) => (
@@ -214,6 +215,7 @@ export default function StatsPage() {
   const [over, setOver] = useState('')
   const [filterBy, setFilterBy] = useState('')
   const [filterValue, setFilterValue] = useState('')
+  const [minGames, setMinGames] = useState(3)
 
   const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData } = useQuery({
@@ -242,16 +244,17 @@ export default function StatsPage() {
     metric,
     filter_by: filterBy || undefined,
     filter_value: filterValue || undefined,
+    min_games: minGames > 1 ? minGames : undefined,
   }
 
   const { data: barData, isLoading: barLoading } = useQuery({
-    queryKey: ['stats-query', metric, dimension, filterBy, filterValue],
+    queryKey: ['stats-query', metric, dimension, filterBy, filterValue, minGames],
     queryFn: () => api.statsQuery({ ...queryParams, dimension }),
     enabled: queryEnabled && !isTimeseries,
   })
 
   const { data: tsData, isLoading: tsLoading } = useQuery({
-    queryKey: ['stats-ts', metric, dimension, activeOver, filterBy, filterValue],
+    queryKey: ['stats-ts', metric, dimension, activeOver, filterBy, filterValue, minGames],
     queryFn: () => api.statsTimeseries({ ...queryParams, group_by: dimension, over: activeOver }),
     enabled: queryEnabled && isTimeseries,
   })
@@ -294,6 +297,17 @@ export default function StatsPage() {
               />
             </>
           )}
+
+          <span className={styles.prose}>min.</span>
+          <input
+            type="number"
+            min="1"
+            max="50"
+            value={minGames}
+            onChange={e => setMinGames(Math.max(1, parseInt(e.target.value) || 1))}
+            className={styles.minGamesInput}
+          />
+          <span className={styles.prose}>games</span>
         </div>
       </div>
 
