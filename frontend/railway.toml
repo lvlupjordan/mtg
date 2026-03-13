@@ -2,4 +2,4 @@
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "serve dist -s -p $PORT"
