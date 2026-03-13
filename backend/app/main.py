@@ -6,7 +6,7 @@ app = FastAPI(title="MTG Commander Tracker")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "https://heartfelt-essence-production.up.railway.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
