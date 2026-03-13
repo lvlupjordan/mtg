@@ -17,6 +17,7 @@ class Deck(Base):
     strategy: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     budget: Mapped[str | None] = mapped_column(Text, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    image_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
 
     builder = relationship("User", back_populates="decks", foreign_keys=[builder_id])

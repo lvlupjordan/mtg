@@ -1,6 +1,9 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func, case, and_
 from sqlalchemy.orm import Session
+import httpx
 from app.database import get_db
 from app.models.user import User
 from app.models.deck import Deck
@@ -75,6 +78,7 @@ def list_decks(
                 "strategy": d.strategy,
                 "budget": d.budget,
                 "active": d.active,
+                "image_uri": db.get(Deck, d.id).image_uri,
                 "builder": {"id": d.builder_id, "name": d.builder_name},
                 "games": d.games,
                 "wins": d.wins,
@@ -138,6 +142,7 @@ def get_deck(deck_id: int, db: Session = Depends(get_db)):
         "strategy": deck.strategy,
         "budget": deck.budget,
         "active": deck.active,
+        "image_uri": deck.image_uri,
         "builder": {"id": builder.id, "name": builder.name},
         "games": stats.games,
         "wins": stats.wins,
@@ -163,4 +168,66 @@ def get_deck(deck_id: int, db: Session = Depends(get_db)):
             }
             for s in recent
         ],
+    }
+
+
+class DeckCreate(BaseModel):
+    commander: str
+    name: str | None = None
+    builder_id: int
+    color_identity: list[str]
+    commander_cmc: float | None = None
+    strategy: list[str] = []
+    budget: str | None = None
+    notes: str | None = None
+    active: bool = True
+
+
+def _fetch_scryfall_image(commander: str) -> str | None:
+    search_name = commander.split(" //")[0].strip()
+    try:
+        r = httpx.get(
+            "https://api.scryfall.com/cards/named",
+            params={"fuzzy": search_name},
+            timeout=10,
+        )
+        if r.status_code == 200:
+            card = r.json()
+            if "card_faces" in card and "image_uris" in card["card_faces"][0]:
+                return card["card_faces"][0]["image_uris"].get("normal")
+            return card.get("image_uris", {}).get("normal")
+    except Exception:
+        pass
+    return None
+
+
+@router.post("")
+def create_deck(deck: DeckCreate, db: Session = Depends(get_db)):
+    builder = db.get(User, deck.builder_id)
+    if not builder:
+        raise HTTPException(status_code=404, detail="Builder not found")
+
+    image_uri = _fetch_scryfall_image(deck.commander)
+
+    new_deck = Deck(
+        name=deck.name or deck.commander,
+        commander=deck.commander,
+        builder_id=deck.builder_id,
+        color_identity=[c.upper() for c in deck.color_identity],
+        commander_cmc=deck.commander_cmc,
+        strategy=deck.strategy,
+        budget=deck.budget,
+        notes=deck.notes,
+        active=deck.active,
+        image_uri=image_uri,
+        created_at=datetime.utcnow(),
+    )
+    db.add(new_deck)
+    db.commit()
+    db.refresh(new_deck)
+    return {
+        "id": new_deck.id,
+        "name": new_deck.name,
+        "commander": new_deck.commander,
+        "image_uri": new_deck.image_uri,
     }
