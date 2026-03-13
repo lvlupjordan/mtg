@@ -35,7 +35,7 @@ def list_games(
     games = (
         q.options(selectinload(Game.seats).selectinload(GameSeat.deck))
         .options(selectinload(Game.seats).selectinload(GameSeat.pilot))
-        .order_by(Game.played_at.desc())
+        .order_by(Game.played_at.desc(), Game.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
