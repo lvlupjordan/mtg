@@ -1,0 +1,248 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 860px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.addBtn {
+  background: var(--gold);
+  border: none;
+  border-radius: 6px;
+  color: #1a1000;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.addBtn:hover { background: var(--gold-light); }
+
+.addForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.addInput {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  color: var(--text-bright);
+  font-family: 'Crimson Pro', serif;
+  font-size: 15px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 220px;
+}
+.addInput:focus { border-color: var(--gold-dim); }
+
+.addSubmit {
+  background: var(--gold);
+  border: none;
+  border-radius: 6px;
+  color: #1a1000;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.addSubmit:hover:not(:disabled) { background: var(--gold-light); }
+.addSubmit:disabled { opacity: 0.5; }
+
+.addCancel {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.addCancel:hover { color: var(--text-bright); }
+
+.addError {
+  font-size: 13px;
+  color: var(--loss);
+  font-style: italic;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.count {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* Table */
+.table {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tableHead {
+  display: grid;
+  grid-template-columns: 48px 1fr 72px 72px 160px 90px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.tableHead span {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 48px 1fr 72px 72px 160px 90px;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:hover {
+  background: var(--surface-2);
+}
+
+.colRank {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.rank0 { color: var(--gold-light) !important; }
+.rank1 { color: var(--text) !important; }
+.rank2 { color: #b87040 !important; }
+
+.colName {
+  display: flex;
+  align-items: center;
+}
+
+.playerName {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-bright);
+  letter-spacing: 0.04em;
+}
+
+.colStat {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--text);
+  text-align: right;
+}
+
+.tableHead .colStat,
+.tableHead .colWr,
+.tableHead .colRank,
+.tableHead .colName {
+  text-align: right;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.tableHead .colName,
+.tableHead .colRank {
+  text-align: left;
+}
+
+.colWr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 8px;
+}
+
+.wrPct {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: right;
+}
+
+.winBar {
+  flex: 1;
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.winFill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* State */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 80px 20px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

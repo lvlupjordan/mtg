@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cinzel+Decorative:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg:         #09080e;
+  --surface:    #100e1a;
+  --surface-2:  #181528;
+  --surface-3:  #201c34;
+  --border:     #2a2445;
+  --border-2:   #3d3660;
+
+  --gold:       #c8953a;
+  --gold-light: #e8b85a;
+  --gold-dim:   #7a5820;
+
+  --text:       #c2bbd4;
+  --text-dim:   #6e6885;
+  --text-bright:#f0ecfa;
+
+  --win:        #4ecba8;
+  --loss:       #d95f5f;
+  --neutral:    #7a8fa6;
+
+  --mana-w: #f8f6e8;
+  --mana-u: #4a90d9;
+  --mana-b: #b06ac4;
+  --mana-r: #e05c3a;
+  --mana-g: #3ab06a;
+  --mana-c: #8a8fa0;
+
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100svh;
+  background: var(--bg);
+  /* Subtle radial glow from center-top */
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(80, 50, 140, 0.18) 0%, transparent 70%);
+}
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  color: var(--text-bright);
+  letter-spacing: 0.04em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+}
+
+input, select, textarea {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 16px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
