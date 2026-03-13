@@ -11,8 +11,32 @@ router = APIRouter(prefix="/api/players", tags=["players"])
 EXCLUDED = ["Random", "Precon"]
 
 
-def _colour_win_rates(deck_rows):
-    """Aggregate games/wins/avg_placement by colour identity from a list of deck stat rows."""
+COLOUR_ORDER = ["W", "U", "B", "R", "G"]
+
+
+def _atomic_colour_win_rates(deck_rows):
+    """Break down by individual pip — a UBG deck counts towards U, B, and G separately."""
+    buckets: dict = {c: {"games": 0, "wins": 0, "total_placement": 0.0} for c in COLOUR_ORDER}
+    for d in deck_rows:
+        for c in (d.color_identity or []):
+            if c in buckets:
+                buckets[c]["games"] += d.games
+                buckets[c]["wins"] += d.wins
+                buckets[c]["total_placement"] += (float(d.avg_placement) * d.games) if d.avg_placement else 0
+    return [
+        {
+            "colour": c,
+            "games": v["games"],
+            "wins": v["wins"],
+            "win_rate": round(v["wins"] / v["games"], 3) if v["games"] else 0,
+            "avg_placement": round(v["total_placement"] / v["games"], 2) if v["games"] else None,
+        }
+        for c, v in buckets.items() if v["games"] > 0
+    ]
+
+
+def _identity_win_rates(deck_rows):
+    """Aggregate games/wins/avg_placement by full colour identity."""
     colours: dict = {}
     for d in deck_rows:
         key = tuple(sorted(d.color_identity or []))
@@ -22,7 +46,6 @@ def _colour_win_rates(deck_rows):
         colours[label]["games"] += d.games
         colours[label]["wins"] += d.wins
         colours[label]["total_placement"] += (float(d.avg_placement) * d.games) if d.avg_placement else 0
-
     return [
         {
             "color_identity": v["color_identity"],
@@ -134,7 +157,8 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
             "wins": pilot.wins,
             "win_rate": round(pilot.wins / pilot.games, 3) if pilot.games else 0,
             "avg_placement": round(float(pilot.avg_placement), 2) if pilot.avg_placement else None,
-            "by_colour": _colour_win_rates(deck_rows),
+            "by_colour": _atomic_colour_win_rates(deck_rows),
+            "by_identity": _identity_win_rates(deck_rows),
             "by_deck": [_fmt_deck(d) for d in deck_rows],
         },
         "brewer": {
@@ -175,7 +199,8 @@ def get_brewer_stats(player_id: int, db: Session = Depends(get_db)):
     return {
         "id": user.id,
         "name": user.name,
-        "by_colour": _colour_win_rates(deck_rows),
+        "by_colour": _atomic_colour_win_rates(deck_rows),
+        "by_identity": _identity_win_rates(deck_rows),
         "by_deck": [
             {
                 **_fmt_deck(d),
