@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, case, text
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -7,6 +7,9 @@ from app.models.deck import Deck
 from app.models.game import Game, GameSeat
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
+
+EXCLUDED_PLAYERS = ["Random", "Precon"]
+COLOUR_ORDER = ["W", "U", "B", "R", "G", "C"]
 
 
 @router.get("/overview")
@@ -123,4 +126,137 @@ def matchup_stats(db: Session = Depends(get_db)):
             "avg_placement_diff": float(r.avg_placement_diff),
         }
         for r in result
+    ]
+
+
+@router.get("/query")
+def query_stats(
+    metric: str = "win_rate",
+    dimension: str = "player",
+    filter_by: str | None = None,
+    filter_value: str | None = None,
+    db: Session = Depends(get_db),
+):
+    if metric not in {"win_rate", "games", "avg_placement", "wins"}:
+        raise HTTPException(400, "Invalid metric")
+    if dimension not in {"player", "deck", "colour", "identity", "month"}:
+        raise HTTPException(400, "Invalid dimension")
+
+    params = {"excl1": EXCLUDED_PLAYERS[0], "excl2": EXCLUDED_PLAYERS[1]}
+    base_where = "u.name NOT IN (:excl1, :excl2)"
+    filter_where = ""
+
+    if filter_by and filter_value:
+        if filter_by == "player":
+            filter_where = "AND u.name = :fv"
+            params["fv"] = filter_value
+        elif filter_by == "colour":
+            filter_where = "AND :fv = ANY(d.color_identity)"
+            params["fv"] = filter_value.upper()
+        elif filter_by == "deck":
+            filter_where = "AND d.commander = :fv"
+            params["fv"] = filter_value
+        elif filter_by == "date_from":
+            filter_where = "AND g.played_at >= :fv"
+            params["fv"] = filter_value
+        elif filter_by == "date_to":
+            filter_where = "AND g.played_at <= :fv"
+            params["fv"] = filter_value
+
+    where_sql = f"WHERE {base_where} {filter_where}"
+
+    metric_sql = {
+        "win_rate": "ROUND(SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(gs.id), 0), 3)",
+        "games": "COUNT(gs.id)::int",
+        "wins": "SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::int",
+        "avg_placement": "ROUND(AVG(gs.placement)::numeric, 2)",
+    }[metric]
+
+    # Colour / identity: fetch per-deck rows and aggregate in Python
+    if dimension in ("colour", "identity"):
+        raw = db.execute(text(f"""
+            SELECT
+                d.color_identity,
+                COUNT(gs.id)::int AS games,
+                SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::int AS wins,
+                COALESCE(AVG(gs.placement), 0)::float AS avg_placement
+            FROM game_seats gs
+            JOIN decks d ON gs.deck_id = d.id
+            JOIN users u ON gs.pilot_id = u.id
+            JOIN games g ON gs.game_id = g.id
+            {where_sql}
+            GROUP BY d.id, d.color_identity
+        """), params).fetchall()
+
+        buckets = {}
+        identity_map = {}  # label -> sorted color list (for identity dimension)
+        for r in raw:
+            identity = sorted(r.color_identity or [])
+            if dimension == "colour":
+                keys = identity if identity else ["C"]
+            else:
+                key = "".join(identity) or "C"
+                keys = [key]
+                if key not in identity_map:
+                    identity_map[key] = identity
+
+            for key in keys:
+                if key not in buckets:
+                    buckets[key] = {"games": 0, "wins": 0, "total_placement": 0.0}
+                buckets[key]["games"] += r.games
+                buckets[key]["wins"] += r.wins
+                buckets[key]["total_placement"] += r.avg_placement * r.games
+
+        result = []
+        for label, v in buckets.items():
+            if metric == "win_rate":
+                val = round(v["wins"] / v["games"], 3) if v["games"] else 0
+            elif metric == "games":
+                val = v["games"]
+            elif metric == "wins":
+                val = v["wins"]
+            else:
+                val = round(v["total_placement"] / v["games"], 2) if v["games"] else None
+
+            entry = {"label": label, "value": val, "games": v["games"]}
+            if dimension == "identity":
+                entry["color_identity"] = identity_map.get(label, [])
+            result.append(entry)
+
+        if dimension == "colour":
+            result.sort(key=lambda x: COLOUR_ORDER.index(x["label"]) if x["label"] in COLOUR_ORDER else 99)
+        else:
+            result.sort(key=lambda x: x["value"] or 0, reverse=(metric != "avg_placement"))
+
+        return result
+
+    # SQL GROUP BY for player / deck / month
+    if dimension == "player":
+        group_select = "u.name AS label"
+        group_by = "u.name"
+        order_by = "value DESC NULLS LAST"
+    elif dimension == "deck":
+        group_select = "d.commander AS label"
+        group_by = "d.commander"
+        order_by = "value DESC NULLS LAST"
+    else:  # month
+        group_select = "TO_CHAR(DATE_TRUNC('month', g.played_at), 'Mon YYYY') AS label, DATE_TRUNC('month', g.played_at) AS sort_key"
+        group_by = "DATE_TRUNC('month', g.played_at)"
+        order_by = "sort_key ASC"
+
+    sql = f"""
+        SELECT {group_select}, {metric_sql} AS value, COUNT(gs.id)::int AS games
+        FROM game_seats gs
+        JOIN decks d ON gs.deck_id = d.id
+        JOIN users u ON gs.pilot_id = u.id
+        JOIN games g ON gs.game_id = g.id
+        {where_sql}
+        GROUP BY {group_by}
+        ORDER BY {order_by}
+    """
+
+    rows = db.execute(text(sql), params).fetchall()
+    return [
+        {"label": r.label, "value": float(r.value) if r.value is not None else None, "games": r.games}
+        for r in rows
     ]

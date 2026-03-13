@@ -6,6 +6,7 @@ import DeckDetailPage from './pages/DeckDetailPage'
 import PlayersPage from './pages/PlayersPage'
 import PlayerDetailPage from './pages/PlayerDetailPage'
 import GamesPage from './pages/GamesPage'
+import StatsPage from './pages/StatsPage'
 import styles from './App.module.css'
 
 export default function App() {
@@ -34,6 +35,9 @@ export default function App() {
           <NavLink to="/games" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
             Games
           </NavLink>
+          <NavLink to="/stats" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
+            Stats
+          </NavLink>
         </nav>
       </header>
 
@@ -45,6 +49,7 @@ export default function App() {
           <Route path="/players" element={<PlayersPage />} />
           <Route path="/players/:id" element={<PlayerDetailPage />} />
           <Route path="/games" element={<GamesPage />} />
+          <Route path="/stats" element={<StatsPage />} />
         </Routes>
       </main>
     </div>

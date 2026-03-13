@@ -1,0 +1,174 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 900px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* Builder card */
+.builderCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 32px;
+}
+
+.sentence {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-family: 'Crimson Pro', serif;
+  font-size: 20px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.prose {
+  color: var(--text-dim);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.inlineSelect {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--gold-dim);
+  color: var(--gold-light);
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 2px 24px 2px 4px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23c9a84c'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+  transition: border-color 0.15s;
+}
+
+.inlineSelect:hover,
+.inlineSelect:focus {
+  border-bottom-color: var(--gold);
+}
+
+.inlineSelect option {
+  background: var(--surface-2);
+  color: var(--text-bright);
+  font-family: sans-serif;
+  font-size: 13px;
+}
+
+/* Colour picker */
+.colourPicker {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.colourBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--pip);
+  color: #1a1000;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.1s;
+  opacity: 0.6;
+}
+
+.colourBtn:hover {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+.colourBtnActive {
+  border-color: var(--text-bright);
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Chart card */
+.chartCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 16px 16px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+}
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  padding: 80px 0;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 15px;
+}
+
+/* Tooltip */
+.tooltip {
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: 'Cinzel', serif;
+}
+
+.tooltipLabel {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.tooltipValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold-light);
+}
+
+.tooltipGames {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  letter-spacing: 0.06em;
+}
