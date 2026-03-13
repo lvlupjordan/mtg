@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, case, and_
+from sqlalchemy import func, case, and_, text
 from sqlalchemy.orm import Session
 import httpx
 from app.database import get_db
@@ -47,7 +47,7 @@ def list_decks(
     if owner is not None:
         q = q.filter(Deck.builder_id == owner)
     if colour:
-        q = q.filter(Deck.color_identity.contains([colour.upper()]))
+        q = q.filter(text(":c = ANY(decks.color_identity)").bindparams(c=colour.upper()))
     if budget:
         q = q.filter(Deck.budget == budget)
     if active is not None:
