@@ -181,6 +181,17 @@ def get_deck(deck_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.patch("/{deck_id}")
+def update_deck(deck_id: int, payload: dict, db: Session = Depends(get_db)):
+    deck = db.get(Deck, deck_id)
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    if "active" in payload:
+        deck.active = bool(payload["active"])
+    db.commit()
+    return {"id": deck.id, "active": deck.active}
+
+
 class DeckCreate(BaseModel):
     commander: str
     name: str | None = None
