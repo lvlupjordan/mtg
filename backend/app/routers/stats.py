@@ -137,6 +137,7 @@ def timeseries_stats(
     filter_by: str | None = None,
     filter_value: str | None = None,
     min_games: int = 1,
+    limit: int = 10,
     db: Session = Depends(get_db),
 ):
     if metric not in {"win_rate", "games", "avg_placement", "wins"}:
@@ -241,6 +242,13 @@ def timeseries_stats(
             data.append(point)
 
         all_series = [s for s in all_series if any(p.get(s) is not None for p in data)]
+        # Keep top N by final value
+        def final_val(s):
+            for p in reversed(data):
+                if p.get(s) is not None:
+                    return p[s]
+            return -1
+        all_series = sorted(all_series, key=final_val, reverse=(metric != "avg_placement"))[:limit]
         return {"series": all_series, "data": data}
 
     else:  # over == "game" — global game number as x-axis, carry forward on absent games
@@ -308,6 +316,12 @@ def timeseries_stats(
             data.append(point)
 
         all_series = [s for s in all_series if any(p.get(s) is not None for p in data)]
+        def final_val(s):
+            for p in reversed(data):
+                if p.get(s) is not None:
+                    return p[s]
+            return -1
+        all_series = sorted(all_series, key=final_val, reverse=(metric != "avg_placement"))[:limit]
         return {"series": all_series, "data": data}
 
 
@@ -318,6 +332,7 @@ def query_stats(
     filter_by: str | None = None,
     filter_value: str | None = None,
     min_games: int = 1,
+    limit: int = 10,
     db: Session = Depends(get_db),
 ):
     if metric not in {"win_rate", "games", "avg_placement", "wins"}:
@@ -413,7 +428,7 @@ def query_stats(
         else:
             result.sort(key=lambda x: x["value"] or 0, reverse=(metric != "avg_placement"))
 
-        return result
+        return result[:limit]
 
     # SQL GROUP BY for player / deck / month
     if dimension == "player":
@@ -430,6 +445,7 @@ def query_stats(
         order_by = "sort_key ASC"
 
     params["min_games"] = min_games
+    params["limit"] = limit
     sql = f"""
         SELECT {group_select}, {metric_sql} AS value, COUNT(gs.id)::int AS games
         FROM game_seats gs
@@ -440,6 +456,7 @@ def query_stats(
         GROUP BY {group_by}
         HAVING COUNT(gs.id) >= :min_games
         ORDER BY {order_by}
+        LIMIT :limit
     """
 
     rows = db.execute(text(sql), params).fetchall()

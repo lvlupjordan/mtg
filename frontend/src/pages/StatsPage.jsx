@@ -217,6 +217,7 @@ export default function StatsPage() {
   const [filterBy, setFilterBy] = useState('')
   const [filterValue, setFilterValue] = useState('')
   const [minGames, setMinGames] = useState(3)
+  const [limit, setLimit] = useState(10)
 
   const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData } = useQuery({
@@ -246,16 +247,17 @@ export default function StatsPage() {
     filter_by: filterBy || undefined,
     filter_value: filterValue || undefined,
     min_games: minGames > 1 ? minGames : undefined,
+    limit,
   }
 
   const { data: barData, isLoading: barLoading } = useQuery({
-    queryKey: ['stats-query', metric, dimension, filterBy, filterValue, minGames],
+    queryKey: ['stats-query', metric, dimension, filterBy, filterValue, minGames, limit],
     queryFn: () => api.statsQuery({ ...queryParams, dimension }),
     enabled: queryEnabled && !isTimeseries,
   })
 
   const { data: tsData, isLoading: tsLoading } = useQuery({
-    queryKey: ['stats-ts', metric, dimension, activeOver, filterBy, filterValue, minGames],
+    queryKey: ['stats-ts', metric, dimension, activeOver, filterBy, filterValue, minGames, limit],
     queryFn: () => api.statsTimeseries({ ...queryParams, group_by: dimension, over: activeOver }),
     enabled: queryEnabled && isTimeseries,
   })
@@ -299,7 +301,16 @@ export default function StatsPage() {
             </>
           )}
 
-          <span className={styles.prose}>min.</span>
+          <span className={styles.prose}>top</span>
+          <input
+            type="number"
+            min="1"
+            max="100"
+            value={limit}
+            onChange={e => setLimit(Math.max(1, parseInt(e.target.value) || 1))}
+            className={styles.minGamesInput}
+          />
+          <span className={styles.prose}>results, min.</span>
           <input
             type="number"
             min="1"
