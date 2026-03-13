@@ -165,6 +165,16 @@ def get_deck(deck_id: int, db: Session = Depends(get_db)):
                 "pilot": s.pilot.name,
                 "placement": s.placement,
                 "victory_condition": s.victory_condition,
+                "opponents": [
+                    {
+                        "deck_id": other.deck_id,
+                        "commander": other.deck.commander,
+                        "pilot": other.pilot.name,
+                        "placement": other.placement,
+                    }
+                    for other in sorted(s.game.seats, key=lambda x: x.placement or 99)
+                    if other.deck_id != deck_id
+                ],
             }
             for s in recent
         ],
