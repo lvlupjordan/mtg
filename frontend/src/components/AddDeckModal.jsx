@@ -9,11 +9,18 @@ const COLORS = ['W', 'U', 'B', 'R', 'G', 'C']
 const STRATEGIES = ['Aggro', 'Combo', 'Control', 'Tokens', 'Aristocrats', 'Graveyard', 'Ramp', 'Voltron', 'Stax', 'Spellslinger', 'Tribal', 'Lands', 'Artifacts', 'Group Hug', 'Infect']
 const BUDGETS = ['Precon', 'Budget', 'Standard', 'Optimized', 'cEDH']
 
-export default function AddDeckModal({ onClose }) {
+export default function AddDeckModal({ onClose, deck = null }) {
   const qc = useQueryClient()
   const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(deck ? {
+    commander: deck.commander || '',
+    builder_id: String(deck.builder?.id || ''),
+    color_identity: deck.color_identity || [],
+    commander_cmc: deck.commander_cmc != null ? String(deck.commander_cmc) : '',
+    strategy: deck.strategy || [],
+    budget: deck.budget || 'Standard',
+  } : {
     commander: '',
     builder_id: '',
     color_identity: [],
@@ -46,9 +53,12 @@ export default function AddDeckModal({ onClose }) {
   }
 
   const mutation = useMutation({
-    mutationFn: api.createDeck,
+    mutationFn: deck
+      ? (data) => api.patchDeck(deck.id, data)
+      : api.createDeck,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['decks'] })
+      if (deck) qc.invalidateQueries({ queryKey: ['deck', String(deck.id)] })
       onClose()
     },
     onError: (e) => setError(e.message),
@@ -105,7 +115,7 @@ export default function AddDeckModal({ onClose }) {
           onClick={e => e.stopPropagation()}
         >
           <div className={styles.header}>
-            <h2>Add Deck</h2>
+            <h2>{deck ? 'Edit Deck' : 'Add Deck'}</h2>
             <button className={styles.closeBtn} onClick={onClose}>✕</button>
           </div>
 
@@ -120,7 +130,7 @@ export default function AddDeckModal({ onClose }) {
                   onChange={e => setForm(f => ({ ...f, commander: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), lookupScryfall())}
                   className={styles.input}
-                  autoFocus
+                  autoFocus={!deck}
                 />
                 <button
                   type="button"
@@ -224,7 +234,7 @@ export default function AddDeckModal({ onClose }) {
                 className={styles.submitBtn}
                 disabled={mutation.isPending}
               >
-                {mutation.isPending ? 'Adding...' : 'Add Deck'}
+                {mutation.isPending ? 'Saving…' : deck ? 'Save Changes' : 'Add Deck'}
               </button>
             </div>
           </form>

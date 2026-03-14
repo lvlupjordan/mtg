@@ -8,7 +8,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 const emptySeat = () => ({ deck_id: '', pilot_id: '', placement: '', victory_condition: '' })
 
-export default function AddGameModal({ onClose }) {
+export default function AddGameModal({ onClose, game = null }) {
   const qc = useQueryClient()
 
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
@@ -20,14 +20,28 @@ export default function AddGameModal({ onClose }) {
   const players = playersData?.filter(p => p.name !== 'Random') ?? []
   const decks = decksData?.decks ?? []
 
-  const [date, setDate] = useState(today())
-  const [seats, setSeats] = useState([emptySeat(), emptySeat(), emptySeat(), emptySeat()])
+  const [date, setDate] = useState(
+    game ? game.played_at.slice(0, 10) : today()
+  )
+  const [seats, setSeats] = useState(
+    game
+      ? game.seats.map(s => ({
+          deck_id: String(s.deck.id),
+          pilot_id: String(s.pilot.id),
+          placement: String(s.placement),
+          victory_condition: s.victory_condition || '',
+        }))
+      : [emptySeat(), emptySeat(), emptySeat(), emptySeat()]
+  )
   const [error, setError] = useState(null)
 
   const mutation = useMutation({
-    mutationFn: api.createGame,
+    mutationFn: game
+      ? (payload) => api.patchGame(game.id, payload)
+      : api.createGame,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['games'] })
+      if (game) qc.invalidateQueries({ queryKey: ['game', String(game.id)] })
       onClose()
     },
     onError: (e) => setError(e.message),
@@ -95,7 +109,7 @@ export default function AddGameModal({ onClose }) {
           onClick={e => e.stopPropagation()}
         >
           <div className={styles.header}>
-            <h2>Record Game</h2>
+            <h2>{game ? 'Edit Game' : 'Record Game'}</h2>
             <button className={styles.closeBtn} onClick={onClose}>✕</button>
           </div>
 
@@ -191,7 +205,7 @@ export default function AddGameModal({ onClose }) {
             <div className={styles.actions}>
               <button type="button" className={styles.cancelBtn} onClick={onClose}>Cancel</button>
               <button type="submit" className={styles.submitBtn} disabled={mutation.isPending}>
-                {mutation.isPending ? 'Saving…' : 'Record Game'}
+                {mutation.isPending ? 'Saving…' : game ? 'Save Changes' : 'Record Game'}
               </button>
             </div>
           </form>

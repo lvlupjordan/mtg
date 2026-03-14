@@ -63,6 +63,37 @@ def get_game(game_id: int, db: Session = Depends(get_db)):
     return _format_game(game, detail=True)
 
 
+@router.patch("/{game_id}")
+def update_game(game_id: int, body: dict, db: Session = Depends(get_db)):
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    if "played_at" in body:
+        game.played_at = body["played_at"]
+    if "notes" in body:
+        game.notes = body["notes"]
+    if "seats" in body:
+        db.query(GameSeat).filter(GameSeat.game_id == game_id).delete()
+        for i, seat in enumerate(body["seats"], start=1):
+            deck = db.get(Deck, seat["deck_id"])
+            pilot = db.get(User, seat["pilot_id"])
+            if not deck:
+                raise HTTPException(status_code=404, detail=f"Deck {seat['deck_id']} not found")
+            if not pilot:
+                raise HTTPException(status_code=404, detail=f"Pilot {seat['pilot_id']} not found")
+            db.add(GameSeat(
+                game_id=game_id,
+                deck_id=seat["deck_id"],
+                pilot_id=seat["pilot_id"],
+                seat=i,
+                placement=seat.get("placement"),
+                victory_condition=seat.get("victory_condition"),
+                is_archenemy=seat.get("is_archenemy", False),
+            ))
+    db.commit()
+    return {"id": game.id}
+
+
 @router.post("", status_code=201)
 def create_game(body: dict, db: Session = Depends(get_db)):
     """

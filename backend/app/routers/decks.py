@@ -189,8 +189,31 @@ def update_deck(deck_id: int, payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Deck not found")
     if "active" in payload:
         deck.active = bool(payload["active"])
+    if "name" in payload:
+        deck.name = payload["name"]
+    if "commander" in payload:
+        commander_changed = payload["commander"] != deck.commander
+        deck.commander = payload["commander"]
+        if commander_changed:
+            deck.image_uri = _fetch_scryfall_image(payload["commander"])
+    if "color_identity" in payload:
+        deck.color_identity = [c.upper() for c in payload["color_identity"]]
+    if "commander_cmc" in payload:
+        deck.commander_cmc = payload["commander_cmc"]
+    if "strategy" in payload:
+        deck.strategy = payload["strategy"]
+    if "budget" in payload:
+        deck.budget = payload["budget"]
+    if "builder_id" in payload:
+        builder = db.get(User, payload["builder_id"])
+        if not builder:
+            raise HTTPException(status_code=404, detail="Builder not found")
+        deck.builder_id = payload["builder_id"]
+    if "notes" in payload:
+        deck.notes = payload["notes"]
     db.commit()
-    return {"id": deck.id, "active": deck.active}
+    db.refresh(deck)
+    return {"id": deck.id, "active": deck.active, "name": deck.name, "commander": deck.commander, "image_uri": deck.image_uri}
 
 
 class DeckCreate(BaseModel):

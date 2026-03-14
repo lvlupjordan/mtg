@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { api } from '../api'
 import ColorPips from '../components/ColorPips'
+import AddDeckModal from '../components/AddDeckModal'
 import styles from './DeckDetailPage.module.css'
 
 const PLACEMENT_LABEL = {
@@ -37,6 +39,8 @@ export default function DeckDetailPage() {
     queryKey: ['deck', id],
     queryFn: () => api.deck(id),
   })
+
+  const [showEdit, setShowEdit] = useState(false)
 
   const toggleActive = useMutation({
     mutationFn: (active) => api.patchDeck(id, { active }),
@@ -116,6 +120,7 @@ export default function DeckDetailPage() {
               </span>
               <span className={styles.toggleLabel}>{deck.active ? 'Active' : 'Retired'}</span>
             </button>
+            <button className={styles.editBtn} onClick={() => setShowEdit(true)}>Edit</button>
           </div>
 
           {deck.strategy?.length > 0 && (
@@ -199,6 +204,7 @@ export default function DeckDetailPage() {
           </div>
         </section>
       </div>
+      {showEdit && <AddDeckModal deck={deck} onClose={() => setShowEdit(false)} />}
     </motion.div>
   )
 }

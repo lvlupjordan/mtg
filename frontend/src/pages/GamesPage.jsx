@@ -24,7 +24,7 @@ function placementColor(p) {
 
 const PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 265 370%22%3E%3Crect width%3D%22265%22 height%3D%22370%22 fill%3D%22%231a1728%22%2F%3E%3C%2Fsvg%3E'
 
-function GameCard({ game, index }) {
+function GameCard({ game, index, onEdit }) {
   const seats = [...(game.seats ?? [])].sort((a, b) => (a.placement ?? 99) - (b.placement ?? 99))
   const winner = seats.find(s => s.placement === 1)
 
@@ -51,6 +51,7 @@ function GameCard({ game, index }) {
               {winner.victory_condition && <span className={styles.vc}> · {winner.victory_condition}</span>}
             </span>
           )}
+          <button className={styles.editBtn} onClick={onEdit}>✎</button>
         </div>
       </div>
 
@@ -91,6 +92,7 @@ export default function GamesPage() {
   const [page, setPage] = useState(1)
   const [player, setPlayer] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [editGame, setEditGame] = useState(null)
 
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const players = playersData?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? []
@@ -145,12 +147,13 @@ export default function GamesPage() {
       )}
 
       {showAdd && <AddGameModal onClose={() => setShowAdd(false)} />}
+      {editGame && <AddGameModal game={editGame} onClose={() => setEditGame(null)} />}
 
       {data && (
         <>
           <div className={styles.gameList}>
             {data.games.map((g, i) => (
-              <GameCard key={g.id} game={g} index={i} />
+              <GameCard key={g.id} game={g} index={i} onEdit={() => setEditGame(g)} />
             ))}
           </div>
 

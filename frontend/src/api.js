@@ -25,6 +25,7 @@ export const api = {
   player: (id) => req(`/api/players/${id}`),
 
   createGame: (body) => req("/api/games", { method: "POST", body: JSON.stringify(body) }),
+  patchGame: (id, body) => req(`/api/games/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   games: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return req(`/api/games${qs ? `?${qs}` : ""}`);
