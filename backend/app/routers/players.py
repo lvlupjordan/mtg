@@ -116,19 +116,21 @@ def patch_player(player_id: int, payload: dict, db: Session = Depends(get_db)):
 
 
 @router.get("")
-def list_players(brewers_only: bool = False, db: Session = Depends(get_db)):
+def list_players(brewers_only: bool = False, include_all: bool = False, db: Session = Depends(get_db)):
     q = (
         db.query(
             User.id,
             User.name,
+            User.include_in_data,
             func.count(GameSeat.id).label("games"),
             func.count(case((GameSeat.placement == 1, 1))).label("wins"),
             func.avg(GameSeat.placement).label("avg_placement"),
         )
         .join(GameSeat, GameSeat.pilot_id == User.id)
         .filter(User.name.notin_(EXCLUDED))
-        .filter(User.include_in_data == True)
     )
+    if not include_all:
+        q = q.filter(User.include_in_data == True)
     if brewers_only:
         q = q.filter(User.show_as_brewer == True)
     rows = q.group_by(User.id, User.name).order_by(func.count(GameSeat.id).desc()).all()
@@ -136,6 +138,7 @@ def list_players(brewers_only: bool = False, db: Session = Depends(get_db)):
         {
             "id": r.id,
             "name": r.name,
+            "include_in_data": r.include_in_data,
             "games": r.games,
             "wins": r.wins,
             "win_rate": round(r.wins / r.games, 3) if r.games else 0,

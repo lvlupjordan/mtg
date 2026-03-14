@@ -15,12 +15,16 @@ function WinBar({ rate }) {
 }
 
 export default function PlayersPage() {
-  const { data: players, isLoading } = useQuery({ queryKey: ['players'], queryFn: api.players })
+  const { data: players, isLoading } = useQuery({
+    queryKey: ['players', showAll],
+    queryFn: () => api.players(showAll ? { include_all: true } : {}),
+  })
+
+  const [showAll, setShowAll] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
 
   const ranked = (players?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? [])
     .sort((a, b) => b.win_rate - a.win_rate)
-
-  const [showAdd, setShowAdd] = useState(false)
 
   if (isLoading) return (
     <div className={styles.state}>
@@ -36,9 +40,14 @@ export default function PlayersPage() {
           <h1 className={styles.title}>Players</h1>
           <span className={styles.count}>{ranked.length} players</span>
         </div>
-        <button className={styles.addBtn} onClick={() => setShowAdd(s => !s)}>
-          + Add Player
-        </button>
+        <div className={styles.headerRight}>
+          <button className={styles.showAllBtn} onClick={() => setShowAll(s => !s)}>
+            {showAll ? 'Hide excluded' : 'Show all'}
+          </button>
+          <button className={styles.addBtn} onClick={() => setShowAdd(s => !s)}>
+            + Add Player
+          </button>
+        </div>
       </div>
 
       {showAdd && <AddPlayerModal onClose={() => setShowAdd(false)} />}
@@ -60,7 +69,7 @@ export default function PlayersPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.04, duration: 0.2 }}
           >
-            <Link to={`/players/${p.id}`} className={styles.row}>
+            <Link to={`/players/${p.id}`} className={`${styles.row} ${p.include_in_data === false ? styles.rowExcluded : ''}`}>
               <span className={`${styles.colRank} ${i < 3 ? styles[`rank${i}`] : ''}`}>
                 {i + 1}
               </span>
