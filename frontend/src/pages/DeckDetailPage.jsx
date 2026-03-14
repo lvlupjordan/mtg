@@ -103,7 +103,7 @@ export default function DeckDetailPage() {
           <h1 className={styles.commander}>{deck.commander}</h1>
           <div className={styles.builderRow}>
             <p className={styles.builder}>
-              Brewed by <strong>{deck.builder?.name}</strong>
+              Brewed by <Link to={`/players/${deck.builder?.id}`} className={styles.builderLink}><strong>{deck.builder?.name}</strong></Link>
               {deck.commander_cmc != null && (
                 <span className={styles.cmc}> · CMC {deck.commander_cmc}</span>
               )}
@@ -150,7 +150,7 @@ export default function DeckDetailPage() {
           <div className={styles.pilotList}>
             {deck.pilots?.map(p => (
               <div key={p.id} className={styles.pilotRow}>
-                <span className={styles.pilotName}>{p.name}</span>
+                <Link to={`/players/${p.id}`} className={styles.pilotName}>{p.name}</Link>
                 <span className={styles.pilotGames}>{p.games}g</span>
                 <span
                   className={styles.pilotWr}

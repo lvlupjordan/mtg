@@ -121,6 +121,13 @@
   font-style: normal;
 }
 
+.builderLink {
+  text-decoration: none;
+}
+.builderLink:hover strong {
+  color: var(--gold-light);
+}
+
 .cmc {
   color: var(--text-dim);
 }
@@ -293,6 +300,10 @@
   flex: 1;
   font-size: 15px;
   color: var(--text-bright);
+  text-decoration: none;
+}
+.pilotName:hover {
+  color: var(--gold-light);
 }
 
 .pilotGames {
