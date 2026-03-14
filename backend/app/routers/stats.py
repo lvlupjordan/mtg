@@ -148,7 +148,7 @@ def timeseries_stats(
         raise HTTPException(400, "Invalid over")
 
     params = {"excl1": EXCLUDED_PLAYERS[0], "excl2": EXCLUDED_PLAYERS[1]}
-    base_where = "u.name NOT IN (:excl1, :excl2)"
+    base_where = "u.name NOT IN (:excl1, :excl2) AND u.include_in_data = true"
     filter_where = ""
 
     if filter_by and filter_value:
@@ -341,7 +341,7 @@ def query_stats(
         raise HTTPException(400, "Invalid dimension")
 
     params = {"excl1": EXCLUDED_PLAYERS[0], "excl2": EXCLUDED_PLAYERS[1]}
-    base_where = "u.name NOT IN (:excl1, :excl2)"
+    base_where = "u.name NOT IN (:excl1, :excl2) AND u.include_in_data = true"
     filter_where = ""
 
     if filter_by and filter_value:

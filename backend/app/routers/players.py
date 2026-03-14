@@ -116,8 +116,8 @@ def patch_player(player_id: int, payload: dict, db: Session = Depends(get_db)):
 
 
 @router.get("")
-def list_players(db: Session = Depends(get_db)):
-    rows = (
+def list_players(brewers_only: bool = False, db: Session = Depends(get_db)):
+    q = (
         db.query(
             User.id,
             User.name,
@@ -127,10 +127,11 @@ def list_players(db: Session = Depends(get_db)):
         )
         .join(GameSeat, GameSeat.pilot_id == User.id)
         .filter(User.name.notin_(EXCLUDED))
-        .group_by(User.id, User.name)
-        .order_by(func.count(GameSeat.id).desc())
-        .all()
+        .filter(User.include_in_data == True)
     )
+    if brewers_only:
+        q = q.filter(User.show_as_brewer == True)
+    rows = q.group_by(User.id, User.name).order_by(func.count(GameSeat.id).desc()).all()
     return [
         {
             "id": r.id,

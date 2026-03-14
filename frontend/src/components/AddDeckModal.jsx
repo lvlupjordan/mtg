@@ -11,7 +11,7 @@ const BUDGETS = ['Precon', 'Budget', 'Standard', 'Optimized', 'cEDH']
 
 export default function AddDeckModal({ onClose, deck = null }) {
   const qc = useQueryClient()
-  const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
+  const { data: players } = useQuery({ queryKey: ['players', 'brewers'], queryFn: () => api.players({ brewers_only: true }) })
 
   const [form, setForm] = useState(deck ? {
     commander: deck.commander || '',

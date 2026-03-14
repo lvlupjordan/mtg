@@ -20,7 +20,10 @@ export const api = {
   createDeck: (body) => req("/api/decks", { method: "POST", body: JSON.stringify(body) }),
   patchDeck: (id, body) => req(`/api/decks/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
 
-  players: () => req("/api/players"),
+  players: (params = {}) => {
+    const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString()
+    return req(`/api/players${qs ? `?${qs}` : ""}`)
+  },
   createPlayer: (body) => req("/api/players", { method: "POST", body: JSON.stringify(body) }),
   patchPlayer: (id, body) => req(`/api/players/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   player: (id) => req(`/api/players/${id}`),
