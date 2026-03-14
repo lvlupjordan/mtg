@@ -15,13 +15,13 @@ function WinBar({ rate }) {
 }
 
 export default function PlayersPage() {
+  const [showAll, setShowAll] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+
   const { data: players, isLoading } = useQuery({
     queryKey: ['players', showAll],
     queryFn: () => api.players(showAll ? { include_all: true } : {}),
   })
-
-  const [showAll, setShowAll] = useState(false)
-  const [showAdd, setShowAdd] = useState(false)
 
   const ranked = (players?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? [])
     .sort((a, b) => b.win_rate - a.win_rate)
