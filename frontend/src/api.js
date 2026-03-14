@@ -22,6 +22,7 @@ export const api = {
 
   players: () => req("/api/players"),
   createPlayer: (body) => req("/api/players", { method: "POST", body: JSON.stringify(body) }),
+  patchPlayer: (id, body) => req(`/api/players/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   player: (id) => req(`/api/players/${id}`),
 
   createGame: (body) => req("/api/games", { method: "POST", body: JSON.stringify(body) }),

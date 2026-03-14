@@ -81,11 +81,38 @@ def create_player(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Name is required")
     if db.query(User).filter(User.name == name).first():
         raise HTTPException(status_code=409, detail="Player already exists")
-    user = User(name=name, created_at=datetime.utcnow())
+    user = User(
+        name=name,
+        created_at=datetime.utcnow(),
+        show_as_brewer=payload.get("show_as_brewer", True),
+        include_in_data=payload.get("include_in_data", True),
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"id": user.id, "name": user.name}
+    return {"id": user.id, "name": user.name, "show_as_brewer": user.show_as_brewer, "include_in_data": user.include_in_data}
+
+
+@router.patch("/{player_id}")
+def patch_player(player_id: int, payload: dict, db: Session = Depends(get_db)):
+    user = db.get(User, player_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Player not found")
+    if "name" in payload:
+        name = (payload["name"] or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name is required")
+        existing = db.query(User).filter(User.name == name, User.id != player_id).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Player already exists")
+        user.name = name
+    if "show_as_brewer" in payload:
+        user.show_as_brewer = bool(payload["show_as_brewer"])
+    if "include_in_data" in payload:
+        user.include_in_data = bool(payload["include_in_data"])
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "name": user.name, "show_as_brewer": user.show_as_brewer, "include_in_data": user.include_in_data}
 
 
 @router.get("")
@@ -169,6 +196,8 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
     return {
         "id": user.id,
         "name": user.name,
+        "show_as_brewer": user.show_as_brewer,
+        "include_in_data": user.include_in_data,
         "pilot": {
             "games": pilot.games,
             "wins": pilot.wins,

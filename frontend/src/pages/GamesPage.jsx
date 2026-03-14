@@ -51,7 +51,7 @@ function GameCard({ game, index, onEdit }) {
               {winner.victory_condition && <span className={styles.vc}> · {winner.victory_condition}</span>}
             </span>
           )}
-          <button className={styles.editBtn} onClick={onEdit}>✎</button>
+          <button className={styles.editBtn} onClick={onEdit}>Edit</button>
         </div>
       </div>
 

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { api } from '../api'
+import AddPlayerModal from '../components/AddPlayerModal'
 import styles from './PlayersPage.module.css'
 
 function WinBar({ rate }) {
@@ -19,27 +20,7 @@ export default function PlayersPage() {
   const ranked = (players?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? [])
     .sort((a, b) => b.win_rate - a.win_rate)
 
-  const qc = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
-  const [name, setName] = useState('')
-  const [addError, setAddError] = useState(null)
-
-  const addPlayer = useMutation({
-    mutationFn: api.createPlayer,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['players'] })
-      setName('')
-      setShowAdd(false)
-      setAddError(null)
-    },
-    onError: (e) => setAddError(e.message),
-  })
-
-  function handleAdd(e) {
-    e.preventDefault()
-    if (!name.trim()) return
-    addPlayer.mutate({ name: name.trim() })
-  }
 
   if (isLoading) return (
     <div className={styles.state}>
@@ -60,31 +41,7 @@ export default function PlayersPage() {
         </button>
       </div>
 
-      <AnimatePresence>
-        {showAdd && (
-          <motion.form
-            className={styles.addForm}
-            onSubmit={handleAdd}
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-          >
-            <input
-              autoFocus
-              className={styles.addInput}
-              placeholder="Player name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-            />
-            <button type="submit" className={styles.addSubmit} disabled={addPlayer.isPending}>
-              {addPlayer.isPending ? '…' : 'Add'}
-            </button>
-            <button type="button" className={styles.addCancel} onClick={() => setShowAdd(false)}>Cancel</button>
-            {addError && <span className={styles.addError}>{addError}</span>}
-          </motion.form>
-        )}
-      </AnimatePresence>
+      {showAdd && <AddPlayerModal onClose={() => setShowAdd(false)} />}
 
       <div className={styles.table}>
         <div className={styles.tableHead}>

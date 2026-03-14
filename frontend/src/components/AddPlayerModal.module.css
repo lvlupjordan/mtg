@@ -1,0 +1,205 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header h2 {
+  font-size: 18px;
+  letter-spacing: 0.08em;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.closeBtn:hover {
+  color: var(--text-bright);
+  background: var(--surface-2);
+}
+
+.form {
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field label {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-bright);
+  padding: 9px 12px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.input::placeholder { color: var(--text-dim); }
+.input:focus { border-color: var(--gold-dim); }
+
+/* Toggle list */
+.toggleList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.track {
+  display: block;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--border-2);
+  background: var(--surface-3);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.toggleOn .track {
+  background: rgba(78, 203, 168, 0.25);
+  border-color: var(--win);
+}
+
+.thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggleOn .thumb {
+  transform: translateX(18px);
+  background: var(--win);
+}
+
+.toggleText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggleLabel {
+  font-size: 14px;
+  color: var(--text-bright);
+}
+
+.toggleHint {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.error {
+  color: var(--loss);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.cancelBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.cancelBtn:hover {
+  color: var(--text-bright);
+  border-color: var(--border-2);
+}
+
+.submitBtn {
+  background: var(--gold);
+  border: none;
+  border-radius: 6px;
+  color: #1a1000;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 10px 24px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  text-transform: uppercase;
+}
+
+.submitBtn:hover:not(:disabled) { background: var(--gold-light); }
+.submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }

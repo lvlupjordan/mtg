@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api'
 import ColorPips from '../components/ColorPips'
+import AddPlayerModal from '../components/AddPlayerModal'
 import styles from './PlayerDetailPage.module.css'
 
 const PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 265 370%22%3E%3Crect width%3D%22265%22 height%3D%22370%22 fill%3D%22%231a1728%22%2F%3E%3C%2Fsvg%3E'
@@ -96,6 +97,7 @@ export default function PlayerDetailPage() {
     queryKey: ['player', id],
     queryFn: () => api.player(id),
   })
+  const [showEdit, setShowEdit] = useState(false)
 
   if (isLoading) return (
     <div className={styles.state}>
@@ -122,6 +124,7 @@ export default function PlayerDetailPage() {
           {data.name.slice(0, 1).toUpperCase()}
         </div>
         <h1 className={styles.name}>{data.name}</h1>
+        <button className={styles.editBtn} onClick={() => setShowEdit(true)}>Edit</button>
       </div>
 
       <div className={styles.statsPanels}>
@@ -198,6 +201,7 @@ export default function PlayerDetailPage() {
           </section>
         </div>
       </div>
+      {showEdit && <AddPlayerModal player={data} onClose={() => setShowEdit(false)} />}
     </motion.div>
   )
 }
