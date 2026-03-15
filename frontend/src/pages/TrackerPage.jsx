@@ -29,9 +29,7 @@ function initPlayers(seats, playersData, decksData) {
       is_stranger: seat.is_stranger,
       life:       LIFE_START,
       poison:     0,
-      cmdDamage:  Object.fromEntries(
-        seats.map((_, j) => j).filter(j => j !== i).map(j => [j, 0])
-      ),
+      cmdDamage:  Object.fromEntries(seats.map((_, j) => [j, 0])),
     }
   })
 }
@@ -40,8 +38,8 @@ function initPlayers(seats, playersData, decksData) {
 function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, delta }) {
   const [mode, setMode] = useState(null)
   const color  = PALETTE[player.id % PALETTE.length]
-  const cmdMax = allPlayers.length > 1
-    ? Math.max(...allPlayers.filter(p => p.id !== player.id).map(p => player.cmdDamage[p.id] || 0))
+  const cmdMax = allPlayers.length > 0
+    ? Math.max(...allPlayers.map(p => player.cmdDamage[p.id] || 0))
     : 0
   const isDead = player.life <= 0 || player.poison >= 10 || cmdMax >= 21
 
@@ -129,7 +127,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
             {mode === 'cmd' && (
               <div className={styles.expSection}>
                 <span className={styles.explabel}>⚔ Commander Damage</span>
-                {allPlayers.filter(p => p.id !== player.id).map(opp => {
+                {allPlayers.map(opp => {
                   const dmg = player.cmdDamage[opp.id] || 0
                   const oppColor = PALETTE[opp.id % PALETTE.length]
                   return (
@@ -381,8 +379,15 @@ export default function TrackerPage() {
     setPlayers(prev => prev.map(p => {
       if (p.id !== playerId) return p
       const cur = p.cmdDamage[fromId] || 0
-      return { ...p, cmdDamage: { ...p.cmdDamage, [fromId]: Math.max(0, cur + amount) } }
+      const newVal = Math.max(0, cur + amount)
+      const lifeDelta = newVal - cur
+      return { ...p, cmdDamage: { ...p.cmdDamage, [fromId]: newVal }, life: p.life - lifeDelta }
     }))
+    setDeltas(prev => ({ ...prev, [playerId]: (prev[playerId] ?? 0) - amount }))
+    clearTimeout(deltaTimers.current[playerId])
+    deltaTimers.current[playerId] = setTimeout(() => {
+      setDeltas(prev => { const n = { ...prev }; delete n[playerId]; return n })
+    }, 1500)
   }, [])
 
   function startGame() {
