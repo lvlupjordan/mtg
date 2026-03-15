@@ -177,7 +177,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
 }
 
 // ── Save Game overlay ─────────────────────────────────────────
-function SaveGameOverlay({ players, onClose, onSaved }) {
+function SaveGameOverlay({ players, turns, onClose, onSaved }) {
   const qc = useQueryClient()
   const [placements, setPlacements] = useState(
     Object.fromEntries(players.map(p => [p.id, '']))
@@ -204,6 +204,7 @@ function SaveGameOverlay({ players, onClose, onSaved }) {
     mutation.mutate({
       played_at: new Date().toISOString().slice(0, 10),
       variant: 'Commander',
+      turns: turns ?? null,
       seats: players.map(p => ({
         is_stranger: p.is_stranger,
         deck_id:     p.is_stranger ? null : p.deck_id,
@@ -447,6 +448,9 @@ export default function TrackerPage() {
   const [clockEnabled, setClockEnabled] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_clockEnabled')) ?? false } catch { return false }
   })
+  const [turnCounts, setTurnCounts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_turnCounts')) ?? {} } catch { return {} }
+  })
   const [rolling, setRolling] = useState(false)
   const [rollDisplay, setRollDisplay] = useState(null)
   const [tick, setTick] = useState(0)
@@ -458,6 +462,7 @@ export default function TrackerPage() {
   useEffect(() => { localStorage.setItem('tracker_playerTimes', JSON.stringify(playerTimes)) }, [playerTimes])
   useEffect(() => { localStorage.setItem('tracker_turnStart', JSON.stringify(turnStart)) }, [turnStart])
   useEffect(() => { localStorage.setItem('tracker_clockEnabled', JSON.stringify(clockEnabled)) }, [clockEnabled])
+  useEffect(() => { localStorage.setItem('tracker_turnCounts', JSON.stringify(turnCounts)) }, [turnCounts])
 
   // 1-second tick for live clock updates
   useEffect(() => {
@@ -567,6 +572,7 @@ export default function TrackerPage() {
     const now = Date.now()
     const elapsed = now - turnStart
     setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + elapsed }))
+    setTurnCounts(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + 1 }))
     const n = players.length
     let idx = players.findIndex(p => p.id === activeTurnId)
     let next
@@ -588,6 +594,7 @@ export default function TrackerPage() {
     setDeltas({})
     setActiveTurnId(null)
     setPlayerTimes({})
+    setTurnCounts({})
     setTurnStart(null)
     setRollDisplay(null)
     setGameSaved(false)
@@ -604,6 +611,7 @@ export default function TrackerPage() {
       setDeltas({})
       setActiveTurnId(null)
       setPlayerTimes({})
+      setTurnCounts({})
       setTurnStart(null)
       setRollDisplay(null)
       setGameSaved(false)
@@ -798,6 +806,7 @@ export default function TrackerPage() {
       {showSave && (
         <SaveGameOverlay
           players={players}
+          turns={Object.values(turnCounts).length > 0 ? Math.max(...Object.values(turnCounts)) : null}
           onClose={() => setShowSave(false)}
           onSaved={() => { setShowSave(false); setGameSaved(true) }}
         />
