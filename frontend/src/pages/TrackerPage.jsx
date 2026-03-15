@@ -395,7 +395,6 @@ export default function TrackerPage() {
   }, [])
 
   const now = Date.now()
-  const gameElapsed = startTimeRef.current ? now - startTimeRef.current : null
 
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData }   = useQuery({
@@ -477,7 +476,7 @@ export default function TrackerPage() {
     const elapsed = now - turnStart
     setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + elapsed }))
     const idx = players.findIndex(p => p.id === activeTurnId)
-    const next = players[(idx + 1) % players.length]
+    const next = players[(idx - 1 + players.length) % players.length]
     setActiveTurnId(next.id)
     setTurnStart(now)
   }
@@ -673,10 +672,6 @@ export default function TrackerPage() {
 
       <div className={styles.gamebar}>
         <button className={styles.barbtn} onClick={() => setPhase('setup')}>← Setup</button>
-
-        {gameElapsed != null && (
-          <span className={styles.bartime}>{formatTime(gameElapsed)}</span>
-        )}
 
         <div className={styles.barroll}>
           {rolling ? (
