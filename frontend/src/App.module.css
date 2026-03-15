@@ -104,6 +104,12 @@
   }
 }
 
+@media (max-width: 768px) {
+  .headerTracker {
+    display: none;
+  }
+}
+
 @media (max-width: 600px) {
   .header {
     height: auto;

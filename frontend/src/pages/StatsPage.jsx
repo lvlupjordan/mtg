@@ -124,8 +124,9 @@ function BarCustomTooltip({ active, payload, metric }) {
 
 function MultiLineChart({ tsData, metric }) {
   const { series, data } = tsData
+  const chartH = window.innerWidth < 600 ? 220 : 360
   return (
-    <ResponsiveContainer width="100%" height={360}>
+    <ResponsiveContainer width="100%" height={chartH}>
       <LineChart data={data} margin={{ top: 8, right: 24, bottom: 32, left: 16 }}>
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
         <XAxis
@@ -163,16 +164,20 @@ function MultiLineChart({ tsData, metric }) {
 
 function BarChartView({ data, metric, dimension }) {
   const isHorizontal = ['player', 'deck'].includes(dimension)
+  const isMobile = window.innerWidth < 600
   data = data.filter(d => d.value !== null && d.value !== undefined)
 
   if (isHorizontal) {
-    const yWidth = Math.min(240, Math.max(80, Math.max(...data.map(d => (d.label || '').length)) * 8))
+    const yWidth = isMobile
+      ? Math.min(120, Math.max(60, Math.max(...data.map(d => (d.label || '').length)) * 6))
+      : Math.min(240, Math.max(80, Math.max(...data.map(d => (d.label || '').length)) * 8))
+    const rowH = isMobile ? 32 : 44
     return (
-      <ResponsiveContainer width="100%" height={Math.max(320, data.length * 44)}>
-        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 48, bottom: 8, left: 8 }}>
+      <ResponsiveContainer width="100%" height={Math.max(isMobile ? 200 : 320, data.length * rowH)}>
+        <BarChart data={data} layout="vertical" margin={{ top: 8, right: isMobile ? 24 : 48, bottom: 8, left: 8 }}>
           <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
-          <XAxis type="number" tickFormatter={v => fmt(metric, v)} tick={{ fill: 'var(--text-dim)', fontSize: 11 }} />
-          <YAxis type="category" dataKey="label" width={yWidth} tick={{ fill: 'var(--text-bright)', fontSize: 11, fontFamily: 'Cinzel, serif' }} />
+          <XAxis type="number" tickFormatter={v => fmt(metric, v)} tick={{ fill: 'var(--text-dim)', fontSize: isMobile ? 10 : 11 }} />
+          <YAxis type="category" dataKey="label" width={yWidth} tick={{ fill: 'var(--text-bright)', fontSize: isMobile ? 10 : 11, fontFamily: 'Cinzel, serif' }} />
           <Tooltip content={<BarCustomTooltip metric={metric} />} />
           <Bar dataKey="value" radius={[0, 3, 3, 0]}>
             {data.map((_, i) => (
@@ -185,7 +190,7 @@ function BarChartView({ data, metric, dimension }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={320}>
+    <ResponsiveContainer width="100%" height={isMobile ? 200 : 320}>
       <BarChart data={data} margin={{ top: 8, right: 24, bottom: 32, left: 16 }}>
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
         <XAxis

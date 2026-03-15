@@ -269,7 +269,7 @@ function SaveGameOverlay({ players, turnCount, totalGameTime, turnCounts, player
 function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
   const [search, setSearch] = useState('')
   const searchRef = useRef(null)
-  useEffect(() => { searchRef.current?.focus() }, [])
+  useEffect(() => { if (window.innerWidth > 640) searchRef.current?.focus() }, [])
 
   const term = search.toLowerCase()
   const filtered = allDecks.filter(d =>

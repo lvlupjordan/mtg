@@ -18,7 +18,7 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      <header className={styles.header}>
+      <header className={`${styles.header}${isTracker ? ` ${styles.headerTracker}` : ''}`}>
         <div className={styles.logoWrap}>
           <NavLink to="/" className={styles.logo}>Wooberg</NavLink>
           {population > 0 && (

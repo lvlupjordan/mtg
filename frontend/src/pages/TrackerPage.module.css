@@ -209,6 +209,11 @@
   background: var(--bg);
 }
 
+@media (max-width: 768px) {
+  .game { height: 100svh; }
+  .setup { min-height: 100svh; }
+}
+
 /* ── Grid layouts ────────────────────────────────────────────── */
 .gameGrid {
   flex: 1;
