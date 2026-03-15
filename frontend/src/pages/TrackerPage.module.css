@@ -231,9 +231,11 @@
     transform-origin: top left;
     overflow: hidden;
   }
-  /* Re-scale side panels using vh (= portrait height = landscape width) */
+  /* Target side panel width to match row height so all panels feel equal.
+     Row height = (100vw - gamebar) / 2 = (390 - 56) / 2 ≈ 167px on a typical phone.
+     Setting --sw ≈ 20vh keeps side panels proportional to that. */
   .gameGrid {
-    --sw: clamp(130px, 28vh, 360px);
+    --sw: clamp(110px, 20vh, 200px);
   }
 }
 
