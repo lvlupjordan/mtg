@@ -22,22 +22,60 @@
   gap: 8px;
 }
 
-.showAllBtn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-dim);
-  font-family: 'Cinzel', serif;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 8px 14px;
+.toggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  user-select: none;
 }
-.showAllBtn:hover {
-  color: var(--text-bright);
-  border-color: var(--border-2);
+
+.toggleInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggleTrack {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  background: var(--surface-3);
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggleInput:checked + .toggleTrack {
+  background: rgba(200, 149, 58, 0.25);
+  border-color: var(--gold-dim);
+}
+
+.toggleInput:checked + .toggleTrack .toggleThumb {
+  transform: translateX(14px);
+  background: var(--gold);
+}
+
+.toggleText {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .addBtn {

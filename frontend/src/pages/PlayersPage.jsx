@@ -41,9 +41,18 @@ export default function PlayersPage() {
           <span className={styles.count}>{ranked.length} players</span>
         </div>
         <div className={styles.headerRight}>
-          <button className={styles.showAllBtn} onClick={() => setShowAll(s => !s)}>
-            {showAll ? 'Hide excluded' : 'Show all'}
-          </button>
+          <label className={styles.toggleLabel}>
+            <input
+              type="checkbox"
+              checked={!showAll}
+              onChange={e => setShowAll(!e.target.checked)}
+              className={styles.toggleInput}
+            />
+            <span className={styles.toggleTrack}>
+              <span className={styles.toggleThumb} />
+            </span>
+            <span className={styles.toggleText}>Active only</span>
+          </label>
           <button className={styles.addBtn} onClick={() => setShowAdd(s => !s)}>
             + Add Player
           </button>
