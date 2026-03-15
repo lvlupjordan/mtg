@@ -523,22 +523,36 @@ export default function TrackerPage() {
     if (rolling) return
     setRolling(true)
     const pool = currentPlayers ?? players
+    if (!pool.length) return
+
+    // Pick winner upfront with crypto random
+    const buf = new Uint32Array(1)
+    crypto.getRandomValues(buf)
+    const winner = pool[buf[0] % pool.length]
+
+    const totalSteps = 22
     let step = 0
-    const steps = 14
-    const iv = setInterval(() => {
-      setRollDisplay(pool[Math.floor(Math.random() * pool.length)].name)
+
+    function tick() {
+      // Random intermediate display
+      const rnd = new Uint32Array(1)
+      crypto.getRandomValues(rnd)
+      setRollDisplay(pool[rnd[0] % pool.length].name)
       step++
-      if (step >= steps) {
-        clearInterval(iv)
-        const winner = pool[Math.floor(Math.random() * pool.length)]
+      if (step >= totalSteps) {
         setActiveTurnId(winner.id)
         setTurnStart(Date.now())
         setRollDisplay(winner.name)
         setRolling(false)
         localStorage.setItem('tracker_activeTurnId', JSON.stringify(winner.id))
         localStorage.setItem('tracker_turnStart', JSON.stringify(Date.now()))
+      } else {
+        // Start fast, slow down toward the end
+        const delay = step < 10 ? 55 : step < 17 ? 90 : 140
+        setTimeout(tick, delay)
       }
-    }, 50)
+    }
+    setTimeout(tick, 55)
   }
 
   function isPlayerDead(p) {
