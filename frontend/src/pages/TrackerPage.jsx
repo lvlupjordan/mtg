@@ -5,6 +5,15 @@ import styles from './TrackerPage.module.css'
 
 const LIFE_START = 40
 
+function formatTime(ms) {
+  const total = Math.floor(ms / 1000)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+}
+
 const PALETTE = [
   { accent: '#c8953a', glow: 'rgba(200,149,58,0.12)'   },
   { accent: '#4ecba8', glow: 'rgba(78,203,168,0.10)'   },
@@ -35,7 +44,7 @@ function initPlayers(seats, playersData, decksData) {
 }
 
 // ── PlayerPanel ───────────────────────────────────────────────
-function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, delta }) {
+function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, delta, isActive, playerTime, clockEnabled }) {
   const [mode, setMode] = useState(null)
   const color  = PALETTE[player.id % PALETTE.length]
   const cmdMax = allPlayers.length > 0
@@ -47,7 +56,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
 
   return (
     <div
-      className={`${styles.panel} ${rotated ? styles.rotated : ''} ${isDead ? styles.panelDead : ''}`}
+      className={`${styles.panel} ${rotated ? styles.rotated : ''} ${isDead ? styles.panelDead : ''} ${isActive ? styles.panelActive : ''}`}
       style={{ '--accent': color.accent, '--glow': color.glow }}
     >
       {/* ── Header strip ── */}
@@ -57,6 +66,11 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
           {player.commander && <span className={styles.pcommander}>{player.commander}</span>}
         </div>
         <div className={styles.picons}>
+          {clockEnabled && playerTime != null && (
+            <span className={`${styles.statbadge} ${isActive ? styles.clockActive : ''}`}>
+              {formatTime(playerTime)}
+            </span>
+          )}
           {player.poison > 0 && (
             <span className={styles.statbadge} style={{ color: '#7bc67b' }}>☠{player.poison}</span>
           )}
@@ -344,9 +358,44 @@ export default function TrackerPage() {
   const [gameSaved, setGameSaved] = useState(false)
   const deltaTimers = useRef({})
 
+  // ── Clock / roll state ──
+  const [startTime] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_startTime')) ?? null } catch { return null }
+  })
+  const startTimeRef = useRef(startTime)
+
+  const [activeTurnId, setActiveTurnId] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_activeTurnId')) ?? null } catch { return null }
+  })
+  const [playerTimes, setPlayerTimes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_playerTimes')) ?? {} } catch { return {} }
+  })
+  const [turnStart, setTurnStart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_turnStart')) ?? null } catch { return null }
+  })
+  const [clockEnabled, setClockEnabled] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_clockEnabled')) ?? false } catch { return false }
+  })
+  const [rolling, setRolling] = useState(false)
+  const [rollDisplay, setRollDisplay] = useState(null)
+  const [tick, setTick] = useState(0)
+
   useEffect(() => { localStorage.setItem('tracker_phase', JSON.stringify(phase)) }, [phase])
   useEffect(() => { localStorage.setItem('tracker_seats', JSON.stringify(seats)) }, [seats])
   useEffect(() => { localStorage.setItem('tracker_players', JSON.stringify(players)) }, [players])
+  useEffect(() => { localStorage.setItem('tracker_activeTurnId', JSON.stringify(activeTurnId)) }, [activeTurnId])
+  useEffect(() => { localStorage.setItem('tracker_playerTimes', JSON.stringify(playerTimes)) }, [playerTimes])
+  useEffect(() => { localStorage.setItem('tracker_turnStart', JSON.stringify(turnStart)) }, [turnStart])
+  useEffect(() => { localStorage.setItem('tracker_clockEnabled', JSON.stringify(clockEnabled)) }, [clockEnabled])
+
+  // 1-second tick for live clock updates
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const now = Date.now()
+  const gameElapsed = startTimeRef.current ? now - startTimeRef.current : null
 
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData }   = useQuery({
@@ -400,17 +449,66 @@ export default function TrackerPage() {
     }, 1500)
   }, [])
 
+  function rollForFirst(currentPlayers) {
+    if (rolling) return
+    setRolling(true)
+    const pool = currentPlayers ?? players
+    let step = 0
+    const steps = 14
+    const iv = setInterval(() => {
+      setRollDisplay(pool[Math.floor(Math.random() * pool.length)].name)
+      step++
+      if (step >= steps) {
+        clearInterval(iv)
+        const winner = pool[Math.floor(Math.random() * pool.length)]
+        setActiveTurnId(winner.id)
+        setTurnStart(Date.now())
+        setRollDisplay(winner.name)
+        setRolling(false)
+        localStorage.setItem('tracker_activeTurnId', JSON.stringify(winner.id))
+        localStorage.setItem('tracker_turnStart', JSON.stringify(Date.now()))
+      }
+    }, 50)
+  }
+
+  function endTurn() {
+    if (activeTurnId == null || turnStart == null) return
+    const now = Date.now()
+    const elapsed = now - turnStart
+    setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + elapsed }))
+    const idx = players.findIndex(p => p.id === activeTurnId)
+    const next = players[(idx + 1) % players.length]
+    setActiveTurnId(next.id)
+    setTurnStart(now)
+  }
+
   function startGame() {
-    setPlayers(initPlayers(seats, activePlayers, allDecks))
+    const newPlayers = initPlayers(seats, activePlayers, allDecks)
+    const st = Date.now()
+    startTimeRef.current = st
+    localStorage.setItem('tracker_startTime', JSON.stringify(st))
+    setPlayers(newPlayers)
     setDeltas({})
+    setActiveTurnId(null)
+    setPlayerTimes({})
+    setTurnStart(null)
+    setRollDisplay(null)
     setGameSaved(false)
     setPhase('game')
   }
 
   function resetGame() {
     if (window.confirm('Reset all life totals?')) {
-      setPlayers(initPlayers(seats, activePlayers, allDecks))
+      const newPlayers = initPlayers(seats, activePlayers, allDecks)
+      const st = Date.now()
+      startTimeRef.current = st
+      localStorage.setItem('tracker_startTime', JSON.stringify(st))
+      setPlayers(newPlayers)
       setDeltas({})
+      setActiveTurnId(null)
+      setPlayerTimes({})
+      setTurnStart(null)
+      setRollDisplay(null)
       setGameSaved(false)
     }
   }
@@ -520,10 +618,18 @@ export default function TrackerPage() {
   }
 
   // ── Game ───────────────────────────────────────────────────
-  const count       = players.length
-  const bottomCount = Math.ceil(count / 2)
+  const count         = players.length
+  const bottomCount   = Math.ceil(count / 2)
   const bottomPlayers = players.slice(0, bottomCount)
   const topPlayers    = [...players.slice(bottomCount)].reverse()
+
+  // Live per-player times (accumulated + current turn if active)
+  // tick dependency ensures re-render each second
+  const liveTimes = Object.fromEntries(players.map(p => [
+    p.id,
+    (playerTimes[p.id] || 0) + (clockEnabled && activeTurnId === p.id && turnStart ? now - turnStart : 0),
+  ]))
+  void tick // consumed to trigger re-render
 
   return (
     <div className={styles.game}>
@@ -539,6 +645,9 @@ export default function TrackerPage() {
               onCmdDmg={changeCmdDmg}
               rotated
               delta={deltas[p.id] ?? null}
+              isActive={activeTurnId === p.id}
+              playerTime={liveTimes[p.id]}
+              clockEnabled={clockEnabled}
             />
           ))}
         </div>
@@ -555,18 +664,48 @@ export default function TrackerPage() {
             onCmdDmg={changeCmdDmg}
             rotated={false}
             delta={deltas[p.id] ?? null}
+            isActive={activeTurnId === p.id}
+            playerTime={liveTimes[p.id]}
+            clockEnabled={clockEnabled}
           />
         ))}
       </div>
 
       <div className={styles.gamebar}>
         <button className={styles.barbtn} onClick={() => setPhase('setup')}>← Setup</button>
+
+        {gameElapsed != null && (
+          <span className={styles.bartime}>{formatTime(gameElapsed)}</span>
+        )}
+
+        <div className={styles.barroll}>
+          {rolling ? (
+            <span className={styles.barrolling}>{rollDisplay}</span>
+          ) : rollDisplay ? (
+            <span className={styles.barfirst}>🎲 {rollDisplay} goes first</span>
+          ) : null}
+          <button className={styles.barbtn} onClick={() => rollForFirst()} title="Roll for first player">🎲</button>
+        </div>
+
+        <div className={styles.barclock}>
+          <button
+            className={`${styles.barbtn} ${clockEnabled ? styles.barbtnOn : ''}`}
+            onClick={() => setClockEnabled(e => !e)}
+            title="Toggle chess clock"
+          >⏱</button>
+          {clockEnabled && activeTurnId != null && (
+            <button className={`${styles.barbtn} ${styles.barbtnEndTurn}`} onClick={endTurn}>
+              End Turn
+            </button>
+          )}
+        </div>
+
         <button className={styles.barbtn} onClick={resetGame}>Reset</button>
         {gameSaved ? (
           <span className={styles.savedBadge}>✓ Saved</span>
         ) : (
           <button className={`${styles.barbtn} ${styles.barbtnSave}`} onClick={() => setShowSave(true)}>
-            Save Game
+            Save
           </button>
         )}
       </div>
