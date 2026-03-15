@@ -420,6 +420,11 @@ function getPositions(count) {
 
 // ── TrackerPage ───────────────────────────────────────────────
 export default function TrackerPage() {
+  useEffect(() => {
+    screen.orientation?.lock('landscape').catch(() => {})
+    return () => { try { screen.orientation?.unlock() } catch {} }
+  }, [])
+
   const [phase, setPhase] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_phase')) ?? 'setup' } catch { return 'setup' }
   })
