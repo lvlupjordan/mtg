@@ -1,0 +1,718 @@
+/* ── Setup screen ────────────────────────────────────────────── */
+.setup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100svh - 64px);
+  padding: 24px;
+}
+
+.setupCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 48px;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.setupTitle {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin: 0;
+}
+
+.setupSub {
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
+  color: var(--text-dim);
+  text-align: center;
+  margin: -20px 0 0;
+  font-style: italic;
+}
+
+/* Seat list */
+.setupSeats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seatRow {
+  display: grid;
+  grid-template-columns: 20px 1fr 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.seatNum {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.seatSelect {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-bright);
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
+  padding: 7px 10px;
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+.seatSelect:focus { border-color: var(--gold-dim); }
+
+.strangerLabel {
+  grid-column: 2 / 4;
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 7px 10px;
+}
+
+.strangerBtn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.strangerBtn:hover { color: var(--text-bright); }
+.strangerBtnOn {
+  background: rgba(200, 149, 58, 0.12);
+  border-color: var(--gold-dim);
+  color: var(--gold-light);
+}
+
+.removeBtn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 12px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.removeBtn:hover:not(:disabled) { color: var(--loss); border-color: var(--loss); }
+.removeBtn:disabled { opacity: 0.25; cursor: default; }
+
+.setupFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.addSeatBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.addSeatBtn:hover:not(:disabled) { color: var(--text-bright); border-color: var(--border-2); }
+.addSeatBtn:disabled { opacity: 0.3; cursor: default; }
+
+.startBtn {
+  flex: 1;
+  padding: 12px;
+  background: var(--gold);
+  border: none;
+  border-radius: 8px;
+  color: #1a1000;
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.startBtn:hover { background: var(--gold-light); }
+
+/* ── Game screen ─────────────────────────────────────────────── */
+.game {
+  display: flex;
+  flex-direction: column;
+  height: calc(100svh - 64px);
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Player panel ────────────────────────────────────────────── */
+.panel {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: inset 0 0 40px var(--glow);
+  overflow: hidden;
+  transition: box-shadow 0.3s;
+}
+
+.panel + .panel {
+  border-left: 1px solid rgba(255,255,255,0.06);
+}
+
+.row:first-child .panel {
+  border-top: none;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.rotated {
+  transform: rotate(180deg);
+}
+
+.panelDead {
+  box-shadow: inset 0 0 60px rgba(180,40,40,0.15) !important;
+}
+
+/* ── Panel header ────────────────────────────────────────────── */
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.25);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.pnameBlock {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.pname {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pcommander {
+  font-family: 'Crimson Pro', serif;
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+
+.picons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.statbadge {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.35);
+}
+
+.iconbtn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.iconbtn:hover {
+  color: var(--text-bright);
+  background: rgba(255,255,255,0.06);
+}
+.iconon {
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  background: rgba(0,0,0,0.3) !important;
+}
+
+/* ── Life area ───────────────────────────────────────────────── */
+.lifeArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
+}
+
+.zonePlus,
+.zoneMinus {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+  position: relative;
+}
+
+.zonePlus { border-bottom: 1px solid rgba(255,255,255,0.04); }
+
+.zonePlus:active  { background: rgba(255,255,255,0.05); }
+.zoneMinus:active { background: rgba(255,255,255,0.05); }
+
+.chevron {
+  font-size: 14px;
+  color: rgba(255,255,255,0.12);
+  pointer-events: none;
+}
+
+.fivebtn {
+  position: absolute;
+  right: 10px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.fivebtn:hover {
+  color: var(--text-bright);
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.2);
+}
+
+/* Life number — absolutely centred, ignores pointer events */
+.lifeCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  gap: 4px;
+}
+
+.lifenum {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(52px, 8vw, 96px);
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+  text-shadow: 0 0 40px var(--glow), 0 0 80px var(--glow);
+  transition: color 0.3s;
+}
+
+.lifenumDead {
+  color: rgba(180,40,40,0.6) !important;
+  text-shadow: none !important;
+}
+
+.delta {
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  font-weight: 700;
+  animation: fadeUp 1.5s forwards;
+}
+.deltapos { color: #4ecba8; }
+.deltaneg { color: #d95f5f; }
+
+@keyframes fadeUp {
+  0%   { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+
+/* ── Expanded overlay (poison / cmd damage) ──────────────────── */
+.expanded {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 8, 18, 0.92);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  gap: 16px;
+  z-index: 10;
+}
+
+.expSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 260px;
+}
+
+.explabel {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.cmdrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+
+.cmdname {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctrrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctrbtn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: var(--text-bright);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s;
+}
+.ctrbtn:hover {
+  background: rgba(255,255,255,0.12);
+}
+.ctrbtn:active {
+  transform: scale(0.92);
+}
+
+.ctrval {
+  font-family: 'Cinzel', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-bright);
+  min-width: 32px;
+  text-align: center;
+}
+
+.warnval { color: #c8953a !important; }
+.deadval { color: #d95f5f !important; }
+
+/* ── Death overlay ───────────────────────────────────────────── */
+.deadOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.deadSym {
+  font-size: clamp(40px, 6vw, 72px);
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+/* ── Control bar ─────────────────────────────────────────────── */
+.gamebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 48px;
+  background: rgba(0,0,0,0.5);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+
+.bartitle {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.barbtn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.barbtn:hover {
+  color: var(--text-bright);
+  border-color: rgba(255,255,255,0.25);
+}
+
+.barbtnSave {
+  border-color: var(--gold-dim);
+  color: var(--gold);
+}
+.barbtnSave:hover {
+  background: rgba(200,149,58,0.1) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold-light) !important;
+}
+
+.savedBadge {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--win);
+  padding: 6px 14px;
+}
+
+/* ── Save Game overlay ───────────────────────────────────────── */
+.saveOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+
+.saveModal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.saveHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.saveTitle {
+  font-family: 'Cinzel', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.saveClose {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.saveClose:hover { color: var(--text-bright); }
+
+.saveForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.saveLabel {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.savePlacementsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.savePlacementRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 70px;
+  align-items: center;
+  gap: 10px;
+}
+
+.savePname {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.savePcommander {
+  font-family: 'Crimson Pro', serif;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.savePlaceInput {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-bright);
+  font-family: 'Cinzel', serif;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 7px 10px;
+  outline: none;
+  text-align: center;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.savePlaceInput:focus { border-color: var(--gold-dim); }
+
+.saveError {
+  font-size: 13px;
+  color: var(--loss);
+  font-style: italic;
+  margin: 0;
+}
+
+.saveActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.saveCancelBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.saveCancelBtn:hover { color: var(--text-bright); }
+
+.saveSubmitBtn {
+  background: var(--gold);
+  border: none;
+  border-radius: 6px;
+  color: #1a1000;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 9px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.saveSubmitBtn:hover:not(:disabled) { background: var(--gold-light); }
+.saveSubmitBtn:disabled { opacity: 0.5; }

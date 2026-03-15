@@ -1,4 +1,4 @@
-import { Routes, Route, NavLink } from 'react-router-dom'
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from './api'
 import DecksPage from './pages/DecksPage'
@@ -7,11 +7,14 @@ import PlayersPage from './pages/PlayersPage'
 import PlayerDetailPage from './pages/PlayerDetailPage'
 import GamesPage from './pages/GamesPage'
 import StatsPage from './pages/StatsPage'
+import TrackerPage from './pages/TrackerPage'
 import styles from './App.module.css'
 
 export default function App() {
   const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const population = players?.filter(p => !['Random', 'Precon'].includes(p.name)).length
+  const location = useLocation()
+  const isTracker = location.pathname === '/tracker'
 
   return (
     <div className={styles.app}>
@@ -38,10 +41,13 @@ export default function App() {
           <NavLink to="/stats" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
             Stats
           </NavLink>
+          <NavLink to="/tracker" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
+            Tracker
+          </NavLink>
         </nav>
       </header>
 
-      <main className={styles.main}>
+      <main className={isTracker ? styles.mainFull : styles.main}>
         <Routes>
           <Route path="/" element={<DecksPage />} />
           <Route path="/decks" element={<DecksPage />} />
@@ -50,6 +56,7 @@ export default function App() {
           <Route path="/players/:id" element={<PlayerDetailPage />} />
           <Route path="/games" element={<GamesPage />} />
           <Route path="/stats" element={<StatsPage />} />
+          <Route path="/tracker" element={<TrackerPage />} />
         </Routes>
       </main>
     </div>

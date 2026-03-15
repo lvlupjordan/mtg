@@ -83,6 +83,15 @@
   margin: 0 auto;
 }
 
+.mainFull {
+  flex: 1;
+  padding: 0;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 @media (max-width: 768px) {
   .header {
     padding: 0 20px;
