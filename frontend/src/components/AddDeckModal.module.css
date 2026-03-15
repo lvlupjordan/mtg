@@ -322,3 +322,15 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+@media (max-width: 640px) {
+  .backdrop { padding: 12px; }
+  .header { padding: 14px 16px 12px; }
+  .form { padding: 14px 16px 16px; gap: 14px; }
+}
+
+@media (max-width: 480px) {
+  .backdrop { padding: 0; align-items: flex-end; }
+  .modal { border-radius: 12px 12px 0 0; max-height: 92svh; }
+  .row { grid-template-columns: 1fr; }
+}

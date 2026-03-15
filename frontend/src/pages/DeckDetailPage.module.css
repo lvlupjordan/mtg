@@ -221,7 +221,8 @@
   border-radius: 10px;
   overflow: hidden;
   align-self: flex-start;
-  min-width: 320px;
+  min-width: min(320px, 100%);
+  width: 100%;
 }
 
 .statBox {

@@ -183,6 +183,31 @@
   transition: background 0.12s;
 }
 
+@media (max-width: 480px) {
+  .gameHeader {
+    padding: 10px 12px;
+  }
+  .seat {
+    grid-template-columns: 36px 1fr 70px;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .seatImg {
+    width: 32px;
+    height: 32px;
+  }
+  .seatCommander {
+    font-size: 13px;
+  }
+  .toolbarLeft {
+    width: 100%;
+  }
+  .filterPills {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
 .seat:last-child {
   border-bottom: none;
 }

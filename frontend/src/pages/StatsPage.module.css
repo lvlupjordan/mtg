@@ -18,6 +18,16 @@
   padding: 28px 32px;
 }
 
+@media (max-width: 640px) {
+  .builderCard {
+    padding: 18px 16px;
+  }
+  .sentence {
+    font-size: 17px;
+    gap: 8px;
+  }
+}
+
 .sentence {
   display: flex;
   align-items: center;

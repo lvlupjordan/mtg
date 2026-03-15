@@ -46,6 +46,11 @@
   letter-spacing: 0.05em;
 }
 
+@media (max-width: 480px) {
+  .name { font-size: 26px; }
+  .avatar { width: 52px; height: 52px; font-size: 20px; }
+}
+
 /* Stats panels */
 .statsPanels {
   display: grid;
@@ -266,6 +271,18 @@
   min-width: 200px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .tooltip {
+    left: 0;
+    top: auto;
+    bottom: calc(100% + 8px);
+    transform: none;
+    margin-left: 0;
+    min-width: 160px;
+    max-width: 90vw;
+  }
 }
 
 .tooltipDeck {

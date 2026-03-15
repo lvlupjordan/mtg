@@ -258,3 +258,18 @@
 }
 .submitBtn:hover:not(:disabled) { background: var(--gold-light); }
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .backdrop { padding: 12px; }
+  .header { padding: 14px 16px 12px; }
+  .form { padding: 14px 16px 16px; gap: 14px; }
+}
+
+@media (max-width: 480px) {
+  .backdrop { padding: 0; align-items: flex-end; }
+  .modal { border-radius: 12px 12px 0 0; max-height: 92svh; }
+  .seatsSection { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .colHeaders,
+  .seatRow { min-width: 500px; }
+  .field { max-width: 100%; }
+}

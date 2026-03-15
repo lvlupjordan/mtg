@@ -203,3 +203,9 @@
 
 .submitBtn:hover:not(:disabled) { background: var(--gold-light); }
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 480px) {
+  .backdrop { padding: 12px; }
+  .header { padding: 14px 16px 12px; }
+  .form { padding: 14px 16px 16px; gap: 14px; }
+}
