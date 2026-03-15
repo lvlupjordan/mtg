@@ -14,7 +14,7 @@ const PALETTE = [
   { accent: '#a87fc1', glow: 'rgba(168,127,193,0.10)'  },
 ]
 
-const emptySeat = () => ({ pilot_id: '', deck_id: '', is_stranger: false })
+const emptySeat = () => ({ pilot_id: '', deck_id: '', is_stranger: false, stranger_name: '', stranger_commander: '' })
 
 function initPlayers(seats, playersData, decksData) {
   return seats.map((seat, i) => {
@@ -24,8 +24,8 @@ function initPlayers(seats, playersData, decksData) {
       id: i,
       pilot_id:   seat.is_stranger ? null : (pilot?.id ?? null),
       deck_id:    seat.is_stranger ? null : (deck?.id ?? null),
-      name:       seat.is_stranger ? 'Stranger' : (pilot?.name ?? `Player ${i + 1}`),
-      commander:  seat.is_stranger ? '—' : (deck?.commander ?? ''),
+      name:       seat.is_stranger ? (seat.stranger_name || 'Stranger') : (pilot?.name ?? `Player ${i + 1}`),
+      commander:  seat.is_stranger ? (seat.stranger_commander || '') : (deck?.commander ?? ''),
       is_stranger: seat.is_stranger,
       life:       LIFE_START,
       poison:     0,
@@ -414,7 +414,22 @@ export default function TrackerPage() {
                   </span>
 
                   {seat.is_stranger ? (
-                    <span className={styles.strangerLabel}>Stranger</span>
+                    <>
+                      <input
+                        className={styles.seatSelect}
+                        placeholder="Name…"
+                        value={seat.stranger_name}
+                        onChange={e => updateSeat(i, 'stranger_name', e.target.value)}
+                        maxLength={20}
+                      />
+                      <input
+                        className={styles.seatSelect}
+                        placeholder="Commander…"
+                        value={seat.stranger_commander}
+                        onChange={e => updateSeat(i, 'stranger_commander', e.target.value)}
+                        maxLength={60}
+                      />
+                    </>
                   ) : (
                     <>
                       <select

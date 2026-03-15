@@ -73,15 +73,8 @@
   transition: border-color 0.15s;
 }
 .seatSelect:focus { border-color: var(--gold-dim); }
+.seatSelect::placeholder { color: var(--text-dim); font-style: italic; }
 
-.strangerLabel {
-  grid-column: 2 / 4;
-  font-family: 'Crimson Pro', serif;
-  font-size: 14px;
-  color: var(--text-dim);
-  font-style: italic;
-  padding: 7px 10px;
-}
 
 .strangerBtn {
   background: var(--surface-2);
