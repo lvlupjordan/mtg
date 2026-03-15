@@ -10,6 +10,7 @@ class Game(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     played_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
     turn_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_game_time: Mapped[int | None] = mapped_column(Integer, nullable=True)  # seconds
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     variant: Mapped[str] = mapped_column(Text, nullable=False, default="Commander")
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
@@ -29,6 +30,8 @@ class GameSeat(Base):
     victory_condition: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_archenemy: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     eliminated_on_turn: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    turns: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    time_spent: Mapped[int | None] = mapped_column(Integer, nullable=True)  # seconds
 
     game = relationship("Game", back_populates="seats")
     deck = relationship("Deck", back_populates="seats")

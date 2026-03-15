@@ -122,6 +122,7 @@ def create_game(body: dict, db: Session = Depends(get_db)):
         played_at=body["played_at"],
         variant=body.get("variant", "Commander"),
         turn_count=body.get("turn_count"),
+        total_game_time=body.get("total_game_time"),
         notes=body.get("notes"),
     )
     db.add(game)
@@ -139,6 +140,8 @@ def create_game(body: dict, db: Session = Depends(get_db)):
                 placement=seat.get("placement"),
                 victory_condition=seat.get("victory_condition"),
                 is_archenemy=seat.get("is_archenemy", False),
+                turns=seat.get("turns"),
+                time_spent=seat.get("time_spent"),
             ))
             continue
         deck = db.get(Deck, seat["deck_id"])
@@ -155,6 +158,8 @@ def create_game(body: dict, db: Session = Depends(get_db)):
             placement=seat.get("placement"),
             victory_condition=seat.get("victory_condition"),
             is_archenemy=seat.get("is_archenemy", False),
+            turns=seat.get("turns"),
+            time_spent=seat.get("time_spent"),
         ))
 
     db.commit()
@@ -169,6 +174,7 @@ def _format_game(game: Game, detail: bool = False):
         "played_at": game.played_at,
         "variant": game.variant,
         "turn_count": game.turn_count,
+        "total_game_time": game.total_game_time,
         "seats": [
             {
                 "seat": s.seat,
@@ -178,6 +184,8 @@ def _format_game(game: Game, detail: bool = False):
                 "placement": s.placement,
                 "victory_condition": s.victory_condition,
                 "is_archenemy": s.is_archenemy,
+                "turns": s.turns,
+                "time_spent": s.time_spent,
             }
             for s in seats
         ],

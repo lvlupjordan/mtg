@@ -177,7 +177,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
 }
 
 // ── Save Game overlay ─────────────────────────────────────────
-function SaveGameOverlay({ players, turns, onClose, onSaved }) {
+function SaveGameOverlay({ players, turnCount, totalGameTime, turnCounts, playerTimes, onClose, onSaved }) {
   const qc = useQueryClient()
   const [placements, setPlacements] = useState(
     Object.fromEntries(players.map(p => [p.id, '']))
@@ -204,7 +204,8 @@ function SaveGameOverlay({ players, turns, onClose, onSaved }) {
     mutation.mutate({
       played_at: new Date().toISOString().slice(0, 10),
       variant: 'Commander',
-      turns: turns ?? null,
+      turn_count: turnCount ?? null,
+      total_game_time: totalGameTime ?? null,
       seats: players.map(p => ({
         is_stranger: p.is_stranger,
         deck_id:     p.is_stranger ? null : p.deck_id,
@@ -212,6 +213,8 @@ function SaveGameOverlay({ players, turns, onClose, onSaved }) {
         placement:   parseFloat(placements[p.id]),
         victory_condition: null,
         is_archenemy: false,
+        turns:      turnCounts[p.id] ?? null,
+        time_spent: playerTimes[p.id] != null ? Math.round(playerTimes[p.id] / 1000) : null,
       })),
     })
   }
@@ -806,7 +809,10 @@ export default function TrackerPage() {
       {showSave && (
         <SaveGameOverlay
           players={players}
-          turns={Object.values(turnCounts).length > 0 ? Math.max(...Object.values(turnCounts)) : null}
+          turnCount={Object.values(turnCounts).length > 0 ? Math.max(...Object.values(turnCounts)) : null}
+          totalGameTime={startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : null}
+          turnCounts={turnCounts}
+          playerTimes={playerTimes}
           onClose={() => setShowSave(false)}
           onSaved={() => { setShowSave(false); setGameSaved(true) }}
         />
