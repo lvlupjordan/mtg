@@ -571,7 +571,7 @@ export default function TrackerPage() {
     let idx = players.findIndex(p => p.id === activeTurnId)
     let next
     for (let i = 1; i < n; i++) {
-      const candidate = players[(idx + i) % n]
+      const candidate = players[(idx - i + n) % n]
       if (!isPlayerDead(candidate)) { next = candidate; break }
     }
     if (!next) return // all others dead, don't advance
