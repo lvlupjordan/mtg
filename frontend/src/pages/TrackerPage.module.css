@@ -438,6 +438,25 @@
   z-index: 10;
 }
 
+.expClose {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 12px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.expClose:hover { color: var(--text-bright); background: rgba(255,255,255,0.12); }
+
 .expSection {
   display: flex;
   flex-direction: column;
@@ -464,12 +483,29 @@
   gap: 12px;
 }
 
+.cmdnameBlock {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+
 .cmdname {
   font-family: 'Cinzel', serif;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.05em;
-  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmdcommander {
+  font-family: 'Crimson Pro', serif;
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  font-style: italic;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

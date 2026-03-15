@@ -110,43 +110,47 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
 
       {/* ── Expanded overlay ── */}
       {mode !== null && (
-        <div className={styles.expanded}>
-          {mode === 'poison' && (
-            <div className={styles.expSection}>
-              <span className={styles.explabel}>☠ Poison / Toxic</span>
-              <div className={styles.ctrrow}>
-                <button className={styles.ctrbtn} onClick={() => onPoison(player.id, -1)}>−</button>
-                <span className={`${styles.ctrval} ${player.poison >= 10 ? styles.deadval : player.poison > 0 ? styles.warnval : ''}`}>
-                  {player.poison}
-                </span>
-                <button className={styles.ctrbtn} onClick={() => onPoison(player.id, 1)}>+</button>
+        <div className={styles.expanded} onClick={() => setMode(null)}>
+          <button className={styles.expClose} onClick={() => setMode(null)}>✕</button>
+          <div onClick={e => e.stopPropagation()}>
+            {mode === 'poison' && (
+              <div className={styles.expSection}>
+                <span className={styles.explabel}>☠ Poison / Toxic</span>
+                <div className={styles.ctrrow}>
+                  <button className={styles.ctrbtn} onClick={() => onPoison(player.id, -1)}>−</button>
+                  <span className={`${styles.ctrval} ${player.poison >= 10 ? styles.deadval : player.poison > 0 ? styles.warnval : ''}`}>
+                    {player.poison}
+                  </span>
+                  <button className={styles.ctrbtn} onClick={() => onPoison(player.id, 1)}>+</button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {mode === 'cmd' && (
-            <div className={styles.expSection}>
-              <span className={styles.explabel}>⚔ Commander Damage</span>
-              {allPlayers.filter(p => p.id !== player.id).map(opp => {
-                const dmg = player.cmdDamage[opp.id] || 0
-                const oppColor = PALETTE[opp.id % PALETTE.length]
-                return (
-                  <div key={opp.id} className={styles.cmdrow}>
-                    <span className={styles.cmdname} style={{ color: oppColor.accent }}>
-                      {opp.name}
-                    </span>
-                    <div className={styles.ctrrow}>
-                      <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, -1)}>−</button>
-                      <span className={`${styles.ctrval} ${dmg >= 21 ? styles.deadval : dmg >= 15 ? styles.warnval : ''}`}>
-                        {dmg}
-                      </span>
-                      <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, 1)}>+</button>
+            {mode === 'cmd' && (
+              <div className={styles.expSection}>
+                <span className={styles.explabel}>⚔ Commander Damage</span>
+                {allPlayers.filter(p => p.id !== player.id).map(opp => {
+                  const dmg = player.cmdDamage[opp.id] || 0
+                  const oppColor = PALETTE[opp.id % PALETTE.length]
+                  return (
+                    <div key={opp.id} className={styles.cmdrow}>
+                      <div className={styles.cmdnameBlock}>
+                        <span className={styles.cmdname} style={{ color: oppColor.accent }}>{opp.name}</span>
+                        {opp.commander && <span className={styles.cmdcommander}>{opp.commander}</span>}
+                      </div>
+                      <div className={styles.ctrrow}>
+                        <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, -1)}>−</button>
+                        <span className={`${styles.ctrval} ${dmg >= 21 ? styles.deadval : dmg >= 15 ? styles.warnval : ''}`}>
+                          {dmg}
+                        </span>
+                        <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, 1)}>+</button>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
