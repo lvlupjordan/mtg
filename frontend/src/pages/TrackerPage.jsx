@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import styles from './TrackerPage.module.css'
@@ -245,10 +245,91 @@ function SaveGameOverlay({ players, onClose, onSaved }) {
   )
 }
 
+// ── DeckPickerModal ───────────────────────────────────────────
+function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
+  const [search, setSearch] = useState('')
+  const searchRef = useRef(null)
+  useEffect(() => { searchRef.current?.focus() }, [])
+
+  const term = search.toLowerCase()
+  const filtered = allDecks.filter(d =>
+    !term ||
+    d.commander.toLowerCase().includes(term) ||
+    (d.name && d.name.toLowerCase().includes(term))
+  )
+
+  const myDecks    = filtered.filter(d => pilotId && String(d.builder?.id) === String(pilotId))
+                             .sort((a, b) => a.commander.localeCompare(b.commander))
+  const otherDecks = filtered.filter(d => !pilotId || String(d.builder?.id) !== String(pilotId))
+                             .sort((a, b) => a.commander.localeCompare(b.commander))
+
+  return (
+    <div className={styles.pickerOverlay} onClick={onClose}>
+      <div className={styles.pickerModal} onClick={e => e.stopPropagation()}>
+        <div className={styles.pickerHeader}>
+          <input
+            ref={searchRef}
+            className={styles.pickerSearch}
+            placeholder="Search commanders…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <button className={styles.pickerClose} onClick={onClose}>✕</button>
+        </div>
+
+        <div className={styles.pickerScroll}>
+          {myDecks.length > 0 && (
+            <>
+              <div className={styles.pickerGroupLabel}>Your Decks</div>
+              <div className={styles.pickerGrid}>
+                {myDecks.map(d => (
+                  <button key={d.id} className={styles.pickerCard} onClick={() => onSelect(d)}>
+                    {d.image_uri
+                      ? <img src={d.image_uri} alt={d.commander} className={styles.pickerCardImg} />
+                      : <div className={styles.pickerCardImgPlaceholder} />
+                    }
+                    <div className={styles.pickerCardInfo}>
+                      <span className={styles.pickerCardName}>{d.commander}</span>
+                      <span className={styles.pickerCardBuilder}>{d.builder?.name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {otherDecks.length > 0 && (
+            <>
+              {myDecks.length > 0 && <div className={styles.pickerGroupLabel}>All Decks</div>}
+              <div className={styles.pickerGrid}>
+                {otherDecks.map(d => (
+                  <button key={d.id} className={styles.pickerCard} onClick={() => onSelect(d)}>
+                    {d.image_uri
+                      ? <img src={d.image_uri} alt={d.commander} className={styles.pickerCardImg} />
+                      : <div className={styles.pickerCardImgPlaceholder} />
+                    }
+                    <div className={styles.pickerCardInfo}>
+                      <span className={styles.pickerCardName}>{d.commander}</span>
+                      <span className={styles.pickerCardBuilder}>{d.builder?.name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {filtered.length === 0 && (
+            <div className={styles.pickerEmpty}>No decks match "{search}"</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── TrackerPage ───────────────────────────────────────────────
 export default function TrackerPage() {
   const [phase, setPhase] = useState('setup')
   const [seats, setSeats] = useState([emptySeat(), emptySeat(), emptySeat(), emptySeat()])
+  const [pickerSeat, setPickerSeat] = useState(null) // index of seat whose picker is open
   const [players, setPlayers] = useState([])
   const [deltas, setDeltas] = useState({})
   const [showSave, setShowSave] = useState(false)
@@ -263,14 +344,6 @@ export default function TrackerPage() {
 
   const activePlayers = playersData?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? []
   const allDecks      = decksData?.decks ?? []
-
-  // Decks grouped by builder name
-  const decksByBuilder = allDecks.reduce((acc, d) => {
-    const key = d.builder?.name ?? 'Other'
-    if (!acc[key]) acc[key] = []
-    acc[key].push(d)
-    return acc
-  }, {})
 
   function updateSeat(i, field, value) {
     setSeats(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
@@ -332,57 +405,60 @@ export default function TrackerPage() {
           <p className={styles.setupSub}>Commander · {LIFE_START} starting life</p>
 
           <div className={styles.setupSeats}>
-            {seats.map((seat, i) => (
-              <div key={i} className={styles.seatRow}>
-                <span className={styles.seatNum} style={{ color: PALETTE[i % PALETTE.length].accent }}>
-                  {i + 1}
-                </span>
+            {seats.map((seat, i) => {
+              const selectedDeck = allDecks.find(d => String(d.id) === String(seat.deck_id))
+              return (
+                <div key={i} className={styles.seatRow}>
+                  <span className={styles.seatNum} style={{ color: PALETTE[i % PALETTE.length].accent }}>
+                    {i + 1}
+                  </span>
 
-                {seat.is_stranger ? (
-                  <span className={styles.strangerLabel}>Stranger</span>
-                ) : (
-                  <>
-                    <select
-                      className={styles.seatSelect}
-                      value={seat.pilot_id}
-                      onChange={e => updateSeat(i, 'pilot_id', e.target.value)}
-                    >
-                      <option value="">Player…</option>
-                      {activePlayers.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                  {seat.is_stranger ? (
+                    <span className={styles.strangerLabel}>Stranger</span>
+                  ) : (
+                    <>
+                      <select
+                        className={styles.seatSelect}
+                        value={seat.pilot_id}
+                        onChange={e => updateSeat(i, 'pilot_id', e.target.value)}
+                      >
+                        <option value="">Player…</option>
+                        {activePlayers.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
 
-                    <select
-                      className={styles.seatSelect}
-                      value={seat.deck_id}
-                      onChange={e => updateSeat(i, 'deck_id', e.target.value)}
-                    >
-                      <option value="">Deck…</option>
-                      {Object.entries(decksByBuilder).map(([builder, bDecks]) => (
-                        <optgroup key={builder} label={builder}>
-                          {bDecks.map(d => (
-                            <option key={d.id} value={d.id}>{d.commander}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </>
-                )}
+                      <button
+                        className={`${styles.deckPickerBtn} ${selectedDeck ? styles.deckPickerBtnFilled : ''}`}
+                        onClick={() => setPickerSeat(i)}
+                      >
+                        {selectedDeck ? (
+                          <>
+                            {selectedDeck.image_uri && (
+                              <img src={selectedDeck.image_uri} className={styles.deckPickerBtnThumb} alt="" />
+                            )}
+                            <span className={styles.deckPickerBtnName}>{selectedDeck.commander}</span>
+                          </>
+                        ) : (
+                          <span className={styles.deckPickerBtnPlaceholder}>Choose Deck…</span>
+                        )}
+                      </button>
+                    </>
+                  )}
 
-                <button
-                  className={`${styles.strangerBtn} ${seat.is_stranger ? styles.strangerBtnOn : ''}`}
-                  onClick={() => updateSeat(i, 'is_stranger', !seat.is_stranger)}
-                  title={seat.is_stranger ? 'Remove stranger' : 'Mark as stranger'}
-                >Stranger</button>
+                  <button
+                    className={`${styles.strangerBtn} ${seat.is_stranger ? styles.strangerBtnOn : ''}`}
+                    onClick={() => updateSeat(i, 'is_stranger', !seat.is_stranger)}
+                  >Stranger</button>
 
-                <button
-                  className={styles.removeBtn}
-                  onClick={() => removeSeat(i)}
-                  disabled={seats.length <= 2}
-                >✕</button>
-              </div>
-            ))}
+                  <button
+                    className={styles.removeBtn}
+                    onClick={() => removeSeat(i)}
+                    disabled={seats.length <= 2}
+                  >✕</button>
+                </div>
+              )
+            })}
           </div>
 
           <div className={styles.setupFooter}>
@@ -396,6 +472,15 @@ export default function TrackerPage() {
             </button>
           </div>
         </div>
+
+        {pickerSeat !== null && (
+          <DeckPickerModal
+            pilotId={seats[pickerSeat]?.pilot_id}
+            allDecks={allDecks}
+            onSelect={d => { updateSeat(pickerSeat, 'deck_id', String(d.id)); setPickerSeat(null) }}
+            onClose={() => setPickerSeat(null)}
+          />
+        )}
       </div>
     )
   }
