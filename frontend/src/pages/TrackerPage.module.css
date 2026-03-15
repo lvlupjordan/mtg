@@ -635,6 +635,34 @@
     padding: 8px 14px !important;
     font-size: 11px !important;
   }
+
+  /* Panel header */
+  .panelHead {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  .pname { font-size: 11px; }
+  .pcommander { font-size: 10px; }
+  .statbadge { font-size: 10px; padding: 2px 5px; }
+  .iconbtn { width: 28px; height: 28px; font-size: 13px; }
+
+  /* Life number */
+  .lifenum { font-size: clamp(36px, 7vw, 72px); }
+  .fivebtn { font-size: 11px; padding: 5px 9px; right: 8px; }
+  .chevron { font-size: 14px; }
+  .delta { font-size: 16px; }
+
+  /* Expanded overlay (poison / cmd damage) */
+  .expanded { padding: 10px 8px 8px; gap: 10px; }
+  .expSection { gap: 8px; }
+  .explabel { font-size: 10px; letter-spacing: 0.1em; }
+  .cmdrow { gap: 6px; }
+  .cmdname { font-size: 11px; }
+  .cmdcommander { font-size: 10px; }
+  .ctrrow { gap: 6px; }
+  .ctrbtn { width: 34px; height: 34px; font-size: 18px; border-radius: 7px; }
+  .ctrval { font-size: 18px; min-width: 28px; }
+  .expClose { width: 28px; height: 28px; font-size: 11px; top: 6px; right: 6px; }
 }
 
 /* Setup screen mobile */
