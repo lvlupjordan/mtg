@@ -24,7 +24,7 @@ function placementColor(p) {
 
 const PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 265 370%22%3E%3Crect width%3D%22265%22 height%3D%22370%22 fill%3D%22%231a1728%22%2F%3E%3C%2Fsvg%3E'
 
-function GameCard({ game, index, onEdit }) {
+function GameCard({ game, index, gameNumber, onEdit }) {
   const seats = [...(game.seats ?? [])].sort((a, b) => (a.placement ?? 99) - (b.placement ?? 99))
   const winner = seats.find(s => s.placement === 1)
 
@@ -37,7 +37,7 @@ function GameCard({ game, index, onEdit }) {
     >
       <div className={styles.gameHeader}>
         <div className={styles.gameHeaderLeft}>
-          <span className={styles.gameId}>Game #{game.id}</span>
+          <span className={styles.gameId}>Game #{gameNumber}</span>
           <span className={styles.gameDate}>
             {new Date(game.played_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
@@ -167,7 +167,7 @@ export default function GamesPage() {
         <>
           <div className={styles.gameList}>
             {data.games.map((g, i) => (
-              <GameCard key={g.id} game={g} index={i} onEdit={() => setEditGame(g)} />
+              <GameCard key={g.id} game={g} index={i} gameNumber={data.total - (page - 1) * 15 - i} onEdit={() => setEditGame(g)} />
             ))}
           </div>
 
