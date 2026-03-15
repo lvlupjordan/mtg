@@ -11,7 +11,7 @@ function WinBadge({ rate, games }) {
   return (
     <div className={styles.winBadge}>
       <span className={styles.winPct} style={{ color }}>{pct}%</span>
-      <span className={styles.winLabel}>{games}g</span>
+      <span className={styles.winLabel}>{games} games</span>
     </div>
   )
 }

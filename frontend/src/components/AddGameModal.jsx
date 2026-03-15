@@ -199,7 +199,7 @@ export default function AddGameModal({ onClose, game = null }) {
                     className={`${styles.strangerBtn} ${seat.is_stranger ? styles.strangerBtnOn : ''}`}
                     onClick={() => updateSeat(i, 'is_stranger', !seat.is_stranger)}
                     title={seat.is_stranger ? 'Remove stranger' : 'Mark as stranger'}
-                  >S</button>
+                  >?</button>
 
                   <button
                     type="button"
