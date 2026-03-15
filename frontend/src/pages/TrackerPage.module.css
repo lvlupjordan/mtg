@@ -214,6 +214,29 @@
   .setup { min-height: 100svh; }
 }
 
+/* ── Force landscape in portrait ─────────────────────────────── */
+/* Rotate(90deg) translateY(-100vw) with top-left origin fills the
+   portrait viewport perfectly: the 100vh×100vw element ends up
+   occupying exactly 0→vw on x and 0→vh on y after rotation.     */
+@media (orientation: portrait) and (max-width: 1024px) {
+  .game,
+  .setup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vh;
+    height: 100vw;
+    min-height: unset;
+    transform: rotate(90deg) translateY(-100vw);
+    transform-origin: top left;
+    overflow: hidden;
+  }
+  /* Re-scale side panels using vh (= portrait height = landscape width) */
+  .gameGrid {
+    --sw: clamp(130px, 28vh, 360px);
+  }
+}
+
 /* ── Grid layouts ────────────────────────────────────────────── */
 .gameGrid {
   flex: 1;
