@@ -209,33 +209,57 @@
   background: var(--bg);
 }
 
-.row {
-  display: flex;
+/* ── Grid layouts ────────────────────────────────────────────── */
+.gameGrid {
   flex: 1;
+  display: grid;
   min-height: 0;
+  gap: 1px;
+  background: rgba(255,255,255,0.05);
+  --sw: clamp(130px, 16vw, 200px);
+}
+
+.grid2 {
+  grid-template-areas: "top" "bot";
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 1fr;
+}
+
+.grid3 {
+  grid-template-areas: "top right" "bot right";
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 1fr var(--sw);
+}
+
+.grid4 {
+  grid-template-areas: "left top right" "left bot right";
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: var(--sw) 1fr var(--sw);
+}
+
+.grid5 {
+  grid-template-areas: "tl tr right" "bl br right";
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 1fr 1fr var(--sw);
+}
+
+.grid6 {
+  grid-template-areas: "left tl tr right" "left bl br right";
+  grid-template-rows: 1fr 1fr;
+  grid-template-columns: var(--sw) 1fr 1fr var(--sw);
 }
 
 /* ── Player panel ────────────────────────────────────────────── */
 .panel {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
+  height: 100%;
   position: relative;
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 1px solid rgba(255,255,255,0.06);
   box-shadow: inset 0 0 40px var(--glow);
   overflow: hidden;
   transition: box-shadow 0.3s;
-}
-
-.panel + .panel {
-  border-left: 1px solid rgba(255,255,255,0.06);
-}
-
-.row:first-child .panel {
-  border-top: none;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .rotated {

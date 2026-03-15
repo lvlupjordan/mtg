@@ -341,6 +341,77 @@ function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
   )
 }
 
+// ── SidePanelWrapper ──────────────────────────────────────────
+function SidePanelWrapper({ side, gridArea, children }) {
+  const containerRef = useRef(null)
+  const [dims, setDims] = useState({ w: 0, h: 0 })
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect
+      setDims({ w: Math.round(width), h: Math.round(height) })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const { w, h } = dims
+  let innerStyle
+  if (w > 0 && h > 0) {
+    if (side === 'right') {
+      innerStyle = { position: 'absolute', width: h, height: w, top: h, left: 0, transformOrigin: 'top left', transform: 'rotate(-90deg)' }
+    } else {
+      innerStyle = { position: 'absolute', width: h, height: w, top: 0, left: -h, transformOrigin: 'top right', transform: 'rotate(90deg)' }
+    }
+  } else {
+    innerStyle = { display: 'none' }
+  }
+
+  return (
+    <div ref={containerRef} style={{ gridArea, position: 'relative', overflow: 'hidden' }}>
+      <div style={innerStyle}>{children}</div>
+    </div>
+  )
+}
+
+function getPositions(count) {
+  switch (count) {
+    case 2: return [
+      { gridArea: 'bot' },
+      { gridArea: 'top', rotated: true },
+    ]
+    case 3: return [
+      { gridArea: 'bot' },
+      { gridArea: 'right', side: 'right' },
+      { gridArea: 'top', rotated: true },
+    ]
+    case 4: return [
+      { gridArea: 'bot' },
+      { gridArea: 'right', side: 'right' },
+      { gridArea: 'top', rotated: true },
+      { gridArea: 'left', side: 'left' },
+    ]
+    case 5: return [
+      { gridArea: 'bl' },
+      { gridArea: 'br' },
+      { gridArea: 'right', side: 'right' },
+      { gridArea: 'tr', rotated: true },
+      { gridArea: 'tl', rotated: true },
+    ]
+    case 6: return [
+      { gridArea: 'bl' },
+      { gridArea: 'br' },
+      { gridArea: 'right', side: 'right' },
+      { gridArea: 'tr', rotated: true },
+      { gridArea: 'tl', rotated: true },
+      { gridArea: 'left', side: 'left' },
+    ]
+    default: return Array.from({ length: count }, (_, i) => ({ gridArea: `p${i}` }))
+  }
+}
+
 // ── TrackerPage ───────────────────────────────────────────────
 export default function TrackerPage() {
   const [phase, setPhase] = useState(() => {
@@ -486,7 +557,7 @@ export default function TrackerPage() {
     let idx = players.findIndex(p => p.id === activeTurnId)
     let next
     for (let i = 1; i < n; i++) {
-      const candidate = players[(idx - i + n) % n]
+      const candidate = players[(idx + i) % n]
       if (!isPlayerDead(candidate)) { next = candidate; break }
     }
     if (!next) return // all others dead, don't advance
@@ -630,10 +701,8 @@ export default function TrackerPage() {
   }
 
   // ── Game ───────────────────────────────────────────────────
-  const count         = players.length
-  const bottomCount   = Math.ceil(count / 2)
-  const bottomPlayers = players.slice(0, bottomCount)
-  const topPlayers    = [...players.slice(bottomCount)].reverse()
+  const count = players.length
+  const positions = getPositions(count)
 
   // Live per-player times (accumulated + current turn if active)
   // tick dependency ensures re-render each second
@@ -645,42 +714,36 @@ export default function TrackerPage() {
 
   return (
     <div className={styles.game}>
-      {topPlayers.length > 0 && (
-        <div className={styles.row}>
-          {topPlayers.map(p => (
+      <div className={`${styles.gameGrid} ${styles['grid' + count]}`}>
+        {players.map((p, i) => {
+          const pos = positions[i] ?? { gridArea: `p${i}` }
+          const panel = (
             <PlayerPanel
-              key={p.id}
               player={p}
               allPlayers={players}
               onLife={changeLife}
               onPoison={changePoison}
               onCmdDmg={changeCmdDmg}
-              rotated
+              rotated={pos.rotated ?? false}
               delta={deltas[p.id] ?? null}
               isActive={activeTurnId === p.id}
               playerTime={liveTimes[p.id]}
               clockEnabled={clockEnabled}
             />
-          ))}
-        </div>
-      )}
-
-      <div className={styles.row}>
-        {bottomPlayers.map(p => (
-          <PlayerPanel
-            key={p.id}
-            player={p}
-            allPlayers={players}
-            onLife={changeLife}
-            onPoison={changePoison}
-            onCmdDmg={changeCmdDmg}
-            rotated={false}
-            delta={deltas[p.id] ?? null}
-            isActive={activeTurnId === p.id}
-            playerTime={liveTimes[p.id]}
-            clockEnabled={clockEnabled}
-          />
-        ))}
+          )
+          if (pos.side) {
+            return (
+              <SidePanelWrapper key={p.id} side={pos.side} gridArea={pos.gridArea}>
+                {panel}
+              </SidePanelWrapper>
+            )
+          }
+          return (
+            <div key={p.id} style={{ gridArea: pos.gridArea }}>
+              {panel}
+            </div>
+          )
+        })}
       </div>
 
       <div className={styles.gamebar}>
