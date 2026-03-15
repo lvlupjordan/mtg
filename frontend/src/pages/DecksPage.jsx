@@ -16,11 +16,15 @@ const SORT_OPTIONS = [
 const COLORS = ['W', 'U', 'B', 'R', 'G', 'C']
 
 const CMC_OPTIONS = [
-  { value: '', label: 'Any CMC' },
-  { value: 'low', label: '≤ 2', min: null, max: 2 },
-  { value: 'mid', label: '3 – 4', min: 3, max: 4 },
-  { value: 'high', label: '5 – 6', min: 5, max: 6 },
-  { value: 'vhigh', label: '7+', min: 7, max: null },
+  { value: '', label: 'Any' },
+  { value: '0', label: '0', min: 0, max: 0 },
+  { value: '1', label: '1', min: 1, max: 1 },
+  { value: '2', label: '2', min: 2, max: 2 },
+  { value: '3', label: '3', min: 3, max: 3 },
+  { value: '4', label: '4', min: 4, max: 4 },
+  { value: '5', label: '5', min: 5, max: 5 },
+  { value: '6', label: '6', min: 6, max: 6 },
+  { value: '7+', label: '7+', min: 7, max: null },
 ]
 
 export default function DecksPage() {
@@ -28,6 +32,7 @@ export default function DecksPage() {
   const [colours, setColours] = useState([])
   const [owner, setOwner] = useState('')
   const [cmc, setCmc] = useState('')
+  const [search, setSearch] = useState('')
   const [showInactive, setShowInactive] = useState(false)
   const [page, setPage] = useState(1)
   const [showAdd, setShowAdd] = useState(false)
@@ -42,13 +47,14 @@ export default function DecksPage() {
     page_size: 24,
     ...(colours.length && { colours }),
     ...(owner && { owner }),
+    ...(search && { search }),
     ...(!showInactive && { active: true }),
     ...(cmcOption?.min != null && { cmc_min: cmcOption.min }),
     ...(cmcOption?.max != null && { cmc_max: cmcOption.max }),
   }
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['decks', sort, colours.join(','), owner, cmc, showInactive, page],
+    queryKey: ['decks', sort, colours.join(','), owner, cmc, search, showInactive, page],
     queryFn: () => api.decks(params),
   })
 
@@ -59,11 +65,12 @@ export default function DecksPage() {
     setOwner('')
     setSort('games')
     setCmc('')
+    setSearch('')
     setShowInactive(false)
     setPage(1)
   }
 
-  const hasFilters = colours.length > 0 || owner || sort !== 'games' || cmc || showInactive
+  const hasFilters = colours.length > 0 || owner || sort !== 'games' || cmc || search || showInactive
 
   return (
     <div className={styles.page}>
@@ -76,6 +83,14 @@ export default function DecksPage() {
           + Add Deck
         </button>
       </div>
+
+      <input
+        type="search"
+        placeholder="Search commanders…"
+        value={search}
+        onChange={e => { setSearch(e.target.value); setPage(1) }}
+        className={styles.searchInput}
+      />
 
       <div className={styles.filterBar}>
         {/* Colour pips */}
@@ -134,14 +149,20 @@ export default function DecksPage() {
 
         <div className={styles.divider} />
 
-        {/* Inactive toggle */}
+        {/* Active only toggle */}
         <div className={styles.filterSection}>
-          <button
-            className={`${styles.inactiveToggle} ${showInactive ? styles.inactiveToggleOn : ''}`}
-            onClick={() => { setShowInactive(v => !v); setPage(1) }}
-          >
-            {showInactive ? 'All Decks' : 'Active Only'}
-          </button>
+          <label className={styles.toggleLabel}>
+            <input
+              type="checkbox"
+              checked={!showInactive}
+              onChange={e => { setShowInactive(!e.target.checked); setPage(1) }}
+              className={styles.toggleInput}
+            />
+            <span className={styles.toggleTrack}>
+              <span className={styles.toggleThumb} />
+            </span>
+            <span className={styles.toggleText}>Active only</span>
+          </label>
         </div>
 
         <div className={styles.divider} />

@@ -20,6 +20,7 @@ def list_decks(
     active: bool | None = Query(default=None),
     cmc_min: float | None = Query(default=None),
     cmc_max: float | None = Query(default=None),
+    search: str | None = Query(default=None),
     sort: str = Query(default="games", description="games | win_rate | avg_placement | cmc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -69,10 +70,12 @@ def list_decks(
         q = q.filter(Deck.commander_cmc >= cmc_min)
     if cmc_max is not None:
         q = q.filter(Deck.commander_cmc <= cmc_max)
+    if search:
+        q = q.filter(Deck.commander.ilike(f"%{search}%") | Deck.name.ilike(f"%{search}%"))
 
     sort_map = {
         "games": func.count(GameSeat.id).desc(),
-        "win_rate": (func.count(case((GameSeat.placement == 1, 1))) / func.nullif(func.count(GameSeat.id), 0)).desc(),
+        "win_rate": (func.count(case((GameSeat.placement == 1, 1))) / func.nullif(func.count(GameSeat.id), 0)).desc().nullslast(),
         "avg_placement": func.avg(GameSeat.placement).asc(),
         "cmc": Deck.commander_cmc.asc(),
     }
