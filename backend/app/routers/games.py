@@ -73,8 +73,21 @@ def update_game(game_id: int, body: dict, db: Session = Depends(get_db)):
     if "notes" in body:
         game.notes = body["notes"]
     if "seats" in body:
+        stranger = db.query(User).filter(User.name == "Stranger").first()
         db.query(GameSeat).filter(GameSeat.game_id == game_id).delete()
         for i, seat in enumerate(body["seats"], start=1):
+            is_stranger = seat.get("is_stranger", False)
+            if is_stranger:
+                db.add(GameSeat(
+                    game_id=game_id,
+                    deck_id=None,
+                    pilot_id=stranger.id if stranger else None,
+                    seat=i,
+                    placement=seat.get("placement"),
+                    victory_condition=seat.get("victory_condition"),
+                    is_archenemy=seat.get("is_archenemy", False),
+                ))
+                continue
             deck = db.get(Deck, seat["deck_id"])
             pilot = db.get(User, seat["pilot_id"])
             if not deck:
@@ -114,14 +127,26 @@ def create_game(body: dict, db: Session = Depends(get_db)):
     db.add(game)
     db.flush()
 
+    stranger = db.query(User).filter(User.name == "Stranger").first()
     for i, seat in enumerate(body["seats"], start=1):
+        is_stranger = seat.get("is_stranger", False)
+        if is_stranger:
+            db.add(GameSeat(
+                game_id=game.id,
+                deck_id=None,
+                pilot_id=stranger.id if stranger else None,
+                seat=i,
+                placement=seat.get("placement"),
+                victory_condition=seat.get("victory_condition"),
+                is_archenemy=seat.get("is_archenemy", False),
+            ))
+            continue
         deck = db.get(Deck, seat["deck_id"])
         pilot = db.get(User, seat["pilot_id"])
         if not deck:
             raise HTTPException(status_code=404, detail=f"Deck {seat['deck_id']} not found")
         if not pilot:
             raise HTTPException(status_code=404, detail=f"Pilot {seat['pilot_id']} not found")
-
         db.add(GameSeat(
             game_id=game.id,
             deck_id=seat["deck_id"],
@@ -147,8 +172,9 @@ def _format_game(game: Game, detail: bool = False):
         "seats": [
             {
                 "seat": s.seat,
-                "pilot": {"id": s.pilot.id, "name": s.pilot.name},
-                "deck": {"id": s.deck.id, "name": s.deck.name, "commander": s.deck.commander, "color_identity": s.deck.color_identity, "image_uri": s.deck.image_uri},
+                "pilot": {"id": s.pilot.id, "name": s.pilot.name} if s.pilot else None,
+                "deck": {"id": s.deck.id, "name": s.deck.name, "commander": s.deck.commander, "color_identity": s.deck.color_identity, "image_uri": s.deck.image_uri} if s.deck else None,
+                "is_stranger": s.deck_id is None,
                 "placement": s.placement,
                 "victory_condition": s.victory_condition,
                 "is_archenemy": s.is_archenemy,

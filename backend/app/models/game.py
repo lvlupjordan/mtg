@@ -22,7 +22,7 @@ class GameSeat(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     game_id: Mapped[int] = mapped_column(Integer, ForeignKey("games.id"), nullable=False)
-    deck_id: Mapped[int] = mapped_column(Integer, ForeignKey("decks.id"), nullable=False)
+    deck_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("decks.id"), nullable=True)
     pilot_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     seat: Mapped[int] = mapped_column(Integer, nullable=False)
     placement: Mapped[float | None] = mapped_column(Float, nullable=True)

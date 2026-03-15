@@ -257,6 +257,11 @@
   color: var(--gold-light);
 }
 
+.seatDeckStranger {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .seatMeta {
   display: flex;
   align-items: center;

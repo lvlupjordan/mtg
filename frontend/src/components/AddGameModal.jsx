@@ -6,7 +6,7 @@ import styles from './AddGameModal.module.css'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-const emptySeat = () => ({ deck_id: '', pilot_id: '', placement: '', victory_condition: '' })
+const emptySeat = () => ({ deck_id: '', pilot_id: '', placement: '', victory_condition: '', is_stranger: false })
 
 export default function AddGameModal({ onClose, game = null }) {
   const qc = useQueryClient()
@@ -26,10 +26,11 @@ export default function AddGameModal({ onClose, game = null }) {
   const [seats, setSeats] = useState(
     game
       ? game.seats.map(s => ({
-          deck_id: String(s.deck.id),
-          pilot_id: String(s.pilot.id),
+          deck_id: s.is_stranger ? '' : String(s.deck.id),
+          pilot_id: s.is_stranger ? '' : String(s.pilot.id),
           placement: String(s.placement),
           victory_condition: s.victory_condition || '',
+          is_stranger: s.is_stranger || false,
         }))
       : [emptySeat(), emptySeat(), emptySeat(), emptySeat()]
   )
@@ -63,7 +64,7 @@ export default function AddGameModal({ onClose, game = null }) {
     e.preventDefault()
     setError(null)
 
-    const filledSeats = seats.filter(s => s.deck_id && s.pilot_id && s.placement !== '')
+    const filledSeats = seats.filter(s => s.placement !== '' && (s.is_stranger || (s.deck_id && s.pilot_id)))
     if (filledSeats.length < 2) return setError('At least 2 seats required')
 
     const placements = filledSeats.map(s => parseFloat(s.placement))
@@ -74,8 +75,9 @@ export default function AddGameModal({ onClose, game = null }) {
       played_at: date,
       variant: 'Commander',
       seats: filledSeats.map(s => ({
-        deck_id: parseInt(s.deck_id),
-        pilot_id: parseInt(s.pilot_id),
+        is_stranger: s.is_stranger || false,
+        deck_id: s.is_stranger ? null : parseInt(s.deck_id),
+        pilot_id: s.is_stranger ? null : parseInt(s.pilot_id),
         placement: parseFloat(s.placement),
         victory_condition: s.victory_condition || null,
         is_archenemy: false,
@@ -141,31 +143,37 @@ export default function AddGameModal({ onClose, game = null }) {
                 <div key={i} className={styles.seatRow}>
                   <span className={styles.seatNum}>{i + 1}</span>
 
-                  <select
-                    value={seat.deck_id}
-                    onChange={e => updateSeat(i, 'deck_id', e.target.value)}
-                    className={styles.select}
-                  >
-                    <option value="">Deck…</option>
-                    {Object.entries(decksByBuilder).map(([builder, bDecks]) => (
-                      <optgroup key={builder} label={builder}>
-                        {bDecks.map(d => (
-                          <option key={d.id} value={d.id}>{d.commander}</option>
+                  {seat.is_stranger ? (
+                    <span className={styles.strangerLabel}>Stranger</span>
+                  ) : (
+                    <>
+                      <select
+                        value={seat.deck_id}
+                        onChange={e => updateSeat(i, 'deck_id', e.target.value)}
+                        className={styles.select}
+                      >
+                        <option value="">Deck…</option>
+                        {Object.entries(decksByBuilder).map(([builder, bDecks]) => (
+                          <optgroup key={builder} label={builder}>
+                            {bDecks.map(d => (
+                              <option key={d.id} value={d.id}>{d.commander}</option>
+                            ))}
+                          </optgroup>
                         ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                      </select>
 
-                  <select
-                    value={seat.pilot_id}
-                    onChange={e => updateSeat(i, 'pilot_id', e.target.value)}
-                    className={styles.select}
-                  >
-                    <option value="">Pilot…</option>
-                    {players.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                      <select
+                        value={seat.pilot_id}
+                        onChange={e => updateSeat(i, 'pilot_id', e.target.value)}
+                        className={styles.select}
+                      >
+                        <option value="">Pilot…</option>
+                        {players.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </>
+                  )}
 
                   <input
                     type="number"
@@ -185,6 +193,13 @@ export default function AddGameModal({ onClose, game = null }) {
                     onChange={e => updateSeat(i, 'victory_condition', e.target.value)}
                     className={`${styles.input} ${styles.vcInput}`}
                   />
+
+                  <button
+                    type="button"
+                    className={`${styles.strangerBtn} ${seat.is_stranger ? styles.strangerBtnOn : ''}`}
+                    onClick={() => updateSeat(i, 'is_stranger', !seat.is_stranger)}
+                    title={seat.is_stranger ? 'Remove stranger' : 'Mark as stranger'}
+                  >S</button>
 
                   <button
                     type="button"

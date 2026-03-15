@@ -47,7 +47,7 @@ function GameCard({ game, index, onEdit }) {
           {winner && (
             <span className={styles.winnerBadge}>
               <span className={styles.winnerCrown}>♛</span>
-              {winner.pilot.name}
+              {winner.is_stranger ? 'Stranger' : winner.pilot?.name}
               {winner.victory_condition && <span className={styles.vc}> · {winner.victory_condition}</span>}
             </span>
           )}
@@ -61,25 +61,39 @@ function GameCard({ game, index, onEdit }) {
             <span className={styles.seatPlacement} style={{ color: placementColor(s.placement) }}>
               {placementLabel(s.placement)}
             </span>
-            <Link to={`/decks/${s.deck.id}`} className={styles.seatDeck}>
-              <div className={styles.seatImg}>
-                {s.deck.image_uri
-                  ? <img src={s.deck.image_uri} alt={s.deck.commander} />
-                  : <div className={styles.seatImgPlaceholder} />
-                }
-              </div>
-              <div className={styles.seatInfo}>
-                <span className={styles.seatCommander}>{s.deck.commander}</span>
-                <div className={styles.seatMeta}>
-                  <ColorPips colors={s.deck.color_identity} size="sm" />
-                  {s.victory_condition && s.placement === 1 && (
-                    <span className={styles.seatVc}>{s.victory_condition}</span>
-                  )}
+            {s.is_stranger ? (
+              <div className={`${styles.seatDeck} ${styles.seatDeckStranger}`}>
+                <div className={styles.seatImg}><div className={styles.seatImgPlaceholder} /></div>
+                <div className={styles.seatInfo}>
+                  <span className={styles.seatCommander}>Stranger</span>
+                  <div className={styles.seatMeta}>
+                    {s.victory_condition && s.placement === 1 && (
+                      <span className={styles.seatVc}>{s.victory_condition}</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </Link>
-            <Link to={`/players/${s.pilot.id}`} className={styles.seatPilot}>
-              {s.pilot.name}
+            ) : (
+              <Link to={`/decks/${s.deck.id}`} className={styles.seatDeck}>
+                <div className={styles.seatImg}>
+                  {s.deck.image_uri
+                    ? <img src={s.deck.image_uri} alt={s.deck.commander} />
+                    : <div className={styles.seatImgPlaceholder} />
+                  }
+                </div>
+                <div className={styles.seatInfo}>
+                  <span className={styles.seatCommander}>{s.deck.commander}</span>
+                  <div className={styles.seatMeta}>
+                    <ColorPips colors={s.deck.color_identity} size="sm" />
+                    {s.victory_condition && s.placement === 1 && (
+                      <span className={styles.seatVc}>{s.victory_condition}</span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            )}
+            <Link to={`/players/${s.pilot?.id}`} className={styles.seatPilot}>
+              {s.pilot?.name}
             </Link>
           </div>
         ))}
