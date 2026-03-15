@@ -216,7 +216,7 @@
   min-height: 0;
   gap: 1px;
   background: rgba(255,255,255,0.05);
-  --sw: clamp(130px, 16vw, 200px);
+  --sw: clamp(180px, 22vw, 280px);
 }
 
 .grid2 {

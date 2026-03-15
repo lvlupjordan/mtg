@@ -363,7 +363,7 @@ function SidePanelWrapper({ side, gridArea, children }) {
     if (side === 'right') {
       innerStyle = { position: 'absolute', width: h, height: w, top: h, left: 0, transformOrigin: 'top left', transform: 'rotate(-90deg)' }
     } else {
-      innerStyle = { position: 'absolute', width: h, height: w, top: 0, left: -h, transformOrigin: 'top right', transform: 'rotate(90deg)' }
+      innerStyle = { position: 'absolute', width: h, height: w, top: -w, left: 0, transformOrigin: 'top left', transform: 'rotate(90deg)' }
     }
   } else {
     innerStyle = { display: 'none' }
