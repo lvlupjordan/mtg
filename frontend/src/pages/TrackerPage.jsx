@@ -470,13 +470,26 @@ export default function TrackerPage() {
     }, 50)
   }
 
+  function isPlayerDead(p) {
+    const cmdMax = players.length > 0
+      ? Math.max(...players.map(opp => p.cmdDamage[opp.id] || 0))
+      : 0
+    return p.life <= 0 || p.poison >= 10 || cmdMax >= 21
+  }
+
   function endTurn() {
     if (activeTurnId == null || turnStart == null) return
     const now = Date.now()
     const elapsed = now - turnStart
     setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + elapsed }))
-    const idx = players.findIndex(p => p.id === activeTurnId)
-    const next = players[(idx - 1 + players.length) % players.length]
+    const n = players.length
+    let idx = players.findIndex(p => p.id === activeTurnId)
+    let next
+    for (let i = 1; i < n; i++) {
+      const candidate = players[(idx - i + n) % n]
+      if (!isPlayerDead(candidate)) { next = candidate; break }
+    }
+    if (!next) return // all others dead, don't advance
     setActiveTurnId(next.id)
     setTurnStart(now)
   }
