@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import styles from './TrackerPage.module.css'
@@ -420,6 +421,8 @@ function getPositions(count) {
 
 // ── TrackerPage ───────────────────────────────────────────────
 export default function TrackerPage() {
+  const navigate = useNavigate()
+
   useEffect(() => {
     screen.orientation?.lock('landscape').catch(() => {})
     return () => { try { screen.orientation?.unlock() } catch {} }
@@ -779,6 +782,7 @@ export default function TrackerPage() {
       </div>
 
       <div className={styles.gamebar}>
+        <button className={styles.barbtn} onClick={() => navigate('/decks')}>⌂</button>
         <button className={styles.barbtn} onClick={() => setPhase('setup')}>← Setup</button>
 
         <div className={styles.barroll}>
