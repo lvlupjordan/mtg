@@ -329,14 +329,24 @@ function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
 
 // ── TrackerPage ───────────────────────────────────────────────
 export default function TrackerPage() {
-  const [phase, setPhase] = useState('setup')
-  const [seats, setSeats] = useState([emptySeat(), emptySeat(), emptySeat(), emptySeat()])
-  const [pickerSeat, setPickerSeat] = useState(null) // index of seat whose picker is open
-  const [players, setPlayers] = useState([])
+  const [phase, setPhase] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_phase')) ?? 'setup' } catch { return 'setup' }
+  })
+  const [seats, setSeats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_seats')) ?? [emptySeat(), emptySeat(), emptySeat(), emptySeat()] } catch { return [emptySeat(), emptySeat(), emptySeat(), emptySeat()] }
+  })
+  const [pickerSeat, setPickerSeat] = useState(null)
+  const [players, setPlayers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_players')) ?? [] } catch { return [] }
+  })
   const [deltas, setDeltas] = useState({})
   const [showSave, setShowSave] = useState(false)
   const [gameSaved, setGameSaved] = useState(false)
   const deltaTimers = useRef({})
+
+  useEffect(() => { localStorage.setItem('tracker_phase', JSON.stringify(phase)) }, [phase])
+  useEffect(() => { localStorage.setItem('tracker_seats', JSON.stringify(seats)) }, [seats])
+  useEffect(() => { localStorage.setItem('tracker_players', JSON.stringify(players)) }, [players])
 
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData }   = useQuery({
