@@ -136,6 +136,7 @@ export default function AddGameModal({ onClose, game = null }) {
                   <span>Place</span>
                   <span>Win Con</span>
                   <span />
+                  <span />
                 </div>
               </div>
 

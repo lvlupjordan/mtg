@@ -124,7 +124,7 @@
 
 .colHeaders {
   display: grid;
-  grid-template-columns: 24px 1fr 1fr 64px 1fr 28px;
+  grid-template-columns: 24px 1fr 1fr 56px 1fr 68px 24px;
   gap: 8px;
   padding: 0 2px;
   font-family: 'Cinzel', serif;
@@ -136,7 +136,7 @@
 
 .seatRow {
   display: grid;
-  grid-template-columns: 24px 1fr 1fr 64px 1fr 28px;
+  grid-template-columns: 24px 1fr 1fr 56px 1fr 68px 24px;
   gap: 8px;
   align-items: center;
 }
