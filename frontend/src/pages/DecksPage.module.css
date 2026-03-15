@@ -126,6 +126,7 @@
 .pip_B { background: var(--mana-b); color: #fff; }
 .pip_R { background: var(--mana-r); color: #fff; }
 .pip_G { background: var(--mana-g); color: #fff; }
+.pip_C { background: #8c8c9a; color: #fff; }
 
 /* Brewer pills */
 .brewerPills {
@@ -180,6 +181,33 @@
 
 .sortSelect option {
   background: var(--surface-2);
+}
+
+/* Inactive toggle */
+.inactiveToggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.inactiveToggle:hover {
+  color: var(--text-bright);
+  background: var(--surface-2);
+}
+
+.inactiveToggleOn {
+  color: var(--gold-light) !important;
+  border-color: var(--gold-dim) !important;
+  background: rgba(200, 149, 58, 0.1) !important;
 }
 
 /* Clear */

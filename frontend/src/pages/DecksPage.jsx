@@ -13,28 +13,42 @@ const SORT_OPTIONS = [
   { value: 'cmc', label: 'Commander CMC' },
 ]
 
-const COLORS = ['W', 'U', 'B', 'R', 'G']
+const COLORS = ['W', 'U', 'B', 'R', 'G', 'C']
+
+const CMC_OPTIONS = [
+  { value: '', label: 'Any CMC' },
+  { value: 'low', label: '≤ 2', min: null, max: 2 },
+  { value: 'mid', label: '3 – 4', min: 3, max: 4 },
+  { value: 'high', label: '5 – 6', min: 5, max: 6 },
+  { value: 'vhigh', label: '7+', min: 7, max: null },
+]
 
 export default function DecksPage() {
   const [sort, setSort] = useState('games')
   const [colours, setColours] = useState([])
   const [owner, setOwner] = useState('')
+  const [cmc, setCmc] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
   const [page, setPage] = useState(1)
   const [showAdd, setShowAdd] = useState(false)
 
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const brewers = playersData?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? []
 
+  const cmcOption = CMC_OPTIONS.find(o => o.value === cmc)
   const params = {
     sort,
     page,
     page_size: 24,
     ...(colours.length && { colours }),
     ...(owner && { owner }),
+    ...(!showInactive && { active: true }),
+    ...(cmcOption?.min != null && { cmc_min: cmcOption.min }),
+    ...(cmcOption?.max != null && { cmc_max: cmcOption.max }),
   }
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['decks', sort, colours.join(','), owner, page],
+    queryKey: ['decks', sort, colours.join(','), owner, cmc, showInactive, page],
     queryFn: () => api.decks(params),
   })
 
@@ -44,10 +58,12 @@ export default function DecksPage() {
     setColours([])
     setOwner('')
     setSort('games')
+    setCmc('')
+    setShowInactive(false)
     setPage(1)
   }
 
-  const hasFilters = colours.length > 0 || owner || sort !== 'games'
+  const hasFilters = colours.length > 0 || owner || sort !== 'games' || cmc || showInactive
 
   return (
     <div className={styles.page}>
@@ -98,6 +114,34 @@ export default function DecksPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className={styles.divider} />
+
+        {/* CMC */}
+        <div className={styles.filterSection}>
+          <span className={styles.filterLabel}>CMC</span>
+          <select
+            value={cmc}
+            onChange={e => { setCmc(e.target.value); setPage(1) }}
+            className={styles.sortSelect}
+          >
+            {CMC_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.divider} />
+
+        {/* Inactive toggle */}
+        <div className={styles.filterSection}>
+          <button
+            className={`${styles.inactiveToggle} ${showInactive ? styles.inactiveToggleOn : ''}`}
+            onClick={() => { setShowInactive(v => !v); setPage(1) }}
+          >
+            {showInactive ? 'All Decks' : 'Active Only'}
+          </button>
         </div>
 
         <div className={styles.divider} />

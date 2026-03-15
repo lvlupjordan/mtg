@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, case, and_, text
+from sqlalchemy import func, case, and_, or_, text
 from sqlalchemy.orm import Session
 import httpx
 from app.database import get_db
@@ -15,9 +15,11 @@ router = APIRouter(prefix="/api/decks", tags=["decks"])
 @router.get("")
 def list_decks(
     owner: int | None = Query(default=None, description="Filter by builder user id"),
-    colours: str | None = Query(default=None, description="Comma-separated colours e.g. U,G"),
+    colours: str | None = Query(default=None, description="Comma-separated colours e.g. U,G,C for colorless"),
     budget: str | None = Query(default=None),
     active: bool | None = Query(default=None),
+    cmc_min: float | None = Query(default=None),
+    cmc_max: float | None = Query(default=None),
     sort: str = Query(default="games", description="games | win_rate | avg_placement | cmc"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -47,12 +49,26 @@ def list_decks(
     if owner is not None:
         q = q.filter(Deck.builder_id == owner)
     if colours:
-        for i, c in enumerate(colours.split(",")):
-            q = q.filter(text(f":c{i} = ANY(decks.color_identity)").bindparams(**{f"c{i}": c.strip().upper()}))
+        color_list = [c.strip().upper() for c in colours.split(",")]
+        include_colorless = "C" in color_list
+        regular = [c for c in color_list if c != "C"]
+        colorless_cond = text("(array_length(decks.color_identity, 1) IS NULL OR array_length(decks.color_identity, 1) = 0)")
+        if include_colorless and regular:
+            color_conds = and_(*[text(f":c{i} = ANY(decks.color_identity)").bindparams(**{f"c{i}": c}) for i, c in enumerate(regular)])
+            q = q.filter(or_(colorless_cond, color_conds))
+        elif include_colorless:
+            q = q.filter(colorless_cond)
+        else:
+            for i, c in enumerate(regular):
+                q = q.filter(text(f":c{i} = ANY(decks.color_identity)").bindparams(**{f"c{i}": c}))
     if budget:
         q = q.filter(Deck.budget == budget)
     if active is not None:
         q = q.filter(Deck.active == active)
+    if cmc_min is not None:
+        q = q.filter(Deck.commander_cmc >= cmc_min)
+    if cmc_max is not None:
+        q = q.filter(Deck.commander_cmc <= cmc_max)
 
     sort_map = {
         "games": func.count(GameSeat.id).desc(),
