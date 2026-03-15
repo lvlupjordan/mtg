@@ -258,7 +258,7 @@ export default function TrackerPage() {
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData }   = useQuery({
     queryKey: ['decks-all'],
-    queryFn: () => api.decks({ page_size: 200, sort: 'games' }),
+    queryFn: () => api.decks({ page_size: 100, sort: 'games' }),
   })
 
   const activePlayers = playersData?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? []
