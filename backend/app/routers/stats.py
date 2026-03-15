@@ -175,7 +175,7 @@ def timeseries_stats(
         extra_from = "CROSS JOIN LATERAL unnest(d.color_identity) AS col(c)"
     else:  # identity
         series_expr = "COALESCE(id_agg.key, 'C')"
-        extra_from = "CROSS JOIN LATERAL (SELECT string_agg(x ORDER BY x) AS key FROM unnest(COALESCE(d.color_identity, ARRAY[]::text[])) AS t(x)) AS id_agg"
+        extra_from = "CROSS JOIN LATERAL (SELECT string_agg(x, '' ORDER BY x) AS key FROM unnest(COALESCE(d.color_identity, ARRAY[]::text[])) AS t(x)) AS id_agg"
 
     if over == "month":
         # Cumulative stats per month — carry forward when absent
