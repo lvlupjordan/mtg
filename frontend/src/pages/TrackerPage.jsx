@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import styles from './TrackerPage.module.css'
@@ -120,8 +121,8 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
         </div>
       </div>
 
-      {/* ── Expanded overlay ── */}
-      {mode !== null && (
+      {/* ── Expanded overlay (portaled to body so rotation doesn't clip it) ── */}
+      {mode !== null && createPortal(
         <div className={styles.expanded} onClick={() => setMode(null)}>
           <button className={styles.expClose} onClick={() => setMode(null)}>✕</button>
           <div onClick={e => e.stopPropagation()}>
@@ -163,7 +164,8 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Death overlay ── */}
