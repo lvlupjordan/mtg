@@ -468,6 +468,10 @@
 }
 .panelActive::before { opacity: 1; }
 
+.rotated {
+  transform: rotate(180deg);
+}
+
 .panelDead {
   opacity: 0.45;
 }
