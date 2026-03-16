@@ -452,6 +452,10 @@ export default function TrackerPage() {
   const [rollDisplay, setRollDisplay] = useState(null)
   const [tick, setTick] = useState(0)
 
+  const [gameEndTime, setGameEndTime] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_gameEndTime')) ?? null } catch { return null }
+  })
+
   const deltaTimers  = useRef({})
   const startTimeRef = useRef(() => {
     try { return JSON.parse(localStorage.getItem('tracker_startTime')) ?? null } catch { return null }
@@ -467,17 +471,31 @@ export default function TrackerPage() {
   useEffect(() => { localStorage.setItem('tracker_clockEnabled', JSON.stringify(clockEnabled)) }, [clockEnabled])
   useEffect(() => { localStorage.setItem('tracker_turnCounts',   JSON.stringify(turnCounts))   }, [turnCounts])
   useEffect(() => { localStorage.setItem('tracker_deathOrder',   JSON.stringify(deathOrder))   }, [deathOrder])
+  useEffect(() => { localStorage.setItem('tracker_gameEndTime',  JSON.stringify(gameEndTime))  }, [gameEndTime])
 
   // Detect deaths — group players who die in the same state update
+  // Also freeze timers when only 1 player remains alive
   useEffect(() => {
     if (!players.length) return
+    const allDead = deathOrder.flat()
     const newDead = players.filter(p => {
       const cmdMax = Math.max(0, ...players.map(opp => p.cmdDamage[opp.id] || 0))
       const dead = p.life <= 0 || p.poison >= 10 || cmdMax >= 21
-      return dead && !deathOrder.flat().includes(p.id)
+      return dead && !allDead.includes(p.id)
     })
     if (newDead.length > 0) {
+      const updatedDead = [...allDead, ...newDead.map(p => p.id)]
       setDeathOrder(prev => [...prev, newDead.map(p => p.id)])
+      const aliveCount = players.length - updatedDead.length
+      if (aliveCount <= 1 && !gameEndTime) {
+        const endTime = Date.now()
+        setGameEndTime(endTime)
+        // Freeze the active player's clock at this moment
+        if (activeTurnId != null && turnStart != null) {
+          setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + (endTime - turnStart) }))
+          setTurnStart(null)
+        }
+      }
     }
   }, [players])
 
@@ -597,6 +615,7 @@ export default function TrackerPage() {
     setPlayers(newPlayers)
     setDeltas({})
     setDeathOrder([])
+    setGameEndTime(null)
     setActiveTurnId(null)
     setPlayerTimes({})
     setTurnCounts({})
@@ -615,6 +634,7 @@ export default function TrackerPage() {
     setPlayers(newPlayers)
     setDeltas({})
     setDeathOrder([])
+    setGameEndTime(null)
     setActiveTurnId(null)
     setPlayerTimes({})
     setTurnCounts({})
@@ -701,9 +721,10 @@ export default function TrackerPage() {
   const count     = players.length
   const positions = getPositions(count)
 
+  const gameOver = gameEndTime != null
   const liveTimes = Object.fromEntries(players.map(p => [
     p.id,
-    (playerTimes[p.id] || 0) + (clockEnabled && activeTurnId === p.id && turnStart ? now - turnStart : 0),
+    (playerTimes[p.id] || 0) + (!gameOver && clockEnabled && activeTurnId === p.id && turnStart ? now - turnStart : 0),
   ]))
 
   return (
@@ -761,7 +782,7 @@ export default function TrackerPage() {
           players={players}
           deathOrder={deathOrder}
           turnCount={Object.values(turnCounts).length > 0 ? Math.max(...Object.values(turnCounts)) : null}
-          totalGameTime={startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : null}
+          totalGameTime={startTimeRef.current ? Math.round(((gameEndTime ?? Date.now()) - startTimeRef.current) / 1000) : null}
           turnCounts={turnCounts}
           playerTimes={playerTimes}
           onClose={() => setShowSave(false)}
