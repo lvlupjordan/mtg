@@ -13,7 +13,7 @@ class Game(Base):
     total_game_time: Mapped[int | None] = mapped_column(Integer, nullable=True)  # seconds
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     variant: Mapped[str] = mapped_column(Text, nullable=False, default="Commander")
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False, default=datetime.utcnow)
 
     seats = relationship("GameSeat", back_populates="game", order_by="GameSeat.seat")
 
