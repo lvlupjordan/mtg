@@ -5,25 +5,25 @@
   align-items: center;
   justify-content: center;
   min-height: 100%;
-  padding: 24px;
+  padding: clamp(8px, 2svh, 24px);
 }
 
 .setupCard {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 40px 48px;
+  padding: clamp(10px, 4svh, 40px) clamp(16px, 4svh, 48px);
   width: 100%;
   max-width: 620px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: clamp(8px, 2.5svh, 28px);
   margin: auto;
 }
 
 .setupTitle {
   font-family: 'Cinzel Decorative', serif;
-  font-size: 22px;
+  font-size: clamp(14px, 3svh, 22px);
   font-weight: 700;
   color: var(--gold);
   letter-spacing: 0.08em;
@@ -39,24 +39,25 @@
   margin: -20px 0 0;
   font-style: italic;
 }
+@media (max-height: 600px) { .setupSub { display: none; } }
 
 /* Seat list */
 .setupSeats {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: clamp(3px, 0.8svh, 8px);
 }
 
 .seatRow {
   display: grid;
   grid-template-columns: 20px 1fr 1fr auto auto;
   align-items: center;
-  gap: 8px;
+  gap: clamp(4px, 1svh, 8px);
 }
 
 .seatNum {
   font-family: 'Cinzel', serif;
-  font-size: 13px;
+  font-size: clamp(11px, 1.6svh, 13px);
   font-weight: 700;
   text-align: center;
 }
@@ -67,8 +68,8 @@
   border-radius: 6px;
   color: var(--text-bright);
   font-family: 'Crimson Pro', serif;
-  font-size: 14px;
-  padding: 7px 10px;
+  font-size: clamp(12px, 1.8svh, 14px);
+  padding: clamp(3px, 0.8svh, 7px) clamp(6px, 1.2svh, 10px);
   outline: none;
   cursor: pointer;
   min-width: 0;
@@ -83,10 +84,10 @@
   border-radius: 5px;
   color: var(--text-dim);
   font-family: 'Cinzel', serif;
-  font-size: 10px;
+  font-size: clamp(9px, 1.2svh, 10px);
   font-weight: 600;
   letter-spacing: 0.06em;
-  padding: 6px 10px;
+  padding: clamp(3px, 0.8svh, 6px) clamp(6px, 1.2svh, 10px);
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
@@ -102,27 +103,27 @@
 .deckPickerBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: clamp(4px, 0.8svh, 8px);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-dim);
   font-family: 'Crimson Pro', serif;
-  font-size: 14px;
-  padding: 6px 10px;
+  font-size: clamp(12px, 1.8svh, 14px);
+  padding: clamp(3px, 0.8svh, 6px) clamp(6px, 1.2svh, 10px);
   cursor: pointer;
   text-align: left;
   min-width: 0;
   overflow: hidden;
   transition: border-color 0.15s;
-  height: 36px;
+  height: clamp(26px, 5svh, 36px);
 }
 .deckPickerBtn:hover { border-color: var(--gold-dim); color: var(--text-bright); }
 .deckPickerBtnFilled { border-color: var(--border-2); color: var(--text-bright); }
 
 .deckPickerBtnThumb {
-  width: 28px;
-  height: 20px;
+  width: clamp(20px, 3.5svh, 28px);
+  height: clamp(14px, 2.5svh, 20px);
   object-fit: cover;
   object-position: top center;
   border-radius: 3px;
@@ -147,9 +148,9 @@
   border: 1px solid transparent;
   border-radius: 4px;
   color: var(--text-dim);
-  font-size: 12px;
-  width: 26px;
-  height: 26px;
+  font-size: clamp(10px, 1.4svh, 12px);
+  width: clamp(22px, 4svh, 26px);
+  height: clamp(22px, 4svh, 26px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,7 +166,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .addSeatBtn {
@@ -177,7 +178,7 @@
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
-  padding: 8px 14px;
+  padding: clamp(5px, 1svh, 8px) clamp(10px, 1.8svh, 14px);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -186,13 +187,13 @@
 
 .startBtn {
   flex: 1;
-  padding: 12px;
+  padding: clamp(6px, 1.5svh, 12px);
   background: var(--gold);
   border: none;
   border-radius: 8px;
   color: #1a1000;
   font-family: 'Cinzel', serif;
-  font-size: 13px;
+  font-size: clamp(11px, 1.6svh, 13px);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -700,42 +701,6 @@
   }
 }
 
-/* Setup screen natural landscape (phone held sideways) */
-@media (orientation: landscape) and (max-height: 600px) {
-  .setup {
-    padding: 12px;
-  }
-  .setupCard {
-    padding: 16px 20px;
-    gap: 12px;
-  }
-  .setupTitle { font-size: 17px; }
-  .setupSub { display: none; }
-  .seatSelect, .deckPickerBtn { padding: 4px 8px; font-size: 13px; height: 30px; }
-  .setupSeats { gap: 5px; }
-  .setupFooter { margin-top: 0; }
-}
-
-/* Ultra-compact: very short landscape (e.g. iPhone SE, 6 players) */
-@media (orientation: landscape) and (max-height: 430px) {
-  .setup {
-    padding: 8px;
-  }
-  .setupCard {
-    padding: 10px 14px;
-    gap: 8px;
-  }
-  .setupTitle { font-size: 14px; }
-  .seatSelect, .deckPickerBtn { padding: 3px 7px; font-size: 12px; height: 26px; }
-  .deckPickerBtnThumb { height: 16px; }
-  .seatNum { font-size: 11px; }
-  .strangerBtn { padding: 3px 7px; font-size: 9px; }
-  .removeBtn { width: 22px; height: 22px; font-size: 10px; }
-  .setupSeats { gap: 3px; }
-  .setupFooter { margin-top: 0; gap: 8px; }
-  .addSeatBtn { padding: 5px 10px; }
-  .startBtn { padding: 7px; font-size: 12px; }
-}
 
 .barbtn {
   background: rgba(255,255,255,0.04);
