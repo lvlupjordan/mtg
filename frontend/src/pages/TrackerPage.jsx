@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,6 +6,15 @@ import { api } from '../api'
 import styles from './TrackerPage.module.css'
 
 const LIFE_START = 40
+
+const PALETTE = [
+  { accent: '#c8953a', glow: 'rgba(200,149,58,0.10)'   },
+  { accent: '#4ecba8', glow: 'rgba(78,203,168,0.08)'   },
+  { accent: '#5b9bd5', glow: 'rgba(91,155,213,0.08)'   },
+  { accent: '#d95f5f', glow: 'rgba(217,95,95,0.08)'    },
+  { accent: '#3aaa6a', glow: 'rgba(58,170,106,0.08)'   },
+  { accent: '#a87fc1', glow: 'rgba(168,127,193,0.08)'  },
+]
 
 function formatTime(ms) {
   const total = Math.floor(ms / 1000)
@@ -16,15 +25,6 @@ function formatTime(ms) {
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
 }
 
-const PALETTE = [
-  { accent: '#c8953a', glow: 'rgba(200,149,58,0.12)'   },
-  { accent: '#4ecba8', glow: 'rgba(78,203,168,0.10)'   },
-  { accent: '#5b9bd5', glow: 'rgba(91,155,213,0.10)'   },
-  { accent: '#d95f5f', glow: 'rgba(217,95,95,0.10)'    },
-  { accent: '#3aaa6a', glow: 'rgba(58,170,106,0.10)'   },
-  { accent: '#a87fc1', glow: 'rgba(168,127,193,0.10)'  },
-]
-
 const emptySeat = () => ({ pilot_id: '', deck_id: '', is_stranger: false, stranger_name: '', stranger_commander: '' })
 
 function initPlayers(seats, playersData, decksData) {
@@ -33,14 +33,14 @@ function initPlayers(seats, playersData, decksData) {
     const deck  = decksData?.find(d => String(d.id) === String(seat.deck_id))
     return {
       id: i,
-      pilot_id:   seat.is_stranger ? null : (pilot?.id ?? null),
-      deck_id:    seat.is_stranger ? null : (deck?.id ?? null),
-      name:       seat.is_stranger ? (seat.stranger_name || 'Stranger') : (pilot?.name ?? `Player ${i + 1}`),
-      commander:  seat.is_stranger ? (seat.stranger_commander || '') : (deck?.commander ?? ''),
+      pilot_id:    seat.is_stranger ? null : (pilot?.id ?? null),
+      deck_id:     seat.is_stranger ? null : (deck?.id ?? null),
+      name:        seat.is_stranger ? (seat.stranger_name || 'Stranger') : (pilot?.name ?? `Player ${i + 1}`),
+      commander:   seat.is_stranger ? (seat.stranger_commander || '') : (deck?.commander ?? ''),
       is_stranger: seat.is_stranger,
-      life:       LIFE_START,
-      poison:     0,
-      cmdDamage:  Object.fromEntries(seats.map((_, j) => [j, 0])),
+      life:        LIFE_START,
+      poison:      0,
+      cmdDamage:   Object.fromEntries(seats.map((_, j) => [j, 0])),
     }
   })
 }
@@ -48,20 +48,20 @@ function initPlayers(seats, playersData, decksData) {
 // ── PlayerPanel ───────────────────────────────────────────────
 function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, delta, isActive, playerTime, clockEnabled }) {
   const [mode, setMode] = useState(null)
-  const color  = PALETTE[player.id % PALETTE.length]
+  const color = PALETTE[player.id % PALETTE.length]
   const cmdMax = allPlayers.length > 0
     ? Math.max(...allPlayers.map(p => player.cmdDamage[p.id] || 0))
     : 0
   const isDead = player.life <= 0 || player.poison >= 10 || cmdMax >= 21
 
-  const toggleMode = (m) => setMode(cur => cur === m ? null : m)
+  const toggleMode = m => setMode(cur => cur === m ? null : m)
 
   return (
     <div
       className={`${styles.panel} ${rotated ? styles.rotated : ''} ${isDead ? styles.panelDead : ''} ${isActive ? styles.panelActive : ''}`}
       style={{ '--accent': color.accent, '--glow': color.glow }}
     >
-      {/* ── Header strip ── */}
+      {/* Header */}
       <div className={styles.panelHead}>
         <div className={styles.pnameBlock}>
           <span className={styles.pname}>{player.name}</span>
@@ -79,33 +79,20 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
           {cmdMax > 0 && (
             <span className={styles.statbadge} style={{ color: '#d9a060' }}>⚔{cmdMax}</span>
           )}
-          <button
-            className={`${styles.iconbtn} ${mode === 'poison' ? styles.iconon : ''}`}
-            onClick={() => toggleMode('poison')}
-            title="Poison / Toxic"
-          >☠</button>
-          <button
-            className={`${styles.iconbtn} ${mode === 'cmd' ? styles.iconon : ''}`}
-            onClick={() => toggleMode('cmd')}
-            title="Commander damage"
-          >⚔</button>
+          <button className={`${styles.iconbtn} ${mode === 'poison' ? styles.iconon : ''}`} onClick={() => toggleMode('poison')}>☠</button>
+          <button className={`${styles.iconbtn} ${mode === 'cmd'    ? styles.iconon : ''}`} onClick={() => toggleMode('cmd')}>⚔</button>
         </div>
       </div>
 
-      {/* ── Life area ── */}
+      {/* Life area */}
       <div className={styles.lifeArea}>
         <div className={styles.zonePlus} onClick={() => onLife(player.id, 1)}>
           <span className={styles.chevron}>▲</span>
-          <button
-            className={styles.fivebtn}
-            onClick={e => { e.stopPropagation(); onLife(player.id, 5) }}
-          >+5</button>
+          <button className={styles.fivebtn} onClick={e => { e.stopPropagation(); onLife(player.id, 5) }}>+5</button>
         </div>
 
         <div className={styles.lifeCenter}>
-          <span className={`${styles.lifenum} ${isDead ? styles.lifenumDead : ''}`}>
-            {player.life}
-          </span>
+          <span className={`${styles.lifenum} ${isDead ? styles.lifenumDead : ''}`}>{player.life}</span>
           {delta != null && (
             <span className={`${styles.delta} ${delta > 0 ? styles.deltapos : styles.deltaneg}`}>
               {delta > 0 ? '+' : ''}{delta}
@@ -114,19 +101,17 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
         </div>
 
         <div className={styles.zoneMinus} onClick={() => onLife(player.id, -1)}>
-          <button
-            className={styles.fivebtn}
-            onClick={e => { e.stopPropagation(); onLife(player.id, -5) }}
-          >−5</button>
+          <button className={styles.fivebtn} onClick={e => { e.stopPropagation(); onLife(player.id, -5) }}>−5</button>
           <span className={styles.chevron}>▼</span>
         </div>
       </div>
 
-      {/* ── Expanded overlay (portaled to body so rotation doesn't clip it) ── */}
+      {/* Expanded overlay — portaled to body to escape any CSS transform context */}
       {mode !== null && createPortal(
         <div className={styles.expanded} onClick={() => setMode(null)}>
-          <button className={styles.expClose} onClick={() => setMode(null)}>✕</button>
-          <div onClick={e => e.stopPropagation()}>
+          <div className={styles.expCard} onClick={e => e.stopPropagation()}>
+            <button className={styles.expClose} onClick={() => setMode(null)}>✕</button>
+
             {mode === 'poison' && (
               <div className={styles.expSection}>
                 <span className={styles.explabel}>☠ Poison / Toxic</span>
@@ -154,9 +139,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
                       </div>
                       <div className={styles.ctrrow}>
                         <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, -1)}>−</button>
-                        <span className={`${styles.ctrval} ${dmg >= 21 ? styles.deadval : dmg >= 15 ? styles.warnval : ''}`}>
-                          {dmg}
-                        </span>
+                        <span className={`${styles.ctrval} ${dmg >= 21 ? styles.deadval : dmg >= 15 ? styles.warnval : ''}`}>{dmg}</span>
                         <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, 1)}>+</button>
                       </div>
                     </div>
@@ -169,7 +152,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
         document.body
       )}
 
-      {/* ── Death overlay ── */}
+      {/* Dead overlay */}
       {isDead && (
         <div className={styles.deadOverlay}>
           <span className={styles.deadSym}>☠</span>
@@ -179,186 +162,31 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
   )
 }
 
-// ── Save Game overlay ─────────────────────────────────────────
-function SaveGameOverlay({ players, turnCount, totalGameTime, turnCounts, playerTimes, onClose, onSaved }) {
-  const qc = useQueryClient()
-  const [placements, setPlacements] = useState(
-    Object.fromEntries(players.map(p => [p.id, '']))
-  )
-  const [error, setError] = useState(null)
-
-  const mutation = useMutation({
-    mutationFn: api.createGame,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['games'] })
-      onSaved()
-    },
-    onError: (e) => setError(e.message),
-  })
-
-  function handleSubmit(e) {
-    e.preventDefault()
-    setError(null)
-
-    const vals = players.map(p => parseFloat(placements[p.id]))
-    if (vals.some(isNaN)) return setError('All players need a placement')
-    if (!vals.includes(1)) return setError('At least one player must be 1st')
-
-    mutation.mutate({
-      played_at: new Date().toISOString().slice(0, 10),
-      variant: 'Commander',
-      turn_count: turnCount ?? null,
-      total_game_time: totalGameTime ?? null,
-      seats: players.map(p => ({
-        is_stranger: p.is_stranger,
-        deck_id:     p.is_stranger ? null : p.deck_id,
-        pilot_id:    p.is_stranger ? null : p.pilot_id,
-        placement:   parseFloat(placements[p.id]),
-        victory_condition: null,
-        is_archenemy: false,
-        turns:      turnCounts[p.id] ?? null,
-        time_spent: playerTimes[p.id] != null ? Math.round(playerTimes[p.id] / 1000) : null,
-      })),
-    })
-  }
-
-  return (
-    <div className={styles.saveOverlay} onClick={onClose}>
-      <div className={styles.saveModal} onClick={e => e.stopPropagation()}>
-        <div className={styles.saveHeader}>
-          <h2 className={styles.saveTitle}>Save Game</h2>
-          <button className={styles.saveClose} onClick={onClose}>✕</button>
-        </div>
-
-        <form className={styles.saveForm} onSubmit={handleSubmit}>
-          <div className={styles.savePlacementsBlock}>
-            <span className={styles.saveLabel}>Placements</span>
-            {players.map(p => {
-              const color = PALETTE[p.id % PALETTE.length]
-              return (
-                <div key={p.id} className={styles.savePlacementRow}>
-                  <span className={styles.savePname} style={{ color: color.accent }}>{p.name}</span>
-                  {p.commander && <span className={styles.savePcommander}>{p.commander}</span>}
-                  <input
-                    type="number"
-                    min="1"
-                    max="6"
-                    step="1"
-                    placeholder="Place"
-                    value={placements[p.id]}
-                    onChange={e => setPlacements(prev => ({ ...prev, [p.id]: e.target.value }))}
-                    className={styles.savePlaceInput}
-                  />
-                </div>
-              )
-            })}
-          </div>
-
-          {error && <p className={styles.saveError}>{error}</p>}
-
-          <div className={styles.saveActions}>
-            <button type="button" className={styles.saveCancelBtn} onClick={onClose}>Cancel</button>
-            <button type="submit" className={styles.saveSubmitBtn} disabled={mutation.isPending}>
-              {mutation.isPending ? 'Saving…' : 'Record Game'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ── DeckPickerModal ───────────────────────────────────────────
-function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
-  const [search, setSearch] = useState('')
-  const searchRef = useRef(null)
-  useEffect(() => { if (window.innerWidth > 640) searchRef.current?.focus() }, [])
-
-  const term = search.toLowerCase()
-  const filtered = allDecks.filter(d =>
-    !term ||
-    d.commander.toLowerCase().includes(term) ||
-    (d.name && d.name.toLowerCase().includes(term))
-  )
-
-  const myDecks    = filtered.filter(d => pilotId && String(d.builder?.id) === String(pilotId))
-                             .sort((a, b) => a.commander.localeCompare(b.commander))
-  const otherDecks = filtered.filter(d => !pilotId || String(d.builder?.id) !== String(pilotId))
-                             .sort((a, b) => a.commander.localeCompare(b.commander))
-
-  return (
-    <div className={styles.pickerOverlay} onClick={onClose}>
-      <div className={styles.pickerModal} onClick={e => e.stopPropagation()}>
-        <div className={styles.pickerHeader}>
-          <input
-            ref={searchRef}
-            className={styles.pickerSearch}
-            placeholder="Search commanders…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <button className={styles.pickerClose} onClick={onClose}>✕</button>
-        </div>
-
-        <div className={styles.pickerScroll}>
-          {myDecks.length > 0 && (
-            <>
-              <div className={styles.pickerGroupLabel}>Your Decks</div>
-              <div className={styles.pickerGrid}>
-                {myDecks.map(d => (
-                  <button key={d.id} className={styles.pickerCard} onClick={() => onSelect(d)}>
-                    {d.image_uri
-                      ? <img src={d.image_uri} alt={d.commander} className={styles.pickerCardImg} />
-                      : <div className={styles.pickerCardImgPlaceholder} />
-                    }
-                    <div className={styles.pickerCardInfo}>
-                      <span className={styles.pickerCardName}>{d.commander}</span>
-                      <span className={styles.pickerCardBuilder}>{d.builder?.name}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          {otherDecks.length > 0 && (
-            <>
-              {myDecks.length > 0 && <div className={styles.pickerGroupLabel}>All Decks</div>}
-              <div className={styles.pickerGrid}>
-                {otherDecks.map(d => (
-                  <button key={d.id} className={styles.pickerCard} onClick={() => onSelect(d)}>
-                    {d.image_uri
-                      ? <img src={d.image_uri} alt={d.commander} className={styles.pickerCardImg} />
-                      : <div className={styles.pickerCardImgPlaceholder} />
-                    }
-                    <div className={styles.pickerCardInfo}>
-                      <span className={styles.pickerCardName}>{d.commander}</span>
-                      <span className={styles.pickerCardBuilder}>{d.builder?.name}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-          {filtered.length === 0 && (
-            <div className={styles.pickerEmpty}>No decks match "{search}"</div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── SidePanelWrapper ──────────────────────────────────────────
+// Rotates a panel 90° to sit on the left or right edge of the table.
+// Reads dims synchronously on mount to avoid the flash-of-zero issue.
 function SidePanelWrapper({ side, gridArea, children }) {
   const containerRef = useRef(null)
-  const [dims, setDims] = useState({ w: 0, h: 0 })
+  const [dims, setDims] = useState(() => {
+    // Will be updated synchronously via useLayoutEffect
+    return { w: 0, h: 0 }
+  })
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
+
+    // Read initial dims synchronously
+    const rect = el.getBoundingClientRect()
+    if (rect.width > 0 && rect.height > 0) {
+      setDims({ w: Math.round(rect.width), h: Math.round(rect.height) })
+    }
+
     const ro = new ResizeObserver(entries => {
       const { width, height } = entries[0].contentRect
-      setDims({ w: Math.round(width), h: Math.round(height) })
+      if (width > 0 && height > 0) {
+        setDims({ w: Math.round(width), h: Math.round(height) })
+      }
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -373,7 +201,7 @@ function SidePanelWrapper({ side, gridArea, children }) {
       innerStyle = { position: 'absolute', width: h, height: w, top: 0, left: w, transformOrigin: 'top left', transform: 'rotate(90deg)' }
     }
   } else {
-    innerStyle = { display: 'none' }
+    innerStyle = { visibility: 'hidden', position: 'absolute', width: '100%', height: '100%' }
   }
 
   return (
@@ -419,36 +247,162 @@ function getPositions(count) {
   }
 }
 
+// ── SaveGameOverlay ───────────────────────────────────────────
+function SaveGameOverlay({ players, turnCount, totalGameTime, turnCounts, playerTimes, onClose, onSaved }) {
+  const qc = useQueryClient()
+  const [placements, setPlacements] = useState(Object.fromEntries(players.map(p => [p.id, ''])))
+  const [error, setError] = useState(null)
+
+  const mutation = useMutation({
+    mutationFn: api.createGame,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['games'] }); onSaved() },
+    onError: e => setError(e.message),
+  })
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    setError(null)
+    const vals = players.map(p => parseFloat(placements[p.id]))
+    if (vals.some(isNaN)) return setError('All players need a placement')
+    if (!vals.includes(1)) return setError('At least one player must be 1st')
+    mutation.mutate({
+      played_at: new Date().toISOString().slice(0, 10),
+      variant: 'Commander',
+      turn_count: turnCount ?? null,
+      total_game_time: totalGameTime ?? null,
+      seats: players.map(p => ({
+        is_stranger:       p.is_stranger,
+        deck_id:           p.is_stranger ? null : p.deck_id,
+        pilot_id:          p.is_stranger ? null : p.pilot_id,
+        placement:         parseFloat(placements[p.id]),
+        victory_condition: null,
+        is_archenemy:      false,
+        turns:             turnCounts[p.id] ?? null,
+        time_spent:        playerTimes[p.id] != null ? Math.round(playerTimes[p.id] / 1000) : null,
+      })),
+    })
+  }
+
+  return (
+    <div className={styles.saveOverlay} onClick={onClose}>
+      <div className={styles.saveModal} onClick={e => e.stopPropagation()}>
+        <div className={styles.saveHeader}>
+          <h2 className={styles.saveTitle}>Save Game</h2>
+          <button className={styles.saveClose} onClick={onClose}>✕</button>
+        </div>
+        <form className={styles.saveForm} onSubmit={handleSubmit}>
+          <div className={styles.savePlacementsBlock}>
+            <span className={styles.saveLabel}>Placements</span>
+            {players.map(p => {
+              const color = PALETTE[p.id % PALETTE.length]
+              return (
+                <div key={p.id} className={styles.savePlacementRow}>
+                  <span className={styles.savePname} style={{ color: color.accent }}>{p.name}</span>
+                  {p.commander && <span className={styles.savePcommander}>{p.commander}</span>}
+                  <input
+                    type="number" min="1" max="6" step="1"
+                    placeholder="—"
+                    value={placements[p.id]}
+                    onChange={e => setPlacements(prev => ({ ...prev, [p.id]: e.target.value }))}
+                    className={styles.savePlaceInput}
+                  />
+                </div>
+              )
+            })}
+          </div>
+          {error && <p className={styles.saveError}>{error}</p>}
+          <div className={styles.saveActions}>
+            <button type="button" className={styles.saveCancelBtn} onClick={onClose}>Cancel</button>
+            <button type="submit" className={styles.saveSubmitBtn} disabled={mutation.isPending}>
+              {mutation.isPending ? 'Saving…' : 'Record Game'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── DeckPickerModal ───────────────────────────────────────────
+function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
+  const [search, setSearch] = useState('')
+  const searchRef = useRef(null)
+  useEffect(() => { if (window.innerWidth > 640) searchRef.current?.focus() }, [])
+
+  const term = search.toLowerCase()
+  const filtered = allDecks.filter(d =>
+    !term || d.commander.toLowerCase().includes(term) || (d.name && d.name.toLowerCase().includes(term))
+  )
+  const myDecks    = filtered.filter(d => pilotId && String(d.builder?.id) === String(pilotId)).sort((a, b) => a.commander.localeCompare(b.commander))
+  const otherDecks = filtered.filter(d => !pilotId || String(d.builder?.id) !== String(pilotId)).sort((a, b) => a.commander.localeCompare(b.commander))
+
+  return (
+    <div className={styles.pickerOverlay} onClick={onClose}>
+      <div className={styles.pickerModal} onClick={e => e.stopPropagation()}>
+        <div className={styles.pickerHeader}>
+          <input ref={searchRef} className={styles.pickerSearch} placeholder="Search commanders…" value={search} onChange={e => setSearch(e.target.value)} />
+          <button className={styles.pickerClose} onClick={onClose}>✕</button>
+        </div>
+        <div className={styles.pickerScroll}>
+          {myDecks.length > 0 && (
+            <>
+              <div className={styles.pickerGroupLabel}>Your Decks</div>
+              <div className={styles.pickerGrid}>
+                {myDecks.map(d => (
+                  <button key={d.id} className={styles.pickerCard} onClick={() => onSelect(d)}>
+                    {d.image_uri ? <img src={d.image_uri} alt={d.commander} className={styles.pickerCardImg} /> : <div className={styles.pickerCardImgPlaceholder} />}
+                    <div className={styles.pickerCardInfo}>
+                      <span className={styles.pickerCardName}>{d.commander}</span>
+                      <span className={styles.pickerCardBuilder}>{d.builder?.name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {otherDecks.length > 0 && (
+            <>
+              {myDecks.length > 0 && <div className={styles.pickerGroupLabel}>All Decks</div>}
+              <div className={styles.pickerGrid}>
+                {otherDecks.map(d => (
+                  <button key={d.id} className={styles.pickerCard} onClick={() => onSelect(d)}>
+                    {d.image_uri ? <img src={d.image_uri} alt={d.commander} className={styles.pickerCardImg} /> : <div className={styles.pickerCardImgPlaceholder} />}
+                    <div className={styles.pickerCardInfo}>
+                      <span className={styles.pickerCardName}>{d.commander}</span>
+                      <span className={styles.pickerCardBuilder}>{d.builder?.name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {filtered.length === 0 && <div className={styles.pickerEmpty}>No decks match "{search}"</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── TrackerPage ───────────────────────────────────────────────
 export default function TrackerPage() {
   const navigate = useNavigate()
 
+  // Attempt orientation lock (only works in standalone PWA, silently fails in browser)
   useEffect(() => {
     screen.orientation?.lock('landscape').catch(() => {})
     return () => { try { screen.orientation?.unlock() } catch {} }
   }, [])
 
+  // ── Persistent state ──
   const [phase, setPhase] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_phase')) ?? 'setup' } catch { return 'setup' }
   })
   const [seats, setSeats] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_seats')) ?? [emptySeat(), emptySeat(), emptySeat(), emptySeat()] } catch { return [emptySeat(), emptySeat(), emptySeat(), emptySeat()] }
   })
-  const [pickerSeat, setPickerSeat] = useState(null)
   const [players, setPlayers] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_players')) ?? [] } catch { return [] }
   })
-  const [deltas, setDeltas] = useState({})
-  const [showSave, setShowSave] = useState(false)
-  const [gameSaved, setGameSaved] = useState(false)
-  const deltaTimers = useRef({})
-
-  // ── Clock / roll state ──
-  const [startTime] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('tracker_startTime')) ?? null } catch { return null }
-  })
-  const startTimeRef = useRef(startTime)
-
   const [activeTurnId, setActiveTurnId] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_activeTurnId')) ?? null } catch { return null }
   })
@@ -464,49 +418,56 @@ export default function TrackerPage() {
   const [turnCounts, setTurnCounts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_turnCounts')) ?? {} } catch { return {} }
   })
+
+  const [pickerSeat, setPickerSeat] = useState(null)
+  const [deltas, setDeltas] = useState({})
+  const [showSave, setShowSave] = useState(false)
+  const [gameSaved, setGameSaved] = useState(false)
   const [rolling, setRolling] = useState(false)
   const [rollDisplay, setRollDisplay] = useState(null)
   const [tick, setTick] = useState(0)
 
-  useEffect(() => { localStorage.setItem('tracker_phase', JSON.stringify(phase)) }, [phase])
-  useEffect(() => { localStorage.setItem('tracker_seats', JSON.stringify(seats)) }, [seats])
-  useEffect(() => { localStorage.setItem('tracker_players', JSON.stringify(players)) }, [players])
-  useEffect(() => { localStorage.setItem('tracker_activeTurnId', JSON.stringify(activeTurnId)) }, [activeTurnId])
-  useEffect(() => { localStorage.setItem('tracker_playerTimes', JSON.stringify(playerTimes)) }, [playerTimes])
-  useEffect(() => { localStorage.setItem('tracker_turnStart', JSON.stringify(turnStart)) }, [turnStart])
-  useEffect(() => { localStorage.setItem('tracker_clockEnabled', JSON.stringify(clockEnabled)) }, [clockEnabled])
-  useEffect(() => { localStorage.setItem('tracker_turnCounts', JSON.stringify(turnCounts)) }, [turnCounts])
+  const deltaTimers  = useRef({})
+  const startTimeRef = useRef(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_startTime')) ?? null } catch { return null }
+  })
 
-  // 1-second tick for live clock updates
+  // Persist to localStorage
+  useEffect(() => { localStorage.setItem('tracker_phase',        JSON.stringify(phase))        }, [phase])
+  useEffect(() => { localStorage.setItem('tracker_seats',        JSON.stringify(seats))        }, [seats])
+  useEffect(() => { localStorage.setItem('tracker_players',      JSON.stringify(players))      }, [players])
+  useEffect(() => { localStorage.setItem('tracker_activeTurnId', JSON.stringify(activeTurnId)) }, [activeTurnId])
+  useEffect(() => { localStorage.setItem('tracker_playerTimes',  JSON.stringify(playerTimes))  }, [playerTimes])
+  useEffect(() => { localStorage.setItem('tracker_turnStart',    JSON.stringify(turnStart))    }, [turnStart])
+  useEffect(() => { localStorage.setItem('tracker_clockEnabled', JSON.stringify(clockEnabled)) }, [clockEnabled])
+  useEffect(() => { localStorage.setItem('tracker_turnCounts',   JSON.stringify(turnCounts))   }, [turnCounts])
+
+  // 1-second tick for live clock display
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000)
     return () => clearInterval(id)
   }, [])
 
   const now = Date.now()
+  void tick // consumed to force re-render each second
 
+  // ── Data ──
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData }   = useQuery({
     queryKey: ['decks-all'],
-    queryFn: () => api.decks({ page_size: 100, sort: 'games' }),
+    queryFn:  () => api.decks({ page_size: 100, sort: 'games' }),
   })
 
   const activePlayers = playersData?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? []
   const allDecks      = decksData?.decks ?? []
 
-  function updateSeat(i, field, value) {
+  // ── Seat management ──
+  const updateSeat = (i, field, value) =>
     setSeats(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
-  }
+  const addSeat    = () => { if (seats.length < 6) setSeats(prev => [...prev, emptySeat()]) }
+  const removeSeat = i  => { if (seats.length > 2) setSeats(prev => prev.filter((_, idx) => idx !== i)) }
 
-  function addSeat() {
-    if (seats.length < 6) setSeats(prev => [...prev, emptySeat()])
-  }
-
-  function removeSeat(i) {
-    if (seats.length > 2) setSeats(prev => prev.filter((_, idx) => idx !== i))
-  }
-
-  // ── Lifecycle callbacks ──
+  // ── Life / poison / cmd damage ──
   const changeLife = useCallback((id, amount) => {
     setPlayers(prev => prev.map(p => p.id === id ? { ...p, life: p.life + amount } : p))
     setDeltas(prev => ({ ...prev, [id]: (prev[id] ?? 0) + amount }))
@@ -525,10 +486,9 @@ export default function TrackerPage() {
   const changeCmdDmg = useCallback((playerId, fromId, amount) => {
     setPlayers(prev => prev.map(p => {
       if (p.id !== playerId) return p
-      const cur = p.cmdDamage[fromId] || 0
+      const cur    = p.cmdDamage[fromId] || 0
       const newVal = Math.max(0, cur + amount)
-      const lifeDelta = newVal - cur
-      return { ...p, cmdDamage: { ...p.cmdDamage, [fromId]: newVal }, life: p.life - lifeDelta }
+      return { ...p, cmdDamage: { ...p.cmdDamage, [fromId]: newVal }, life: p.life - (newVal - cur) }
     }))
     setDeltas(prev => ({ ...prev, [playerId]: (prev[playerId] ?? 0) - amount }))
     clearTimeout(deltaTimers.current[playerId])
@@ -537,67 +497,59 @@ export default function TrackerPage() {
     }, 1500)
   }, [])
 
-  function rollForFirst(currentPlayers) {
+  // ── Roll for first ──
+  function rollForFirst(pool) {
     if (rolling) return
+    const p = pool ?? players
+    if (!p.length) return
     setRolling(true)
-    const pool = currentPlayers ?? players
-    if (!pool.length) return
-
-    // Pick winner upfront with crypto random
     const buf = new Uint32Array(1)
     crypto.getRandomValues(buf)
-    const winner = pool[buf[0] % pool.length]
-
-    const totalSteps = 22
+    const winner = p[buf[0] % p.length]
     let step = 0
-
-    function tick() {
-      // Random intermediate display
+    function next() {
       const rnd = new Uint32Array(1)
       crypto.getRandomValues(rnd)
-      setRollDisplay(pool[rnd[0] % pool.length].name)
+      setRollDisplay(p[rnd[0] % p.length].name)
       step++
-      if (step >= totalSteps) {
+      if (step >= 22) {
         setActiveTurnId(winner.id)
         setTurnStart(Date.now())
         setRollDisplay(winner.name)
         setRolling(false)
         localStorage.setItem('tracker_activeTurnId', JSON.stringify(winner.id))
-        localStorage.setItem('tracker_turnStart', JSON.stringify(Date.now()))
+        localStorage.setItem('tracker_turnStart',    JSON.stringify(Date.now()))
       } else {
-        // Start fast, slow down toward the end
-        const delay = step < 10 ? 55 : step < 17 ? 90 : 140
-        setTimeout(tick, delay)
+        setTimeout(next, step < 10 ? 55 : step < 17 ? 90 : 140)
       }
     }
-    setTimeout(tick, 55)
+    setTimeout(next, 55)
   }
 
+  // ── End turn ──
   function isPlayerDead(p) {
-    const cmdMax = players.length > 0
-      ? Math.max(...players.map(opp => p.cmdDamage[opp.id] || 0))
-      : 0
+    const cmdMax = players.length > 0 ? Math.max(...players.map(opp => p.cmdDamage[opp.id] || 0)) : 0
     return p.life <= 0 || p.poison >= 10 || cmdMax >= 21
   }
 
   function endTurn() {
     if (activeTurnId == null || turnStart == null) return
-    const now = Date.now()
-    const elapsed = now - turnStart
+    const elapsed = Date.now() - turnStart
     setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + elapsed }))
     setTurnCounts(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + 1 }))
-    const n = players.length
-    let idx = players.findIndex(p => p.id === activeTurnId)
+    const n   = players.length
+    const idx = players.findIndex(p => p.id === activeTurnId)
     let next
     for (let i = 1; i < n; i++) {
       const candidate = players[(idx - i + n) % n]
       if (!isPlayerDead(candidate)) { next = candidate; break }
     }
-    if (!next) return // all others dead, don't advance
+    if (!next) return
     setActiveTurnId(next.id)
-    setTurnStart(now)
+    setTurnStart(Date.now())
   }
 
+  // ── Start / reset game ──
   function startGame() {
     const newPlayers = initPlayers(seats, activePlayers, allDecks)
     const st = Date.now()
@@ -615,23 +567,24 @@ export default function TrackerPage() {
   }
 
   function resetGame() {
-    if (window.confirm('Reset all life totals?')) {
-      const newPlayers = initPlayers(seats, activePlayers, allDecks)
-      const st = Date.now()
-      startTimeRef.current = st
-      localStorage.setItem('tracker_startTime', JSON.stringify(st))
-      setPlayers(newPlayers)
-      setDeltas({})
-      setActiveTurnId(null)
-      setPlayerTimes({})
-      setTurnCounts({})
-      setTurnStart(null)
-      setRollDisplay(null)
-      setGameSaved(false)
-    }
+    if (!window.confirm('Reset all life totals?')) return
+    const newPlayers = initPlayers(seats, activePlayers, allDecks)
+    const st = Date.now()
+    startTimeRef.current = st
+    localStorage.setItem('tracker_startTime', JSON.stringify(st))
+    setPlayers(newPlayers)
+    setDeltas({})
+    setActiveTurnId(null)
+    setPlayerTimes({})
+    setTurnCounts({})
+    setTurnStart(null)
+    setRollDisplay(null)
+    setGameSaved(false)
   }
 
-  // ── Setup ──────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // SETUP PHASE
+  // ════════════════════════════════════════════════════════════
   if (phase === 'setup') {
     return (
       <div className={styles.setup}>
@@ -644,38 +597,18 @@ export default function TrackerPage() {
               const selectedDeck = allDecks.find(d => String(d.id) === String(seat.deck_id))
               return (
                 <div key={i} className={styles.seatRow}>
-                  <span className={styles.seatNum} style={{ color: PALETTE[i % PALETTE.length].accent }}>
-                    {i + 1}
-                  </span>
+                  <span className={styles.seatNum} style={{ color: PALETTE[i % PALETTE.length].accent }}>{i + 1}</span>
 
                   {seat.is_stranger ? (
                     <>
-                      <input
-                        className={styles.seatSelect}
-                        placeholder="Name…"
-                        value={seat.stranger_name}
-                        onChange={e => updateSeat(i, 'stranger_name', e.target.value)}
-                        maxLength={20}
-                      />
-                      <input
-                        className={styles.seatSelect}
-                        placeholder="Commander…"
-                        value={seat.stranger_commander}
-                        onChange={e => updateSeat(i, 'stranger_commander', e.target.value)}
-                        maxLength={60}
-                      />
+                      <input className={styles.seatSelect} placeholder="Name…"      value={seat.stranger_name}      onChange={e => updateSeat(i, 'stranger_name', e.target.value)}      maxLength={20} />
+                      <input className={styles.seatSelect} placeholder="Commander…" value={seat.stranger_commander} onChange={e => updateSeat(i, 'stranger_commander', e.target.value)} maxLength={60} />
                     </>
                   ) : (
                     <>
-                      <select
-                        className={styles.seatSelect}
-                        value={seat.pilot_id}
-                        onChange={e => updateSeat(i, 'pilot_id', e.target.value)}
-                      >
+                      <select className={styles.seatSelect} value={seat.pilot_id} onChange={e => updateSeat(i, 'pilot_id', e.target.value)}>
                         <option value="">Player…</option>
-                        {activePlayers.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
+                        {activePlayers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
 
                       <button
@@ -684,9 +617,7 @@ export default function TrackerPage() {
                       >
                         {selectedDeck ? (
                           <>
-                            {selectedDeck.image_uri && (
-                              <img src={selectedDeck.image_uri} className={styles.deckPickerBtnThumb} alt="" />
-                            )}
+                            {selectedDeck.image_uri && <img src={selectedDeck.image_uri} className={styles.deckPickerBtnThumb} alt="" />}
                             <span className={styles.deckPickerBtnName}>{selectedDeck.commander}</span>
                           </>
                         ) : (
@@ -696,30 +627,18 @@ export default function TrackerPage() {
                     </>
                   )}
 
-                  <button
-                    className={`${styles.strangerBtn} ${seat.is_stranger ? styles.strangerBtnOn : ''}`}
-                    onClick={() => updateSeat(i, 'is_stranger', !seat.is_stranger)}
-                  >Stranger</button>
-
-                  <button
-                    className={styles.removeBtn}
-                    onClick={() => removeSeat(i)}
-                    disabled={seats.length <= 2}
-                  >✕</button>
+                  <button className={`${styles.strangerBtn} ${seat.is_stranger ? styles.strangerBtnOn : ''}`} onClick={() => updateSeat(i, 'is_stranger', !seat.is_stranger)}>
+                    Stranger
+                  </button>
+                  <button className={styles.removeBtn} onClick={() => removeSeat(i)} disabled={seats.length <= 2}>✕</button>
                 </div>
               )
             })}
           </div>
 
           <div className={styles.setupFooter}>
-            <button
-              className={styles.addSeatBtn}
-              onClick={addSeat}
-              disabled={seats.length >= 6}
-            >+ Add Seat</button>
-            <button className={styles.startBtn} onClick={startGame}>
-              Begin
-            </button>
+            <button className={styles.addSeatBtn} onClick={addSeat} disabled={seats.length >= 6}>+ Add Seat</button>
+            <button className={styles.startBtn} onClick={startGame}>Begin</button>
           </div>
         </div>
 
@@ -735,23 +654,22 @@ export default function TrackerPage() {
     )
   }
 
-  // ── Game ───────────────────────────────────────────────────
-  const count = players.length
+  // ════════════════════════════════════════════════════════════
+  // GAME PHASE
+  // ════════════════════════════════════════════════════════════
+  const count     = players.length
   const positions = getPositions(count)
 
-  // Live per-player times (accumulated + current turn if active)
-  // tick dependency ensures re-render each second
   const liveTimes = Object.fromEntries(players.map(p => [
     p.id,
     (playerTimes[p.id] || 0) + (clockEnabled && activeTurnId === p.id && turnStart ? now - turnStart : 0),
   ]))
-  void tick // consumed to trigger re-render
 
   return (
     <div className={styles.game}>
       <div className={`${styles.gameGrid} ${styles['grid' + count]}`}>
         {players.map((p, i) => {
-          const pos = positions[i] ?? { gridArea: `p${i}` }
+          const pos   = positions[i] ?? { gridArea: `p${i}` }
           const panel = (
             <PlayerPanel
               player={p}
@@ -767,17 +685,9 @@ export default function TrackerPage() {
             />
           )
           if (pos.side) {
-            return (
-              <SidePanelWrapper key={p.id} side={pos.side} gridArea={pos.gridArea}>
-                {panel}
-              </SidePanelWrapper>
-            )
+            return <SidePanelWrapper key={p.id} side={pos.side} gridArea={pos.gridArea}>{panel}</SidePanelWrapper>
           }
-          return (
-            <div key={p.id} style={{ gridArea: pos.gridArea }}>
-              {panel}
-            </div>
-          )
+          return <div key={p.id} style={{ gridArea: pos.gridArea }}>{panel}</div>
         })}
       </div>
 
@@ -786,35 +696,23 @@ export default function TrackerPage() {
         <button className={styles.barbtn} onClick={() => setPhase('setup')}>← Setup</button>
 
         <div className={styles.barroll}>
-          {rolling ? (
-            <span className={styles.barrolling}>{rollDisplay}</span>
-          ) : rollDisplay ? (
-            <span className={styles.barfirst}>🎲 {rollDisplay} goes first</span>
-          ) : null}
-          <button className={styles.barbtn} onClick={() => rollForFirst()} title="Roll for first player">🎲</button>
+          {rolling  && <span className={styles.barrolling}>{rollDisplay}</span>}
+          {!rolling && rollDisplay && <span className={styles.barfirst}>🎲 {rollDisplay} goes first</span>}
+          <button className={styles.barbtn} onClick={() => rollForFirst()} title="Roll for first">🎲</button>
         </div>
 
         <div className={styles.barclock}>
-          <button
-            className={`${styles.barbtn} ${clockEnabled ? styles.barbtnOn : ''}`}
-            onClick={() => setClockEnabled(e => !e)}
-            title="Toggle chess clock"
-          >⏱</button>
+          <button className={`${styles.barbtn} ${clockEnabled ? styles.barbtnOn : ''}`} onClick={() => setClockEnabled(e => !e)} title="Chess clock">⏱</button>
           {clockEnabled && activeTurnId != null && (
-            <button className={`${styles.barbtn} ${styles.barbtnEndTurn}`} onClick={endTurn}>
-              End Turn
-            </button>
+            <button className={`${styles.barbtn} ${styles.barbtnEndTurn}`} onClick={endTurn}>End Turn</button>
           )}
         </div>
 
         <button className={styles.barbtn} onClick={resetGame}>Reset</button>
-        {gameSaved ? (
-          <span className={styles.savedBadge}>✓ Saved</span>
-        ) : (
-          <button className={`${styles.barbtn} ${styles.barbtnSave}`} onClick={() => setShowSave(true)}>
-            Save
-          </button>
-        )}
+        {gameSaved
+          ? <span className={styles.savedBadge}>✓ Saved</span>
+          : <button className={`${styles.barbtn} ${styles.barbtnSave}`} onClick={() => setShowSave(true)}>Save</button>
+        }
       </div>
 
       {showSave && (
