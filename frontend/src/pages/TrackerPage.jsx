@@ -62,14 +62,10 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
       className={`${styles.panel} ${rotated ? styles.rotated : ''} ${isDead ? styles.panelDead : ''} ${isActive ? styles.panelActive : ''}`}
       style={{ '--accent': color.accent, '--glow': color.glow }}
     >
-      {player.image_uri && (
-        <div className={styles.panelBg} style={{ backgroundImage: `url(${player.image_uri})` }} />
-      )}
       {/* Header */}
       <div className={styles.panelHead}>
         <div className={styles.pnameBlock}>
           <span className={styles.pname}>{player.name}</span>
-          {player.commander && <span className={styles.pcommander}>{player.commander}</span>}
         </div>
         <div className={styles.picons}>
           {clockEnabled && playerTime != null && (
@@ -90,7 +86,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
 
       {/* Life area */}
       <div className={styles.lifeArea}>
-        {player.commander && <span className={styles.cmdWatermark}>{player.commander}</span>}
+        {player.image_uri && <img src={player.image_uri} className={styles.cmdArt} alt="" />}
         <div className={styles.zonePlus} onClick={() => onLife(player.id, 1)}>
           <span className={styles.chevron}>▲</span>
           <button className={styles.fivebtn} onClick={e => { e.stopPropagation(); onLife(player.id, 5) }}>+5</button>
