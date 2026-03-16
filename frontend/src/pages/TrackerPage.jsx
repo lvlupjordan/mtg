@@ -249,10 +249,29 @@ function getPositions(count) {
   }
 }
 
+function computePlacements(players, deathOrder) {
+  // deathOrder: array of arrays, earliest deaths first e.g. [[id1], [id2, id3], [id4]]
+  // Alive players (not in deathOrder) all get 1st.
+  // Dead players: last group to die = best dead placement, working down from players.length.
+  const allDead = deathOrder.flat()
+  const placements = {}
+  players.forEach(p => { if (!allDead.includes(p.id)) placements[p.id] = 1 })
+  let pos = players.length
+  for (const group of deathOrder) {
+    const avg = group.length > 1 ? (pos + pos - group.length + 1) / 2 : pos
+    group.forEach(id => { placements[id] = avg })
+    pos -= group.length
+  }
+  return placements
+}
+
 // ── SaveGameOverlay ───────────────────────────────────────────
-function SaveGameOverlay({ players, turnCount, totalGameTime, turnCounts, playerTimes, onClose, onSaved }) {
+function SaveGameOverlay({ players, deathOrder, turnCount, totalGameTime, turnCounts, playerTimes, onClose, onSaved }) {
   const qc = useQueryClient()
-  const [placements, setPlacements] = useState(Object.fromEntries(players.map(p => [p.id, ''])))
+  const computed = computePlacements(players, deathOrder)
+  const [placements, setPlacements] = useState(
+    Object.fromEntries(players.map(p => [p.id, String(computed[p.id] ?? '')]))
+  )
   const [error, setError] = useState(null)
 
   const mutation = useMutation({
@@ -421,6 +440,10 @@ export default function TrackerPage() {
     try { return JSON.parse(localStorage.getItem('tracker_turnCounts')) ?? {} } catch { return {} }
   })
 
+  const [deathOrder, setDeathOrder] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_deathOrder')) ?? [] } catch { return [] }
+  })
+
   const [pickerSeat, setPickerSeat] = useState(null)
   const [deltas, setDeltas] = useState({})
   const [showSave, setShowSave] = useState(false)
@@ -443,6 +466,20 @@ export default function TrackerPage() {
   useEffect(() => { localStorage.setItem('tracker_turnStart',    JSON.stringify(turnStart))    }, [turnStart])
   useEffect(() => { localStorage.setItem('tracker_clockEnabled', JSON.stringify(clockEnabled)) }, [clockEnabled])
   useEffect(() => { localStorage.setItem('tracker_turnCounts',   JSON.stringify(turnCounts))   }, [turnCounts])
+  useEffect(() => { localStorage.setItem('tracker_deathOrder',   JSON.stringify(deathOrder))   }, [deathOrder])
+
+  // Detect deaths — group players who die in the same state update
+  useEffect(() => {
+    if (!players.length) return
+    const newDead = players.filter(p => {
+      const cmdMax = Math.max(0, ...players.map(opp => p.cmdDamage[opp.id] || 0))
+      const dead = p.life <= 0 || p.poison >= 10 || cmdMax >= 21
+      return dead && !deathOrder.flat().includes(p.id)
+    })
+    if (newDead.length > 0) {
+      setDeathOrder(prev => [...prev, newDead.map(p => p.id)])
+    }
+  }, [players])
 
   // 1-second tick for live clock display
   useEffect(() => {
@@ -559,6 +596,7 @@ export default function TrackerPage() {
     localStorage.setItem('tracker_startTime', JSON.stringify(st))
     setPlayers(newPlayers)
     setDeltas({})
+    setDeathOrder([])
     setActiveTurnId(null)
     setPlayerTimes({})
     setTurnCounts({})
@@ -576,6 +614,7 @@ export default function TrackerPage() {
     localStorage.setItem('tracker_startTime', JSON.stringify(st))
     setPlayers(newPlayers)
     setDeltas({})
+    setDeathOrder([])
     setActiveTurnId(null)
     setPlayerTimes({})
     setTurnCounts({})
@@ -720,6 +759,7 @@ export default function TrackerPage() {
       {showSave && (
         <SaveGameOverlay
           players={players}
+          deathOrder={deathOrder}
           turnCount={Object.values(turnCounts).length > 0 ? Math.max(...Object.values(turnCounts)) : null}
           totalGameTime={startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : null}
           turnCounts={turnCounts}
