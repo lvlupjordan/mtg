@@ -211,7 +211,6 @@
 
 @media (max-width: 768px) {
   .game { height: 100svh; }
-  .setup { min-height: 100svh; }
 }
 
 /* ── Force landscape in portrait ─────────────────────────────── */
@@ -230,26 +229,6 @@
     transform-origin: top left;
     overflow: hidden;
   }
-  .setup {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vh;
-    height: 100vw;
-    min-height: unset;
-    transform: rotate(90deg) translateY(-100vw);
-    transform-origin: top left;
-    overflow-y: auto;
-    align-items: flex-start;
-    padding: 16px;
-  }
-  .setup .setupCard {
-    padding: 18px 20px;
-    gap: 14px;
-    margin: auto;
-  }
-  .setup .setupTitle { font-size: 17px; }
-  .setup .setupSub { display: none; }
   /* Target side panel width to match row height so all panels feel equal.
      Row height = (100vw - gamebar) / 2 = (390 - 56) / 2 ≈ 167px on a typical phone.
      Setting --sw ≈ 20vh keeps side panels proportional to that. */
