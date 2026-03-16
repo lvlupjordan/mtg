@@ -86,6 +86,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
 
       {/* Life area */}
       <div className={styles.lifeArea}>
+        {player.commander && <span className={styles.cmdWatermark}>{player.commander}</span>}
         <div className={styles.zonePlus} onClick={() => onLife(player.id, 1)}>
           <span className={styles.chevron}>▲</span>
           <button className={styles.fivebtn} onClick={e => { e.stopPropagation(); onLife(player.id, 5) }}>+5</button>
