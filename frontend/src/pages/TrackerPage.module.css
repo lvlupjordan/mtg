@@ -4,7 +4,7 @@
 
 :root {
   --bar-h: 52px;
-  --sw: clamp(110px, 18vw, 180px); /* side panel width in grid */
+  --sw: clamp(110px, 18vw, 280px); /* side panel width in grid */
 }
 
 /* ── Setup ──────────────────────────────────────────────────── */
