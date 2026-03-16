@@ -37,6 +37,7 @@ function initPlayers(seats, playersData, decksData) {
       deck_id:     seat.is_stranger ? null : (deck?.id ?? null),
       name:        seat.is_stranger ? (seat.stranger_name || 'Stranger') : (pilot?.name ?? `Player ${i + 1}`),
       commander:   seat.is_stranger ? (seat.stranger_commander || '') : (deck?.commander ?? ''),
+      image_uri:   seat.is_stranger ? null : (deck?.image_uri ?? null),
       is_stranger: seat.is_stranger,
       life:        LIFE_START,
       poison:      0,
@@ -61,6 +62,9 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
       className={`${styles.panel} ${rotated ? styles.rotated : ''} ${isDead ? styles.panelDead : ''} ${isActive ? styles.panelActive : ''}`}
       style={{ '--accent': color.accent, '--glow': color.glow }}
     >
+      {player.image_uri && (
+        <div className={styles.panelBg} style={{ backgroundImage: `url(${player.image_uri})` }} />
+      )}
       {/* Header */}
       <div className={styles.panelHead}>
         <div className={styles.pnameBlock}>
