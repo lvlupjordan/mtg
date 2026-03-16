@@ -539,9 +539,9 @@
   border: 1px solid transparent;
   border-radius: 4px;
   color: var(--text-dim);
-  font-size: clamp(14px, 1.8svh, 16px);
-  width: clamp(30px, 4svh, 34px);
-  height: clamp(30px, 4svh, 34px);
+  font-size: clamp(18px, 2svh, 20px);
+  width: clamp(38px, 5svh, 42px);
+  height: clamp(38px, 5svh, 42px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -592,9 +592,9 @@
   border-radius: 5px;
   color: var(--text-dim);
   font-family: 'Cinzel', serif;
-  font-size: clamp(8px, 1.3svh, 11px);
+  font-size: clamp(12px, 1.5svh, 14px);
   font-weight: 600;
-  padding: clamp(2px, 0.5svh, 4px) clamp(4px, 0.8svh, 8px);
+  padding: clamp(5px, 0.9svh, 8px) clamp(10px, 1.5svh, 14px);
   cursor: pointer;
   transition: all 0.12s;
   z-index: 1;
