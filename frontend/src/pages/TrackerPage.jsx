@@ -66,6 +66,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
       <div className={styles.panelHead}>
         <div className={styles.pnameBlock}>
           <span className={styles.pname}>{player.name}</span>
+          {player.commander && <span className={styles.pcommander}>{player.commander}</span>}
         </div>
         <div className={styles.picons}>
           {clockEnabled && playerTime != null && (
