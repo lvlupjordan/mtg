@@ -539,9 +539,9 @@
   border: 1px solid transparent;
   border-radius: 4px;
   color: var(--text-dim);
-  font-size: clamp(10px, 1.5svh, 14px);
-  width: clamp(20px, 3.5svh, 28px);
-  height: clamp(20px, 3.5svh, 28px);
+  font-size: clamp(14px, 1.8svh, 16px);
+  width: clamp(30px, 4svh, 34px);
+  height: clamp(30px, 4svh, 34px);
   display: flex;
   align-items: center;
   justify-content: center;
