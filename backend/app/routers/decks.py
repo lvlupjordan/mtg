@@ -182,14 +182,14 @@ def get_deck(deck_id: int, db: Session = Depends(get_db)):
             {
                 "game_id": s.game_id,
                 "played_at": s.game.played_at,
-                "pilot": s.pilot.name,
+                "pilot": s.pilot.name if s.pilot else None,
                 "placement": s.placement,
                 "victory_condition": s.victory_condition,
                 "opponents": [
                     {
                         "deck_id": other.deck_id,
-                        "commander": other.deck.commander,
-                        "pilot": other.pilot.name,
+                        "commander": other.deck.commander if other.deck else None,
+                        "pilot": other.pilot.name if other.pilot else None,
                         "placement": other.placement,
                     }
                     for other in sorted(s.game.seats, key=lambda x: x.placement or 99)
