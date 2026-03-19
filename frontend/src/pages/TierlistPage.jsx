@@ -352,7 +352,7 @@ function TierGrid({ tiers, caps, decksById, eloById, showRating, editing,
                 <DeckCard
                   key={id}
                   deck={decksById[id]}
-                  rating={eloById[id]}
+                  rating={undefined}
                   fromTier="unranked"
                   isDragging={dragging?.deckId === id}
                   isDropBefore={dropTarget?.tier === 'unranked' && dropTarget?.beforeId === id}
