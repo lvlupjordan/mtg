@@ -127,14 +127,13 @@
 .tierCards {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 8px 12px;
-  overflow-x: auto;
   min-height: 116px;
+  align-content: flex-start;
 }
-
-.tierCards::-webkit-scrollbar { height: 4px; }
 
 .emptyHint {
   font-family: 'Crimson Pro', serif;
