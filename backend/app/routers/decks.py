@@ -23,7 +23,7 @@ def list_decks(
     search: str | None = Query(default=None),
     sort: str = Query(default="games", description="games | win_rate | avg_placement | cmc"),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    page_size: int = Query(default=20, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
     q = (
