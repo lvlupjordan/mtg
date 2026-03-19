@@ -264,6 +264,7 @@ export default function TierlistPage() {
           caps={caps}
           decksById={decksById}
           eloById={eloById}
+          showRating={viewId === 'elo' && !editing}
           editing={editing}
           dragging={dragging}
           dropTarget={dropTarget}
@@ -280,7 +281,7 @@ export default function TierlistPage() {
 
 // ── Tier Grid ─────────────────────────────────────────────────────────────────
 
-function TierGrid({ tiers, caps, decksById, eloById, editing,
+function TierGrid({ tiers, caps, decksById, eloById, showRating, editing,
   dragging, dropTarget, handleDragStart, handleDragEnd,
   handleCardDragOver, handleTierDragOver, handleDrop }) {
   return (
@@ -313,7 +314,7 @@ function TierGrid({ tiers, caps, decksById, eloById, editing,
                   <DeckCard
                     key={id}
                     deck={decksById[id]}
-                    rating={eloById[id]}
+                    rating={showRating ? eloById[id] : undefined}
                     fromTier={tier}
                     isDragging={dragging?.deckId === id}
                     isDropBefore={editing && dropTarget?.tier === tier && dropTarget?.beforeId === id}
