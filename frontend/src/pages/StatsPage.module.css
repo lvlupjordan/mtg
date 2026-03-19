@@ -320,6 +320,11 @@
   font-size: 16px;
 }
 
+.identityValueZero {
+  color: var(--loss);
+  opacity: 0.7;
+}
+
 .identityGames {
   font-family: 'Crimson Pro', serif;
   font-size: 10px;

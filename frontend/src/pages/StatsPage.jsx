@@ -50,13 +50,13 @@ const ALL_IDENTITIES = [
   { key: 'WUR',   colors: ['W','U','R'],         name: 'Jeskai',     pips: 3 },
   { key: 'UBG',   colors: ['U','B','G'],         name: 'Sultai',     pips: 3 },
   // Nephilim / 4-colour
-  { key: 'WUBR',  colors: ['W','U','B','R'],     name: 'Non-Green',  pips: 4 },
-  { key: 'UBRG',  colors: ['U','B','R','G'],     name: 'Non-White',  pips: 4 },
-  { key: 'WBRG',  colors: ['W','B','R','G'],     name: 'Non-Blue',   pips: 4 },
-  { key: 'WURG',  colors: ['W','U','R','G'],     name: 'Non-Black',  pips: 4 },
-  { key: 'WUBG',  colors: ['W','U','B','G'],     name: 'Non-Red',    pips: 4 },
+  { key: 'WUBR',  colors: ['W','U','B','R'],     name: 'Yore-Tiller', pips: 4 },
+  { key: 'UBRG',  colors: ['U','B','R','G'],     name: 'Glint-Eye',   pips: 4 },
+  { key: 'WBRG',  colors: ['W','B','R','G'],     name: 'Dune-Brood',  pips: 4 },
+  { key: 'WURG',  colors: ['W','U','R','G'],     name: 'Ink-Treader', pips: 4 },
+  { key: 'WUBG',  colors: ['W','U','B','G'],     name: 'Witch-Maw',   pips: 4 },
   // Five-colour
-  { key: 'WUBRG', colors: ['W','U','B','R','G'], name: 'Five-Color', pips: 5 },
+  { key: 'WUBRG', colors: ['W','U','B','R','G'], name: 'WUBRG',       pips: 5 },
 ]
 
 const PIP_GROUPS = [
@@ -311,7 +311,7 @@ function IdentityGrid({ metric, apiData }) {
                       }
                     </div>
                     <div className={styles.identityName}>{identity.name}</div>
-                    <div className={styles.identityValue}>{fmt(metric, val)}</div>
+                    <div className={`${styles.identityValue} ${!empty && val === 0 && !isDeckMetric ? styles.identityValueZero : ''}`}>{fmt(metric, val)}</div>
                     {!isDeckMetric && games > 0 && (
                       <div className={styles.identityGames}>{games}g</div>
                     )}
@@ -371,7 +371,7 @@ export default function StatsPage() {
     metric,
     filter_by: filterBy || undefined,
     filter_value: filterValue || undefined,
-    min_games: minGames,
+    min_games: showIdentityGrid ? 0 : minGames,
     limit,
   }
 
