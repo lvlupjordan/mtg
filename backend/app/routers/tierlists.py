@@ -50,7 +50,7 @@ def save_tierlist(user_id: int, body: dict, db: Session = Depends(get_db)):
 
     db.execute(text("""
         INSERT INTO tier_lists (user_id, tiers, updated_at)
-        VALUES (:uid, :tiers::jsonb, NOW())
+        VALUES (:uid, CAST(:tiers AS jsonb), NOW())
         ON CONFLICT (user_id) DO UPDATE
             SET tiers = EXCLUDED.tiers,
                 updated_at = EXCLUDED.updated_at
