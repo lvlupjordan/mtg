@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -7,44 +7,121 @@ import {
 import { api } from '../api'
 import styles from './StatsPage.module.css'
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const WUBRG = ['W', 'U', 'B', 'R', 'G']
+
+function sortedKey(colors) {
+  if (!colors?.length) return 'C'
+  return [...colors].sort((a, b) => WUBRG.indexOf(a) - WUBRG.indexOf(b)).join('')
+}
+
+const ALL_IDENTITIES = [
+  // Colorless
+  { key: 'C',     colors: [],                    name: 'Colorless',  pips: 0 },
+  // Mono
+  { key: 'W',     colors: ['W'],                 name: 'White',      pips: 1 },
+  { key: 'U',     colors: ['U'],                 name: 'Blue',       pips: 1 },
+  { key: 'B',     colors: ['B'],                 name: 'Black',      pips: 1 },
+  { key: 'R',     colors: ['R'],                 name: 'Red',        pips: 1 },
+  { key: 'G',     colors: ['G'],                 name: 'Green',      pips: 1 },
+  // Guilds (allied)
+  { key: 'WU',    colors: ['W','U'],             name: 'Azorius',    pips: 2 },
+  { key: 'UB',    colors: ['U','B'],             name: 'Dimir',      pips: 2 },
+  { key: 'BR',    colors: ['B','R'],             name: 'Rakdos',     pips: 2 },
+  { key: 'RG',    colors: ['R','G'],             name: 'Gruul',      pips: 2 },
+  { key: 'GW',    colors: ['G','W'],             name: 'Selesnya',   pips: 2 },
+  // Guilds (enemy)
+  { key: 'WB',    colors: ['W','B'],             name: 'Orzhov',     pips: 2 },
+  { key: 'UR',    colors: ['U','R'],             name: 'Izzet',      pips: 2 },
+  { key: 'BG',    colors: ['B','G'],             name: 'Golgari',    pips: 2 },
+  { key: 'WR',    colors: ['W','R'],             name: 'Boros',      pips: 2 },
+  { key: 'UG',    colors: ['U','G'],             name: 'Simic',      pips: 2 },
+  // Shards
+  { key: 'WUB',   colors: ['W','U','B'],         name: 'Esper',      pips: 3 },
+  { key: 'UBR',   colors: ['U','B','R'],         name: 'Grixis',     pips: 3 },
+  { key: 'BRG',   colors: ['B','R','G'],         name: 'Jund',       pips: 3 },
+  { key: 'WRG',   colors: ['W','R','G'],         name: 'Naya',       pips: 3 },
+  { key: 'WUG',   colors: ['W','U','G'],         name: 'Bant',       pips: 3 },
+  // Clans / wedges
+  { key: 'WBR',   colors: ['W','B','R'],         name: 'Mardu',      pips: 3 },
+  { key: 'URG',   colors: ['U','R','G'],         name: 'Temur',      pips: 3 },
+  { key: 'WBG',   colors: ['W','B','G'],         name: 'Abzan',      pips: 3 },
+  { key: 'WUR',   colors: ['W','U','R'],         name: 'Jeskai',     pips: 3 },
+  { key: 'UBG',   colors: ['U','B','G'],         name: 'Sultai',     pips: 3 },
+  // Nephilim / 4-colour
+  { key: 'WUBR',  colors: ['W','U','B','R'],     name: 'Non-Green',  pips: 4 },
+  { key: 'UBRG',  colors: ['U','B','R','G'],     name: 'Non-White',  pips: 4 },
+  { key: 'WBRG',  colors: ['W','B','R','G'],     name: 'Non-Blue',   pips: 4 },
+  { key: 'WURG',  colors: ['W','U','R','G'],     name: 'Non-Black',  pips: 4 },
+  { key: 'WUBG',  colors: ['W','U','B','G'],     name: 'Non-Red',    pips: 4 },
+  // Five-colour
+  { key: 'WUBRG', colors: ['W','U','B','R','G'], name: 'Five-Color', pips: 5 },
+]
+
+const PIP_GROUPS = [
+  { pips: 0, label: 'Colorless' },
+  { pips: 1, label: 'Mono' },
+  { pips: 2, label: 'Two-Colour' },
+  { pips: 3, label: 'Three-Colour' },
+  { pips: 4, label: 'Four-Colour' },
+  { pips: 5, label: 'Five-Colour' },
+]
+
+const PIP_COLOUR = {
+  W: '#f5e9c0', U: '#5b9bd5', B: '#b07ec4', R: '#d9534f', G: '#3aaa6a', C: '#8a8a8a',
+}
+
 const METRICS = [
-  { value: 'win_rate', label: 'win rate' },
-  { value: 'games', label: 'games played' },
-  { value: 'wins', label: 'wins' },
-  { value: 'avg_placement', label: 'avg placement' },
+  { value: 'win_rate',     label: 'win rate' },
+  { value: 'games',        label: 'games played' },
+  { value: 'wins',         label: 'wins' },
+  { value: 'avg_placement',label: 'avg placement' },
+  { value: 'decks',        label: 'decks built' },
+  { value: 'active_decks', label: 'active decks' },
 ]
 
 const DIMENSIONS = [
-  { value: 'player', label: 'player' },
-  { value: 'deck', label: 'deck' },
-  { value: 'colour', label: 'colour' },
+  { value: 'player',   label: 'player' },
+  { value: 'deck',     label: 'deck' },
+  { value: 'colour',   label: 'colour' },
   { value: 'identity', label: 'commander identity' },
-  { value: 'month', label: 'month' },
+  { value: 'month',    label: 'month' },
 ]
 
 const OVER_OPTIONS = [
   { value: '', label: '—' },
   { value: 'month', label: 'month' },
-  { value: 'game', label: 'game' },
+  { value: 'game',  label: 'game' },
 ]
 
 const FILTER_OPTIONS = [
-  { value: '', label: 'no filter' },
+  { value: '',       label: 'no filter' },
   { value: 'player', label: 'player' },
   { value: 'colour', label: 'colour' },
-  { value: 'deck', label: 'deck' },
+  { value: 'deck',   label: 'deck' },
 ]
 
 const COLOURS = ['W', 'U', 'B', 'R', 'G']
-
-const COLOUR_FILL = {
-  W: '#f5e9c0', U: '#5b9bd5', B: '#a87fc1', R: '#d9534f', G: '#3aaa6a', C: '#8a8a8a',
-}
 
 const LINE_COLOURS = [
   '#c9a84c', '#5b9bd5', '#3aaa6a', '#d9534f', '#a87fc1',
   '#e8a838', '#4ec9b0', '#f48fb1', '#80cbc4', '#ffcc80',
 ]
+
+const TIME_DIMS = ['player', 'deck', 'colour', 'identity']
+const DECK_METRICS = ['decks', 'active_decks']
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmt(metric, val) {
+  if (val === null || val === undefined) return '—'
+  if (metric === 'win_rate') return `${Math.round(val * 100)}%`
+  if (metric === 'avg_placement') return val.toFixed ? val.toFixed(2) : val
+  return val
+}
+
+// ── Small components ──────────────────────────────────────────────────────────
 
 function InlineSelect({ value, onChange, options }) {
   return (
@@ -64,7 +141,7 @@ function ColourPicker({ value, onChange }) {
           key={c}
           type="button"
           className={`${styles.colourBtn} ${value === c ? styles.colourBtnActive : ''}`}
-          style={{ '--pip': COLOUR_FILL[c] }}
+          style={{ '--pip': PIP_COLOUR[c] }}
           onClick={() => onChange(c)}
         >
           {c}
@@ -85,13 +162,6 @@ function FilterValueInput({ filterBy, value, onChange, players, decks }) {
     return <InlineSelect value={value} onChange={onChange} options={[{ value: '', label: '…' }, ...opts]} />
   }
   return null
-}
-
-function fmt(metric, val) {
-  if (val === null || val === undefined) return '—'
-  if (metric === 'win_rate') return `${Math.round(val * 100)}%`
-  if (metric === 'avg_placement') return val.toFixed ? val.toFixed(2) : val
-  return val
 }
 
 function CustomTooltip({ active, payload, label, metric }) {
@@ -122,6 +192,8 @@ function BarCustomTooltip({ active, payload, metric }) {
   )
 }
 
+// ── Charts ────────────────────────────────────────────────────────────────────
+
 function MultiLineChart({ tsData, metric }) {
   const { series, data } = tsData
   const chartH = window.innerWidth < 600 ? 220 : 360
@@ -129,33 +201,12 @@ function MultiLineChart({ tsData, metric }) {
     <ResponsiveContainer width="100%" height={chartH}>
       <LineChart data={data} margin={{ top: 8, right: 24, bottom: 32, left: 16 }}>
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-        <XAxis
-          dataKey="x"
-          tick={{ fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'Cinzel, serif' }}
-          angle={-30}
-          textAnchor="end"
-          interval="preserveStartEnd"
-        />
-        <YAxis
-          tickFormatter={v => fmt(metric, v)}
-          tick={{ fill: 'var(--text-dim)', fontSize: 11 }}
-          width={48}
-        />
+        <XAxis dataKey="x" tick={{ fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'Cinzel, serif' }} angle={-30} textAnchor="end" interval="preserveStartEnd" />
+        <YAxis tickFormatter={v => fmt(metric, v)} tick={{ fill: 'var(--text-dim)', fontSize: 11 }} width={48} />
         <Tooltip content={<CustomTooltip metric={metric} />} />
-        <Legend
-          wrapperStyle={{ fontFamily: 'Cinzel, serif', fontSize: 11, color: 'var(--text-dim)', paddingTop: 8 }}
-        />
+        <Legend wrapperStyle={{ fontFamily: 'Cinzel, serif', fontSize: 11, color: 'var(--text-dim)', paddingTop: 8 }} />
         {series.map((name, i) => (
-          <Line
-            key={name}
-            type="monotone"
-            dataKey={name}
-            stroke={LINE_COLOURS[i % LINE_COLOURS.length]}
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 5 }}
-            connectNulls={false}
-          />
+          <Line key={name} type="monotone" dataKey={name} stroke={LINE_COLOURS[i % LINE_COLOURS.length]} strokeWidth={2} dot={false} activeDot={{ r: 5 }} connectNulls={false} />
         ))}
       </LineChart>
     </ResponsiveContainer>
@@ -180,9 +231,7 @@ function BarChartView({ data, metric, dimension }) {
           <YAxis type="category" dataKey="label" width={yWidth} tick={{ fill: 'var(--text-bright)', fontSize: isMobile ? 10 : 11, fontFamily: 'Cinzel, serif' }} />
           <Tooltip content={<BarCustomTooltip metric={metric} />} />
           <Bar dataKey="value" radius={[0, 3, 3, 0]}>
-            {data.map((_, i) => (
-              <Cell key={i} fill="var(--gold)" opacity={1 - i * (0.4 / Math.max(data.length, 1))} />
-            ))}
+            {data.map((_, i) => <Cell key={i} fill="var(--gold)" opacity={1 - i * (0.4 / Math.max(data.length, 1))} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -193,27 +242,103 @@ function BarChartView({ data, metric, dimension }) {
     <ResponsiveContainer width="100%" height={isMobile ? 200 : 320}>
       <BarChart data={data} margin={{ top: 8, right: 24, bottom: 32, left: 16 }}>
         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-        <XAxis
-          dataKey="label"
-          tick={{ fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'Cinzel, serif' }}
-          angle={dimension === 'month' ? -30 : 0}
-          textAnchor={dimension === 'month' ? 'end' : 'middle'}
-          interval={0}
-        />
+        <XAxis dataKey="label" tick={{ fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'Cinzel, serif' }} angle={dimension === 'month' ? -30 : 0} textAnchor={dimension === 'month' ? 'end' : 'middle'} interval={0} />
         <YAxis tickFormatter={v => fmt(metric, v)} tick={{ fill: 'var(--text-dim)', fontSize: 11 }} width={48} />
         <Tooltip content={<BarCustomTooltip metric={metric} />} />
         <Bar dataKey="value" radius={[3, 3, 0, 0]}>
-          {data.map((entry, i) => (
-            <Cell key={i} fill={dimension === 'colour' ? (COLOUR_FILL[entry.label] || 'var(--gold)') : 'var(--gold)'} />
-          ))}
+          {data.map((entry, i) => <Cell key={i} fill={dimension === 'colour' ? (PIP_COLOUR[entry.label] || 'var(--gold)') : 'var(--gold)'} />)}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
   )
 }
 
-// All dimensions except 'month' support "over time"
-const TIME_DIMS = ['player', 'deck', 'colour', 'identity']
+// ── Identity Grid ─────────────────────────────────────────────────────────────
+
+function IdentityPip({ color }) {
+  return (
+    <span
+      className={styles.identityPip}
+      style={{ background: PIP_COLOUR[color] ?? '#888' }}
+      title={color}
+    />
+  )
+}
+
+function IdentityGrid({ metric, apiData, allDecks }) {
+  const isDeckMetric = DECK_METRICS.includes(metric)
+
+  // Build lookup from API data (game metrics) or deck data
+  const lookup = useMemo(() => {
+    const result = {}
+    if (isDeckMetric) {
+      for (const deck of allDecks ?? []) {
+        const key = sortedKey(deck.color_identity)
+        if (!result[key]) result[key] = { decks: 0, active: 0 }
+        result[key].decks++
+        if (deck.active) result[key].active++
+      }
+    } else {
+      for (const row of apiData ?? []) {
+        result[row.label] = { value: row.value, games: row.games }
+      }
+    }
+    return result
+  }, [metric, apiData, allDecks])
+
+  function getValue(identity) {
+    if (isDeckMetric) {
+      const entry = lookup[identity.key]
+      return metric === 'active_decks' ? (entry?.active ?? 0) : (entry?.decks ?? 0)
+    }
+    return lookup[identity.key]?.value ?? null
+  }
+
+  function getGames(identity) {
+    return lookup[identity.key]?.games ?? 0
+  }
+
+  return (
+    <div className={styles.identityGrid}>
+      {PIP_GROUPS.map(group => {
+        const items = ALL_IDENTITIES.filter(id => id.pips === group.pips)
+        return (
+          <div key={group.pips} className={styles.identityGroup}>
+            <div className={styles.identityGroupLabel}>{group.label}</div>
+            <div className={styles.identityGroupCards}>
+              {items.map(identity => {
+                const val = getValue(identity)
+                const games = getGames(identity)
+                const empty = isDeckMetric ? val === 0 : val === null || val === undefined
+                return (
+                  <div
+                    key={identity.key}
+                    className={`${styles.identityCard} ${empty ? styles.identityCardEmpty : ''}`}
+                    title={`${identity.name} — ${fmt(metric, val)}${!isDeckMetric && games ? ` (${games} games)` : ''}`}
+                  >
+                    <div className={styles.identityPips}>
+                      {identity.colors.length === 0
+                        ? <IdentityPip color="C" />
+                        : identity.colors.map(c => <IdentityPip key={c} color={c} />)
+                      }
+                    </div>
+                    <div className={styles.identityName}>{identity.name}</div>
+                    <div className={styles.identityValue}>{fmt(metric, val)}</div>
+                    {!isDeckMetric && games > 0 && (
+                      <div className={styles.identityGames}>{games}g</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StatsPage() {
   const [metric, setMetric] = useState('win_rate')
@@ -227,12 +352,13 @@ export default function StatsPage() {
   const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData } = useQuery({
     queryKey: ['decks-all'],
-    queryFn: () => api.decks({ page_size: 100 }),
+    queryFn: () => api.decks({ page_size: 200 }),
   })
 
-  // Only show "over" option for player/deck dimensions
   const canUseOver = TIME_DIMS.includes(dimension)
   const activeOver = canUseOver ? over : ''
+  const isDeckMetric = DECK_METRICS.includes(metric)
+  const isIdentityGrid = dimension === 'identity' && !activeOver
 
   function handleDimensionChange(val) {
     setDimension(val)
@@ -244,14 +370,20 @@ export default function StatsPage() {
     setFilterValue('')
   }
 
-  const queryEnabled = !filterBy || !!filterValue
+  function handleMetricChange(val) {
+    setMetric(val)
+    // Deck metrics don't support timeseries — clear over
+    if (DECK_METRICS.includes(val)) setOver('')
+  }
+
+  const queryEnabled = (!filterBy || !!filterValue) && !isDeckMetric
   const isTimeseries = !!activeOver
 
   const queryParams = {
     metric,
     filter_by: filterBy || undefined,
     filter_value: filterValue || undefined,
-    min_games: minGames > 1 ? minGames : undefined,
+    min_games: minGames,
     limit,
   }
 
@@ -267,10 +399,14 @@ export default function StatsPage() {
     enabled: queryEnabled && isTimeseries,
   })
 
-  const isLoading = isTimeseries ? tsLoading : barLoading
-  const hasData = isTimeseries
-    ? tsData && tsData.data?.length > 0
-    : barData && barData.length > 0
+  const isLoading = isDeckMetric ? false : isTimeseries ? tsLoading : barLoading
+  const hasData = isDeckMetric
+    ? !!decksData?.decks
+    : isTimeseries
+      ? tsData?.data?.length > 0
+      : barData?.length > 0
+
+  const showIdentityGrid = isIdentityGrid
 
   return (
     <div className={styles.page}>
@@ -279,60 +415,67 @@ export default function StatsPage() {
       <div className={styles.builderCard}>
         <div className={styles.sentence}>
           <span className={styles.prose}>Show me</span>
-          <InlineSelect value={metric} onChange={setMetric} options={METRICS} />
+          <InlineSelect value={metric} onChange={handleMetricChange} options={METRICS} />
           <span className={styles.prose}>by</span>
           <InlineSelect value={dimension} onChange={handleDimensionChange} options={DIMENSIONS} />
 
-          {canUseOver && (
+          {canUseOver && !isDeckMetric && (
             <>
               <span className={styles.prose}>over</span>
               <InlineSelect value={over} onChange={setOver} options={OVER_OPTIONS} />
             </>
           )}
 
-          <span className={styles.prose}>filtered for</span>
-          <InlineSelect value={filterBy} onChange={handleFilterByChange} options={FILTER_OPTIONS} />
-
-          {filterBy && (
+          {!isDeckMetric && (
             <>
-              <span className={styles.prose}>=</span>
-              <FilterValueInput
-                filterBy={filterBy}
-                value={filterValue}
-                onChange={setFilterValue}
-                players={players?.filter(p => !['Random', 'Precon'].includes(p.name))}
-                decks={decksData?.decks}
-              />
+              <span className={styles.prose}>filtered for</span>
+              <InlineSelect value={filterBy} onChange={handleFilterByChange} options={FILTER_OPTIONS} />
+              {filterBy && (
+                <>
+                  <span className={styles.prose}>=</span>
+                  <FilterValueInput
+                    filterBy={filterBy}
+                    value={filterValue}
+                    onChange={setFilterValue}
+                    players={players?.filter(p => !['Random', 'Precon'].includes(p.name))}
+                    decks={decksData?.decks}
+                  />
+                </>
+              )}
             </>
           )}
 
-          <span className={styles.prose}>top</span>
-          <input
-            type="number"
-            min="1"
-            max="100"
-            value={limit}
-            onChange={e => setLimit(Math.max(1, parseInt(e.target.value) || 1))}
-            className={styles.minGamesInput}
-          />
-          <span className={styles.prose}>results, min.</span>
-          <input
-            type="number"
-            min="1"
-            max="50"
-            value={minGames}
-            onChange={e => setMinGames(Math.max(1, parseInt(e.target.value) || 1))}
-            className={styles.minGamesInput}
-          />
-          <span className={styles.prose}>games</span>
+          {!showIdentityGrid && !isDeckMetric && (
+            <>
+              <span className={styles.prose}>top</span>
+              <input
+                type="number" min="1" max="100" value={limit}
+                onChange={e => setLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                className={styles.minGamesInput}
+              />
+              <span className={styles.prose}>results, min.</span>
+              <input
+                type="number" min="0" max="50" value={minGames}
+                onChange={e => setMinGames(Math.max(0, parseInt(e.target.value) || 0))}
+                className={styles.minGamesInput}
+              />
+              <span className={styles.prose}>games</span>
+            </>
+          )}
         </div>
       </div>
 
       <div className={styles.chartCard}>
-        {!queryEnabled ? (
+        {!queryEnabled && !isDeckMetric ? (
           <div className={styles.empty}>Select a filter value to see results.</div>
         ) : isLoading ? (
           <div className={styles.loadingWrap}><div className={styles.spinner} /></div>
+        ) : showIdentityGrid ? (
+          <IdentityGrid
+            metric={metric}
+            apiData={barData}
+            allDecks={decksData?.decks}
+          />
         ) : !hasData ? (
           <div className={styles.empty}>No data for this combination.</div>
         ) : isTimeseries ? (

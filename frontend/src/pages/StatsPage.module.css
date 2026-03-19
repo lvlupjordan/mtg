@@ -226,3 +226,105 @@
   font-weight: 700;
   color: var(--text-bright);
 }
+
+/* ── Identity Grid ── */
+
+.identityGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 8px 0;
+}
+
+.identityGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.identityGroupLabel {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+.identityGroupCards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.identityCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 12px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 7px;
+  min-width: 80px;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+.identityCard:not(.identityCardEmpty):hover {
+  border-color: var(--gold-dim);
+  background: var(--surface-3, var(--surface-2));
+}
+
+.identityCardEmpty {
+  opacity: 0.35;
+}
+
+.identityPips {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  min-height: 14px;
+}
+
+.identityPip {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.identityName {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.identityValue {
+  font-family: 'Crimson Pro', serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gold-light);
+  line-height: 1;
+}
+
+.identityCardEmpty .identityValue {
+  color: var(--text-dim);
+  font-size: 16px;
+}
+
+.identityGames {
+  font-family: 'Crimson Pro', serif;
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.6;
+  letter-spacing: 0.03em;
+}
