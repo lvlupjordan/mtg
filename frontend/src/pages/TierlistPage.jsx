@@ -443,6 +443,13 @@ function CompareView({ publishedUsers, compareA, compareB, setCompareA, setCompa
   )
 }
 
+function getDeckTier(tiers, deckId) {
+  for (const tier of [...TIERS, 'unranked']) {
+    if (tiers[tier]?.includes(deckId)) return tier
+  }
+  return 'unranked'
+}
+
 function CompareList({ label, tiers, otherTiers, decksById, eloById }) {
   return (
     <div className={styles.compareCol}>
@@ -476,13 +483,6 @@ function CompareList({ label, tiers, otherTiers, decksById, eloById }) {
       </div>
     </div>
   )
-}
-
-function getDeckTier(tiers, deckId) {
-  for (const tier of [...TIERS, 'unranked']) {
-    if (tiers[tier]?.includes(deckId)) return tier
-  }
-  return 'unranked'
 }
 
 // ── Deck Card ─────────────────────────────────────────────────────────────────
