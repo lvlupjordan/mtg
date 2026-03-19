@@ -110,7 +110,7 @@ const LINE_COLOURS = [
 ]
 
 const TIME_DIMS = ['player', 'deck', 'colour', 'identity']
-const DECK_METRICS = ['decks', 'active_decks']
+const DECK_METRICS = ['decks', 'active_decks']  // no timeseries support
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -266,33 +266,20 @@ function IdentityPip({ color }) {
   )
 }
 
-function IdentityGrid({ metric, apiData, allDecks }) {
+function IdentityGrid({ metric, apiData }) {
   const isDeckMetric = DECK_METRICS.includes(metric)
 
-  // Build lookup from API data (game metrics) or deck data
   const lookup = useMemo(() => {
     const result = {}
-    if (isDeckMetric) {
-      for (const deck of allDecks ?? []) {
-        const key = sortedKey(deck.color_identity)
-        if (!result[key]) result[key] = { decks: 0, active: 0 }
-        result[key].decks++
-        if (deck.active) result[key].active++
-      }
-    } else {
-      for (const row of apiData ?? []) {
-        result[row.label] = { value: row.value, games: row.games }
-      }
+    for (const row of apiData ?? []) {
+      result[row.label] = { value: row.value, games: row.games }
     }
     return result
-  }, [metric, apiData, allDecks])
+  }, [apiData])
 
   function getValue(identity) {
-    if (isDeckMetric) {
-      const entry = lookup[identity.key]
-      return metric === 'active_decks' ? (entry?.active ?? 0) : (entry?.decks ?? 0)
-    }
-    return lookup[identity.key]?.value ?? null
+    const val = lookup[identity.key]?.value ?? null
+    return (isDeckMetric && val === null) ? 0 : val
   }
 
   function getGames(identity) {
@@ -353,7 +340,7 @@ export default function StatsPage() {
   const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData } = useQuery({
     queryKey: ['decks-all'],
-    queryFn: () => api.decks({ page_size: 200 }),
+    queryFn: () => api.decks({ page_size: 500 }),
   })
 
   const canUseOver = TIME_DIMS.includes(dimension)
@@ -377,7 +364,7 @@ export default function StatsPage() {
     if (DECK_METRICS.includes(val)) setOver('')
   }
 
-  const queryEnabled = (!filterBy || !!filterValue) && !isDeckMetric
+  const queryEnabled = !filterBy || !!filterValue
   const isTimeseries = !!activeOver
 
   const queryParams = {
@@ -400,12 +387,8 @@ export default function StatsPage() {
     enabled: queryEnabled && isTimeseries,
   })
 
-  const isLoading = isDeckMetric ? false : isTimeseries ? tsLoading : barLoading
-  const hasData = isDeckMetric
-    ? !!decksData?.decks
-    : isTimeseries
-      ? tsData?.data?.length > 0
-      : barData?.length > 0
+  const isLoading = isTimeseries ? tsLoading : barLoading
+  const hasData = isTimeseries ? tsData?.data?.length > 0 : barData?.length > 0
 
   const showIdentityGrid = isIdentityGrid
 
@@ -475,7 +458,6 @@ export default function StatsPage() {
           <IdentityGrid
             metric={metric}
             apiData={barData}
-            allDecks={decksData?.decks}
           />
         ) : !hasData ? (
           <div className={styles.empty}>No data for this combination.</div>

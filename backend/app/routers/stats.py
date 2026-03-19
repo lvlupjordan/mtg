@@ -336,10 +336,53 @@ def query_stats(
     limit: int = 10,
     db: Session = Depends(get_db),
 ):
-    if metric not in {"win_rate", "games", "avg_placement", "wins"}:
+    if metric not in {"win_rate", "games", "avg_placement", "wins", "decks", "active_decks"}:
         raise HTTPException(400, "Invalid metric")
     if dimension not in {"player", "deck", "colour", "identity", "month"}:
         raise HTTPException(400, "Invalid dimension")
+
+    # ── Deck count metrics (no game data needed) ──────────────────────────────
+    if metric in ("decks", "active_decks"):
+        count_col = "SUM(CASE WHEN d.active THEN 1 ELSE 0 END)::int" if metric == "active_decks" else "COUNT(d.id)::int"
+
+        if dimension == "identity":
+            rows = db.execute(text("SELECT color_identity, active FROM decks")).fetchall()
+            buckets: dict = {}
+            for r in rows:
+                key = "".join(sorted(r.color_identity or [], key=lambda c: WUBRG_ORDER.get(c, 99))) or "C"
+                if key not in buckets:
+                    buckets[key] = {"decks": 0, "active": 0}
+                buckets[key]["decks"] += 1
+                if r.active:
+                    buckets[key]["active"] += 1
+            result = []
+            for label, v in buckets.items():
+                val = v["active"] if metric == "active_decks" else v["decks"]
+                result.append({"label": label, "value": val, "games": 0})
+            result.sort(key=lambda x: x["value"], reverse=True)
+            return result
+
+        elif dimension == "player":
+            rows = db.execute(text(f"""
+                SELECT u.name AS label, {count_col} AS value
+                FROM decks d JOIN users u ON d.builder_id = u.id
+                GROUP BY u.name ORDER BY value DESC
+            """), {"active": True}).fetchall()
+            return [{"label": r.label, "value": r.value, "games": 0} for r in rows]
+
+        elif dimension == "colour":
+            rows = db.execute(text(f"""
+                SELECT col.c AS label, {count_col} AS value
+                FROM decks d
+                CROSS JOIN LATERAL unnest(COALESCE(d.color_identity, ARRAY[]::text[])) AS col(c)
+                GROUP BY col.c
+            """)).fetchall()
+            result = [{"label": r.label, "value": r.value, "games": 0} for r in rows]
+            result.sort(key=lambda x: COLOUR_ORDER.index(x["label"]) if x["label"] in COLOUR_ORDER else 99)
+            return result
+
+        else:
+            raise HTTPException(400, f"Deck metrics do not support dimension '{dimension}'")
 
     params = {"excl1": EXCLUDED_PLAYERS[0], "excl2": EXCLUDED_PLAYERS[1]}
     base_where = "u.name NOT IN (:excl1, :excl2) AND u.include_in_data = true"
