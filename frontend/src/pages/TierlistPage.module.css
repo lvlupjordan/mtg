@@ -394,30 +394,32 @@
   font-size: 15px;
 }
 
-/* ── Compare section ── */
-
-.compareSection {
-  margin-top: 36px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.compareBtn {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
+  border-radius: 4px;
+  transition: all 0.15s;
 }
 
-.compareControls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+.compareBtn:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold);
 }
 
-.compareLabel {
+.compareVsLabel {
   font-family: 'Crimson Pro', serif;
-  font-size: 18px;
+  font-size: 16px;
   font-style: italic;
   color: var(--text-dim);
 }
+
+/* ── Compare picker (inline in header) ── */
 
 .comparePicker {
   font-family: 'Cinzel', serif;

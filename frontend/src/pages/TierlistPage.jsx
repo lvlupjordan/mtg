@@ -61,8 +61,8 @@ export default function TierlistPage() {
   const [saveStatus, setSaveStatus] = useState(null)
   const [dragging, setDragging] = useState(null)
   const [dropTarget, setDropTarget] = useState(null)
-  const [compareA, setCompareA] = useState(null)
-  const [compareB, setCompareB] = useState(null)
+  const [comparing, setComparing] = useState(false)
+  const [compareWith, setCompareWith] = useState(null)
 
   const decksById = Object.fromEntries((data?.decks ?? []).map(d => [d.id, d]))
   const eloById = Object.fromEntries((eloData ?? []).map(d => [d.deck_id, d.rating]))
@@ -131,17 +131,17 @@ export default function TierlistPage() {
     return published ? initTiers(data.decks.map(d => d.id), published.tiers) : null
   }, [viewId, allTierlists, eloTiers, compositeTiers, data])
 
-  // Compare: top 5 biggest tier differences between two selections
+  // Compare: top 5 biggest tier differences between viewId and compareWith
   const compareDiffs = useMemo(() => {
-    if (!compareA || !compareB || !data?.decks) return []
+    if (!viewId || !compareWith || !data?.decks) return []
     function resolve(id) {
       if (id === 'elo') return eloTiers
       if (id === 'composite') return compositeTiers
       const pub = allTierlists?.find(t => t.user_id === id)
       return pub ? initTiers(data.decks.map(d => d.id), pub.tiers) : null
     }
-    const tiersA = resolve(compareA)
-    const tiersB = resolve(compareB)
+    const tiersA = resolve(viewId)
+    const tiersB = resolve(compareWith)
     if (!tiersA || !tiersB) return []
     const diffs = []
     for (const deck of data.decks) {
@@ -152,7 +152,7 @@ export default function TierlistPage() {
       if (diff > 0) diffs.push({ deck, tierA: tA, tierB: tB, diff })
     }
     return diffs.sort((a, b) => b.diff - a.diff).slice(0, 5)
-  }, [compareA, compareB, data, allTierlists, eloTiers, compositeTiers])
+  }, [viewId, compareWith, data, allTierlists, eloTiers, compositeTiers])
 
   const viewingUser = realPlayers.find(p => p.id === viewId)
 
@@ -253,14 +253,9 @@ export default function TierlistPage() {
   const displayTiers = editing ? draftTiers : viewTiers
   const canEdit = viewId !== null && viewId !== 'elo' && viewId !== 'composite'
 
-  const compareOptions = (
-    <>
-      <option value="" disabled>— pick —</option>
-      {realPlayers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-      <option value="elo">Elo</option>
-      <option value="composite">All Users</option>
-    </>
-  )
+  function parseId(val) {
+    return val === 'elo' ? 'elo' : val === 'composite' ? 'composite' : val ? parseInt(val) : null
+  }
 
   return (
     <div className={styles.page}>
@@ -270,8 +265,9 @@ export default function TierlistPage() {
           value={viewId ?? ''}
           onChange={e => {
             if (editing) cancelEditing()
-            const val = e.target.value
-            setViewId(val === 'elo' ? 'elo' : val === 'composite' ? 'composite' : val ? parseInt(val) : null)
+            setComparing(false)
+            setCompareWith(null)
+            setViewId(parseId(e.target.value))
           }}
         >
           <option value="" disabled>Select a list…</option>
@@ -283,7 +279,26 @@ export default function TierlistPage() {
         </select>
 
         <div className={styles.headerActions}>
-          {editing ? (
+          {comparing ? (
+            <>
+              <span className={styles.compareVsLabel}>vs</span>
+              <select
+                className={styles.comparePicker}
+                value={compareWith ?? ''}
+                onChange={e => setCompareWith(parseId(e.target.value))}
+              >
+                <option value="" disabled>— pick —</option>
+                {realPlayers.filter(p => p.id !== viewId).map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+                {viewId !== 'elo' && <option value="elo">Elo</option>}
+                {viewId !== 'composite' && <option value="composite">All Users</option>}
+              </select>
+              <button className={styles.cancelBtn} onClick={() => { setComparing(false); setCompareWith(null) }}>
+                ← Back
+              </button>
+            </>
+          ) : editing ? (
             <>
               <button
                 className={styles.publishBtn}
@@ -296,17 +311,30 @@ export default function TierlistPage() {
               <button className={styles.emptyBtn} onClick={handleEmpty}>Empty</button>
               <button className={styles.cancelBtn} onClick={cancelEditing}>Cancel</button>
             </>
-          ) : (
-            canEdit && (
-              <button className={styles.editBtn} onClick={startEditing}>
-                Edit as {viewingUser?.name ?? '…'}
+          ) : viewId !== null && (
+            <>
+              {canEdit && (
+                <button className={styles.editBtn} onClick={startEditing}>
+                  Edit as {viewingUser?.name ?? '…'}
+                </button>
+              )}
+              <button className={styles.compareBtn} onClick={() => setComparing(true)}>
+                Compare
               </button>
-            )
+            </>
           )}
         </div>
       </div>
 
-      {!displayTiers ? (
+      {comparing ? (
+        compareWith ? (
+          compareDiffs.length > 0
+            ? <ComparePanel diffs={compareDiffs} labelA={getLabel(viewId)} labelB={getLabel(compareWith)} />
+            : <p className={styles.noList}>No ranked differences found between these two lists.</p>
+        ) : (
+          <p className={styles.noList}>Select a list to compare against.</p>
+        )
+      ) : !displayTiers ? (
         <p className={styles.noList}>
           {viewId === null
             ? 'Select a player or Elo from the dropdown.'
@@ -339,40 +367,6 @@ export default function TierlistPage() {
           handleDrop={handleDrop}
         />
       )}
-
-      {/* ── Compare section ── */}
-      <div className={styles.compareSection}>
-        <div className={styles.compareControls}>
-          <span className={styles.compareLabel}>Compare</span>
-          <select
-            className={styles.comparePicker}
-            value={compareA ?? ''}
-            onChange={e => {
-              const val = e.target.value
-              setCompareA(val === 'elo' ? 'elo' : val === 'composite' ? 'composite' : val ? parseInt(val) : null)
-            }}
-          >
-            {compareOptions}
-          </select>
-          <span className={styles.compareLabel}>to</span>
-          <select
-            className={styles.comparePicker}
-            value={compareB ?? ''}
-            onChange={e => {
-              const val = e.target.value
-              setCompareB(val === 'elo' ? 'elo' : val === 'composite' ? 'composite' : val ? parseInt(val) : null)
-            }}
-          >
-            {compareOptions}
-          </select>
-        </div>
-
-        {compareA && compareB && (
-          compareDiffs.length > 0
-            ? <ComparePanel diffs={compareDiffs} labelA={getLabel(compareA)} labelB={getLabel(compareB)} />
-            : <p className={styles.noList} style={{ paddingTop: 16, paddingBottom: 0 }}>No ranked differences found.</p>
-        )}
-      </div>
     </div>
   )
 }
