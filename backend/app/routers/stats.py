@@ -10,6 +10,7 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 EXCLUDED_PLAYERS = ["Random", "Precon"]
 COLOUR_ORDER = ["W", "U", "B", "R", "G", "C"]
+WUBRG_ORDER = {"W": 0, "U": 1, "B": 2, "R": 3, "G": 4}
 
 
 @router.get("/overview")
@@ -389,7 +390,7 @@ def query_stats(
         buckets = {}
         identity_map = {}  # label -> sorted color list (for identity dimension)
         for r in raw:
-            identity = sorted(r.color_identity or [])
+            identity = sorted(r.color_identity or [], key=lambda c: WUBRG_ORDER.get(c, 99))
             if dimension == "colour":
                 keys = identity if identity else ["C"]
             else:

@@ -30,7 +30,7 @@ const ALL_IDENTITIES = [
   { key: 'UB',    colors: ['U','B'],             name: 'Dimir',      pips: 2 },
   { key: 'BR',    colors: ['B','R'],             name: 'Rakdos',     pips: 2 },
   { key: 'RG',    colors: ['R','G'],             name: 'Gruul',      pips: 2 },
-  { key: 'GW',    colors: ['G','W'],             name: 'Selesnya',   pips: 2 },
+  { key: 'WG',    colors: ['W','G'],             name: 'Selesnya',   pips: 2 },
   // Guilds (enemy)
   { key: 'WB',    colors: ['W','B'],             name: 'Orzhov',     pips: 2 },
   { key: 'UR',    colors: ['U','R'],             name: 'Izzet',      pips: 2 },
@@ -257,9 +257,10 @@ function BarChartView({ data, metric, dimension }) {
 
 function IdentityPip({ color }) {
   return (
-    <span
+    <img
       className={styles.identityPip}
-      style={{ background: PIP_COLOUR[color] ?? '#888' }}
+      src={`https://svgs.scryfall.io/card-symbols/${color}.svg`}
+      alt={color}
       title={color}
     />
   )
@@ -362,7 +363,7 @@ export default function StatsPage() {
 
   function handleDimensionChange(val) {
     setDimension(val)
-    if (!TIME_DIMS.includes(val)) setOver('')
+    if (!TIME_DIMS.includes(val) || val === 'identity') setOver('')
   }
 
   function handleFilterByChange(val) {
