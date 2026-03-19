@@ -4,7 +4,23 @@ import { api } from '../api'
 import styles from './TierlistPage.module.css'
 
 const TIERS = ['S', 'A', 'B', 'C', 'D', 'F']
+const WEIGHTS = [1, 2, 3, 3, 2, 1] // bell curve — sums to 12
 const STORAGE_KEY = 'wooberg-tierlist-v1'
+
+// Distribute n slots across tiers using the bell curve weights.
+// Uses largest-remainder method so caps always sum exactly to n.
+function computeCaps(n) {
+  const weightSum = WEIGHTS.reduce((a, b) => a + b, 0)
+  const raw = WEIGHTS.map(w => n * w / weightSum)
+  const floors = raw.map(Math.floor)
+  const remainder = n - floors.reduce((a, b) => a + b, 0)
+  raw
+    .map((r, i) => ({ i, frac: r - floors[i] }))
+    .sort((a, b) => b.frac - a.frac)
+    .slice(0, remainder)
+    .forEach(({ i }) => floors[i]++)
+  return Object.fromEntries(TIERS.map((t, i) => [t, floors[i]]))
+}
 
 function initTiers(deckIds, saved) {
   const tiers = { S: [], A: [], B: [], C: [], D: [], F: [], unranked: [] }
@@ -26,7 +42,7 @@ export default function TierlistPage() {
   })
 
   const [tiers, setTiers] = useState(null)
-  const [dragging, setDragging] = useState(null)   // { deckId, fromTier }
+  const [dragging, setDragging] = useState(null)    // { deckId, fromTier }
   const [dropTarget, setDropTarget] = useState(null) // { tier, beforeId }
 
   useEffect(() => {
@@ -45,6 +61,19 @@ export default function TierlistPage() {
   }, [tiers])
 
   const decksById = Object.fromEntries((data?.decks ?? []).map(d => [d.id, d]))
+  const totalDecks = data?.decks?.length ?? 0
+  const caps = totalDecks > 0 ? computeCaps(totalDecks) : null
+
+  function isTierFull(tier) {
+    if (!caps || !tiers) return false
+    return tiers[tier].length >= caps[tier]
+  }
+
+  function canDropInto(tier) {
+    if (!dragging) return true
+    if (dragging.fromTier === tier) return true // reordering within same tier
+    return !isTierFull(tier)
+  }
 
   function handleDragStart(e, deckId, fromTier) {
     setDragging({ deckId, fromTier })
@@ -57,6 +86,7 @@ export default function TierlistPage() {
   }
 
   function handleCardDragOver(e, tier, beforeId) {
+    if (!canDropInto(tier)) return // no preventDefault → browser shows ⊘ cursor
     e.preventDefault()
     e.stopPropagation()
     setDropTarget(prev =>
@@ -65,6 +95,7 @@ export default function TierlistPage() {
   }
 
   function handleTierDragOver(e, tier) {
+    if (!canDropInto(tier)) return
     e.preventDefault()
     setDropTarget(prev =>
       prev?.tier === tier && prev?.beforeId == null ? prev : { tier, beforeId: null }
@@ -73,7 +104,7 @@ export default function TierlistPage() {
 
   function handleDrop(e, tier) {
     e.preventDefault()
-    if (!dragging) return
+    if (!dragging || !canDropInto(tier)) return
     const { deckId } = dragging
     const beforeId = dropTarget?.tier === tier ? (dropTarget?.beforeId ?? null) : null
 
@@ -112,33 +143,48 @@ export default function TierlistPage() {
       </div>
 
       <div className={styles.tiers}>
-        {TIERS.map(tier => (
-          <div
-            key={tier}
-            className={`${styles.tierRow} ${styles[`tier${tier}`]} ${dropTarget?.tier === tier ? styles.tierRowOver : ''}`}
-            onDragOver={e => handleTierDragOver(e, tier)}
-            onDrop={e => handleDrop(e, tier)}
-          >
-            <div className={styles.tierLabel}>{tier}</div>
-            <div className={styles.tierCards}>
-              {tiers[tier].map(id => (
-                <DeckCard
-                  key={id}
-                  deck={decksById[id]}
-                  fromTier={tier}
-                  isDragging={dragging?.deckId === id}
-                  isDropBefore={dropTarget?.tier === tier && dropTarget?.beforeId === id}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onCardDragOver={handleCardDragOver}
-                />
-              ))}
-              {tiers[tier].length === 0 && (
-                <span className={styles.emptyHint}>Drop here</span>
-              )}
+        {TIERS.map(tier => {
+          const filled = tiers[tier].length
+          const cap = caps?.[tier] ?? '?'
+          const full = filled >= cap
+          const blocked = dragging && dragging.fromTier !== tier && full
+          return (
+            <div
+              key={tier}
+              className={[
+                styles.tierRow,
+                styles[`tier${tier}`],
+                full ? styles.tierFull : '',
+                blocked ? styles.tierBlocked : '',
+                dropTarget?.tier === tier ? styles.tierRowOver : '',
+              ].join(' ')}
+              onDragOver={e => handleTierDragOver(e, tier)}
+              onDrop={e => handleDrop(e, tier)}
+            >
+              <div className={styles.tierLabel}>
+                <span className={styles.tierLetter}>{tier}</span>
+                <span className={styles.tierCap}>{filled}/{cap}</span>
+              </div>
+              <div className={styles.tierCards}>
+                {tiers[tier].map(id => (
+                  <DeckCard
+                    key={id}
+                    deck={decksById[id]}
+                    fromTier={tier}
+                    isDragging={dragging?.deckId === id}
+                    isDropBefore={dropTarget?.tier === tier && dropTarget?.beforeId === id}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    onCardDragOver={handleCardDragOver}
+                  />
+                ))}
+                {tiers[tier].length === 0 && (
+                  <span className={styles.emptyHint}>Drop here</span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div

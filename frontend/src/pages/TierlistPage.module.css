@@ -69,22 +69,60 @@
   width: 64px;
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: 'Cinzel', serif;
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  gap: 4px;
   user-select: none;
   border-right: 2px solid;
+  transition: opacity 0.15s;
 }
 
-.tierS  .tierLabel { color: #f0c040; background: rgba(240,192,64,0.10);  border-color: #f0c040; text-shadow: 0 0 18px #f0c040; }
-.tierA  .tierLabel { color: #4ecba8; background: rgba(78,203,168,0.10); border-color: #4ecba8; text-shadow: 0 0 18px #4ecba8; }
-.tierB  .tierLabel { color: #5a9ee8; background: rgba(90,158,232,0.10); border-color: #5a9ee8; text-shadow: 0 0 18px #5a9ee8; }
-.tierC  .tierLabel { color: #9b6dd6; background: rgba(155,109,214,0.10); border-color: #9b6dd6; text-shadow: 0 0 18px #9b6dd6; }
-.tierD  .tierLabel { color: #e08c3a; background: rgba(224,140,58,0.10); border-color: #e08c3a; text-shadow: 0 0 18px #e08c3a; }
-.tierF  .tierLabel { color: #d95f5f; background: rgba(217,95,95,0.10);  border-color: #d95f5f; text-shadow: 0 0 18px #d95f5f; }
+.tierLetter {
+  font-family: 'Cinzel', serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+.tierCap {
+  font-family: 'Crimson Pro', serif;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+.tierFull .tierCap {
+  opacity: 1;
+  font-weight: 600;
+}
+
+.tierS  .tierLabel { color: #f0c040; background: rgba(240,192,64,0.10);  border-color: #f0c040; }
+.tierA  .tierLabel { color: #4ecba8; background: rgba(78,203,168,0.10); border-color: #4ecba8; }
+.tierB  .tierLabel { color: #5a9ee8; background: rgba(90,158,232,0.10); border-color: #5a9ee8; }
+.tierC  .tierLabel { color: #9b6dd6; background: rgba(155,109,214,0.10); border-color: #9b6dd6; }
+.tierD  .tierLabel { color: #e08c3a; background: rgba(224,140,58,0.10); border-color: #e08c3a; }
+.tierF  .tierLabel { color: #d95f5f; background: rgba(217,95,95,0.10);  border-color: #d95f5f; }
+
+.tierS  .tierLetter { text-shadow: 0 0 18px #f0c040; }
+.tierA  .tierLetter { text-shadow: 0 0 18px #4ecba8; }
+.tierB  .tierLetter { text-shadow: 0 0 18px #5a9ee8; }
+.tierC  .tierLetter { text-shadow: 0 0 18px #9b6dd6; }
+.tierD  .tierLetter { text-shadow: 0 0 18px #e08c3a; }
+.tierF  .tierLetter { text-shadow: 0 0 18px #d95f5f; }
+
+/* Full tier — dim slightly to signal no more room */
+.tierFull {
+  opacity: 0.75;
+}
+
+/* Blocked during drag — can't drop here */
+.tierBlocked {
+  opacity: 0.35;
+  pointer-events: none;
+}
 
 .tierCards {
   flex: 1;
