@@ -8,6 +8,7 @@ import PlayerDetailPage from './pages/PlayerDetailPage'
 import GamesPage from './pages/GamesPage'
 import StatsPage from './pages/StatsPage'
 import TrackerPage from './pages/TrackerPage'
+import TierlistPage from './pages/TierlistPage'
 import styles from './App.module.css'
 
 export default function App() {
@@ -44,6 +45,9 @@ export default function App() {
           <NavLink to="/tracker" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
             Tracker
           </NavLink>
+          <NavLink to="/tierlist" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
+            Tier List
+          </NavLink>
         </nav>
       </header>
 
@@ -57,6 +61,7 @@ export default function App() {
           <Route path="/games" element={<GamesPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/tracker" element={<TrackerPage />} />
+          <Route path="/tierlist" element={<TierlistPage />} />
         </Routes>
       </main>
     </div>

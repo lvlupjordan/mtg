@@ -1,0 +1,275 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Header ── */
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 20px;
+}
+
+.title {
+  font-size: 26px;
+  color: var(--gold-light);
+  letter-spacing: 0.08em;
+}
+
+.resetBtn {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.resetBtn:hover {
+  border-color: var(--loss);
+  color: var(--loss);
+  background: rgba(217, 95, 95, 0.06);
+}
+
+/* ── Tier table ── */
+
+.tiers {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tierRow {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  min-height: 116px;
+  transition: background 0.12s;
+}
+
+.tierRow:last-child {
+  border-bottom: none;
+}
+
+.tierRowOver {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+/* Per-tier label colours */
+.tierLabel {
+  width: 64px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  user-select: none;
+  border-right: 2px solid;
+}
+
+.tierS  .tierLabel { color: #f0c040; background: rgba(240,192,64,0.10);  border-color: #f0c040; text-shadow: 0 0 18px #f0c040; }
+.tierA  .tierLabel { color: #4ecba8; background: rgba(78,203,168,0.10); border-color: #4ecba8; text-shadow: 0 0 18px #4ecba8; }
+.tierB  .tierLabel { color: #5a9ee8; background: rgba(90,158,232,0.10); border-color: #5a9ee8; text-shadow: 0 0 18px #5a9ee8; }
+.tierC  .tierLabel { color: #9b6dd6; background: rgba(155,109,214,0.10); border-color: #9b6dd6; text-shadow: 0 0 18px #9b6dd6; }
+.tierD  .tierLabel { color: #e08c3a; background: rgba(224,140,58,0.10); border-color: #e08c3a; text-shadow: 0 0 18px #e08c3a; }
+.tierF  .tierLabel { color: #d95f5f; background: rgba(217,95,95,0.10);  border-color: #d95f5f; text-shadow: 0 0 18px #d95f5f; }
+
+.tierCards {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  min-height: 116px;
+}
+
+.tierCards::-webkit-scrollbar { height: 4px; }
+
+.emptyHint {
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text-dim);
+  opacity: 0.4;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Cards ── */
+
+.cardWrap {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0;
+}
+
+.dropLine {
+  width: 3px;
+  height: 96px;
+  background: var(--gold);
+  border-radius: 2px;
+  box-shadow: 0 0 10px var(--gold), 0 0 4px var(--gold);
+  margin-right: 5px;
+  flex-shrink: 0;
+  animation: dropLinePulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes dropLinePulse {
+  from { opacity: 0.7; }
+  to   { opacity: 1; }
+}
+
+.card {
+  width: 76px;
+  height: 106px;
+  border-radius: 5px;
+  border: 1px solid var(--border-2);
+  overflow: hidden;
+  position: relative;
+  cursor: grab;
+  flex-shrink: 0;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  background: var(--surface-2);
+}
+
+.card:hover {
+  transform: translateY(-5px) scale(1.06);
+  border-color: var(--gold-dim);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.7), 0 0 14px rgba(200,149,58,0.25);
+  z-index: 10;
+}
+
+.card:active {
+  cursor: grabbing;
+}
+
+.cardDragging {
+  opacity: 0.25;
+  transform: scale(0.95);
+}
+
+.cardArt {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 12%;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+}
+
+.cardNoArt {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, var(--surface-3) 0%, var(--surface) 100%);
+}
+
+.cardOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 22px 5px 5px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.92) 45%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cardName {
+  font-family: 'Cinzel', serif;
+  font-size: 7.5px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.cardCommander {
+  font-family: 'Crimson Pro', serif;
+  font-size: 7px;
+  line-height: 1.1;
+  color: var(--gold-light);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  opacity: 0.9;
+}
+
+/* ── Unranked pool ── */
+
+.unranked {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.unrankedHeader {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.unrankedCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1px solid var(--border-2);
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: 'Crimson Pro', serif;
+  letter-spacing: 0;
+}
+
+.unrankedCards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.allRanked {
+  font-family: 'Crimson Pro', serif;
+  font-style: italic;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+/* ── Loading ── */
+
+.loading {
+  padding: 60px 0;
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 15px;
+}
