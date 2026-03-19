@@ -394,6 +394,166 @@
   font-size: 15px;
 }
 
+/* ── Compare section ── */
+
+.compareSection {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.compareControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.compareLabel {
+  font-family: 'Crimson Pro', serif;
+  font-size: 18px;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+.comparePicker {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  color: var(--gold-light);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.comparePicker:hover,
+.comparePicker:focus {
+  border-color: var(--gold-dim);
+  outline: none;
+}
+
+.comparePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.comparePanelTitle {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.compareDiffRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.compareThumb {
+  width: 44px;
+  height: 62px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-3, var(--surface-2));
+}
+
+.compareThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 12%;
+  display: block;
+}
+
+.compareThumbBlank {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, var(--surface-3) 0%, var(--surface) 100%);
+}
+
+.compareDeckInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.compareDeckName {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compareDeckCmd {
+  font-family: 'Crimson Pro', serif;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compareTiers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.compareBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: 1px solid;
+  min-width: 52px;
+}
+
+.compareBadgeTier {
+  font-family: 'Cinzel', serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.compareBadgeLabel {
+  font-family: 'Crimson Pro', serif;
+  font-size: 10px;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.compareArrow {
+  color: var(--text-dim);
+  font-size: 16px;
+  opacity: 0.5;
+}
+
 /* ── States ── */
 
 .noList {
