@@ -185,7 +185,11 @@
   line-height: 1;
 }
 
-.tierFull .tierCap { opacity: 1; font-weight: 600; }
+.tierCapOver {
+  color: var(--loss) !important;
+  opacity: 1;
+  font-weight: 600;
+}
 
 .tierS .tierLabel { color: #f0c040; background: rgba(240,192,64,0.10);  border-color: #f0c040; }
 .tierA .tierLabel { color: #4ecba8; background: rgba(78,203,168,0.10); border-color: #4ecba8; }
@@ -200,9 +204,6 @@
 .tierC .tierLetter { text-shadow: 0 0 18px #9b6dd6; }
 .tierD .tierLetter { text-shadow: 0 0 18px #e08c3a; }
 .tierF .tierLetter { text-shadow: 0 0 18px #d95f5f; }
-
-.tierFull  { opacity: 0.75; }
-.tierBlocked { opacity: 0.35; pointer-events: none; }
 
 .tierCards {
   flex: 1;

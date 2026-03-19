@@ -134,17 +134,6 @@ export default function TierlistPage() {
 
   // ── Drag handlers (edit mode only) ───────────────────────────────────────
 
-  function isTierFull(tier) {
-    if (!caps || !draftTiers) return false
-    return draftTiers[tier].length >= caps[tier]
-  }
-
-  function canDropInto(tier) {
-    if (!dragging) return true
-    if (dragging.fromTier === tier) return true
-    return !isTierFull(tier)
-  }
-
   function handleDragStart(e, deckId, fromTier) {
     setDragging({ deckId, fromTier })
     e.dataTransfer.effectAllowed = 'move'
@@ -153,13 +142,11 @@ export default function TierlistPage() {
   function handleDragEnd() { setDragging(null); setDropTarget(null) }
 
   function handleCardDragOver(e, tier, beforeId) {
-    if (!canDropInto(tier)) return
     e.preventDefault(); e.stopPropagation()
     setDropTarget(prev => prev?.tier === tier && prev?.beforeId === beforeId ? prev : { tier, beforeId })
   }
 
   function handleTierDragOver(e, tier) {
-    if (!canDropInto(tier)) return
     e.preventDefault()
     setDropTarget(prev => prev?.tier === tier && prev?.beforeId == null ? prev : { tier, beforeId: null })
   }
@@ -290,16 +277,13 @@ function TierGrid({ tiers, caps, decksById, eloById, showRating, editing,
         {TIERS.map(tier => {
           const filled = tiers[tier].length
           const cap = caps?.[tier] ?? '?'
-          const full = filled >= cap
-          const blocked = editing && dragging && dragging.fromTier !== tier && full
+          const over = caps && filled > caps[tier]
           return (
             <div
               key={tier}
               className={[
                 styles.tierRow,
                 styles[`tier${tier}`],
-                full ? styles.tierFull : '',
-                blocked ? styles.tierBlocked : '',
                 editing && dropTarget?.tier === tier ? styles.tierRowOver : '',
               ].join(' ')}
               onDragOver={editing ? e => handleTierDragOver(e, tier) : undefined}
@@ -307,7 +291,7 @@ function TierGrid({ tiers, caps, decksById, eloById, showRating, editing,
             >
               <div className={styles.tierLabel}>
                 <span className={styles.tierLetter}>{tier}</span>
-                <span className={styles.tierCap}>{filled}/{cap}</span>
+                <span className={`${styles.tierCap} ${over ? styles.tierCapOver : ''}`}>{filled}/{cap}</span>
               </div>
               <div className={styles.tierCards}>
                 {tiers[tier].map(id => (
