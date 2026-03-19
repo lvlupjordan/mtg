@@ -521,6 +521,7 @@ def elo_ratings(db: Session = Depends(get_db)):
     """
     games = (
         db.query(Game)
+        .filter(Game.variant == "Commander")
         .options(selectinload(Game.seats))
         .order_by(Game.played_at, Game.id)
         .all()
