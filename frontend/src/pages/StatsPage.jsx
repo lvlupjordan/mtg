@@ -371,7 +371,7 @@ export default function StatsPage() {
     metric,
     filter_by: filterBy || undefined,
     filter_value: filterValue || undefined,
-    min_games: showIdentityGrid ? 0 : minGames,
+    min_games: isIdentityGrid ? 0 : minGames,
     limit,
   }
 
