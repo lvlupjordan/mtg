@@ -53,7 +53,7 @@ export default function TierlistPage() {
     queryFn: api.tierlists,
   })
 
-  const [viewId, setViewId] = useState('elo') // user_id | 'elo'
+  const [viewId, setViewId] = useState(null) // user_id | 'elo' | null
   const [editing, setEditing] = useState(false)
   const [draftTiers, setDraftTiers] = useState(null)
   const [saveStatus, setSaveStatus] = useState(null)
@@ -199,13 +199,18 @@ export default function TierlistPage() {
       <div className={styles.header}>
         <select
           className={styles.viewPicker}
-          value={editing ? viewId : viewId}
-          onChange={e => { if (editing) cancelEditing(); setViewId(e.target.value === 'elo' ? 'elo' : parseInt(e.target.value)) }}
+          value={viewId ?? ''}
+          onChange={e => {
+            if (editing) cancelEditing()
+            const val = e.target.value
+            setViewId(val === 'elo' ? 'elo' : val ? parseInt(val) : null)
+          }}
         >
-          <option value="elo">Elo (Suggested)</option>
+          <option value="" disabled>Select a list…</option>
           {realPlayers.map(p => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
+          <option value="elo">Elo (Suggested)</option>
         </select>
 
         <div className={styles.headerActions}>
