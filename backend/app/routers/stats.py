@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, case, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.models.user import User
 from app.models.deck import Deck
@@ -464,3 +464,86 @@ def query_stats(
         {"label": r.label, "value": float(r.value) if r.value is not None else None, "games": r.games}
         for r in rows
     ]
+
+
+@router.get("/elo")
+def elo_ratings(db: Session = Depends(get_db)):
+    """
+    Multiplayer Elo ratings for all decks.
+    Each game is processed chronologically. Every pair of decks in the same game
+    is compared by placement — the better-placed deck wins the head-to-head.
+    Beating a highly-rated deck is worth more (standard Elo expectation).
+    K=32, starting rating 1500.
+    """
+    games = (
+        db.query(Game)
+        .options(selectinload(Game.seats))
+        .order_by(Game.played_at, Game.id)
+        .all()
+    )
+
+    K = 32
+    ratings: dict[int, float] = {}
+    games_count: dict[int, int] = {}
+    wins_count: dict[int, int] = {}
+
+    for game in games:
+        seats = [s for s in game.seats if s.deck_id is not None and s.placement is not None]
+        if len(seats) < 2:
+            continue
+
+        for s in seats:
+            if s.deck_id not in ratings:
+                ratings[s.deck_id] = 1500.0
+                games_count[s.deck_id] = 0
+                wins_count[s.deck_id] = 0
+
+        # Accumulate deltas before applying so all pairs use pre-game ratings
+        deltas: dict[int, float] = {s.deck_id: 0.0 for s in seats}
+
+        for i in range(len(seats)):
+            for j in range(i + 1, len(seats)):
+                a, b = seats[i], seats[j]
+                ra = ratings[a.deck_id]
+                rb = ratings[b.deck_id]
+                ea = 1 / (1 + 10 ** ((rb - ra) / 400))
+                eb = 1 - ea
+                if a.placement < b.placement:
+                    sa, sb = 1.0, 0.0
+                elif a.placement > b.placement:
+                    sa, sb = 0.0, 1.0
+                else:
+                    sa, sb = 0.5, 0.5
+                deltas[a.deck_id] += K * (sa - ea)
+                deltas[b.deck_id] += K * (sb - eb)
+
+        for deck_id, delta in deltas.items():
+            ratings[deck_id] += delta
+
+        for s in seats:
+            games_count[s.deck_id] += 1
+            if s.placement == 1:
+                wins_count[s.deck_id] += 1
+
+    deck_ids = list(ratings.keys())
+    decks_by_id = {d.id: d for d in db.query(Deck).filter(Deck.id.in_(deck_ids)).all()}
+
+    result = []
+    for deck_id, rating in ratings.items():
+        d = decks_by_id.get(deck_id)
+        if not d:
+            continue
+        result.append({
+            "deck_id": deck_id,
+            "name": d.name,
+            "commander": d.commander,
+            "color_identity": d.color_identity,
+            "image_uri": d.image_uri,
+            "active": d.active,
+            "rating": round(rating, 1),
+            "games": games_count[deck_id],
+            "wins": wins_count[deck_id],
+        })
+
+    result.sort(key=lambda x: x["rating"], reverse=True)
+    return result

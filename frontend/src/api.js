@@ -37,6 +37,7 @@ export const api = {
   game: (id) => req(`/api/games/${id}`),
 
   stats: () => req("/api/stats/overview"),
+  eloRatings: () => req("/api/stats/elo"),
   statColours: () => req("/api/stats/colours"),
   statsTimeseries: (params = {}) => {
     const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString()

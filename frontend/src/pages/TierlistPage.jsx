@@ -41,6 +41,11 @@ export default function TierlistPage() {
     queryFn: () => api.decks({ active: true, page_size: 100 }),
   })
 
+  const { data: eloData } = useQuery({
+    queryKey: ['elo'],
+    queryFn: api.eloRatings,
+  })
+
   const [tiers, setTiers] = useState(null)
   const [dragging, setDragging] = useState(null)    // { deckId, fromTier }
   const [dropTarget, setDropTarget] = useState(null) // { tier, beforeId }
@@ -61,8 +66,31 @@ export default function TierlistPage() {
   }, [tiers])
 
   const decksById = Object.fromEntries((data?.decks ?? []).map(d => [d.id, d]))
+  const eloById = Object.fromEntries((eloData ?? []).map(d => [d.deck_id, d.rating]))
   const totalDecks = data?.decks?.length ?? 0
   const caps = totalDecks > 0 ? computeCaps(totalDecks) : null
+
+  function handleSuggest() {
+    if (!data?.decks || !caps || !eloData) return
+    const activeDeckIds = new Set(data.decks.map(d => d.id))
+    // Sort active decks by Elo desc; unrated decks go last
+    const sorted = data.decks
+      .slice()
+      .sort((a, b) => (eloById[b.id] ?? 0) - (eloById[a.id] ?? 0))
+    const newTiers = { S: [], A: [], B: [], C: [], D: [], F: [], unranked: [] }
+    for (const deck of sorted) {
+      let placed = false
+      for (const tier of TIERS) {
+        if (newTiers[tier].length < caps[tier]) {
+          newTiers[tier].push(deck.id)
+          placed = true
+          break
+        }
+      }
+      if (!placed) newTiers.unranked.push(deck.id)
+    }
+    setTiers(newTiers)
+  }
 
   function isTierFull(tier) {
     if (!caps || !tiers) return false
@@ -139,7 +167,14 @@ export default function TierlistPage() {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>Tier List</h1>
-        <button className={styles.resetBtn} onClick={handleReset}>Reset</button>
+        <div className={styles.headerActions}>
+          {eloData && (
+            <button className={styles.suggestBtn} onClick={handleSuggest} title="Auto-fill tiers by Elo rating">
+              Suggest
+            </button>
+          )}
+          <button className={styles.resetBtn} onClick={handleReset}>Reset</button>
+        </div>
       </div>
 
       <div className={styles.tiers}>
@@ -170,6 +205,7 @@ export default function TierlistPage() {
                   <DeckCard
                     key={id}
                     deck={decksById[id]}
+                    rating={eloById[id]}
                     fromTier={tier}
                     isDragging={dragging?.deckId === id}
                     isDropBefore={dropTarget?.tier === tier && dropTarget?.beforeId === id}
@@ -206,6 +242,7 @@ export default function TierlistPage() {
               <DeckCard
                 key={id}
                 deck={decksById[id]}
+                rating={eloById[id]}
                 fromTier="unranked"
                 isDragging={dragging?.deckId === id}
                 isDropBefore={dropTarget?.tier === 'unranked' && dropTarget?.beforeId === id}
@@ -221,7 +258,7 @@ export default function TierlistPage() {
   )
 }
 
-function DeckCard({ deck, fromTier, isDragging, isDropBefore, onDragStart, onDragEnd, onCardDragOver }) {
+function DeckCard({ deck, rating, fromTier, isDragging, isDropBefore, onDragStart, onDragEnd, onCardDragOver }) {
   if (!deck) return null
   return (
     <div className={styles.cardWrap}>
@@ -232,12 +269,15 @@ function DeckCard({ deck, fromTier, isDragging, isDropBefore, onDragStart, onDra
         onDragStart={e => onDragStart(e, deck.id, fromTier)}
         onDragEnd={onDragEnd}
         onDragOver={e => onCardDragOver(e, fromTier, deck.id)}
-        title={`${deck.name} — ${deck.commander}`}
+        title={`${deck.name} — ${deck.commander}${rating != null ? ` · ${Math.round(rating)} Elo` : ''}`}
       >
         {deck.image_uri
           ? <img src={deck.image_uri} className={styles.cardArt} alt="" draggable={false} />
           : <div className={styles.cardNoArt} />
         }
+        {rating != null && (
+          <div className={styles.ratingBadge}>{Math.round(rating)}</div>
+        )}
         <div className={styles.cardOverlay}>
           <span className={styles.cardName}>{deck.name}</span>
           <span className={styles.cardCommander}>{deck.commander}</span>
