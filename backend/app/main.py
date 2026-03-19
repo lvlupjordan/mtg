@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import players, decks, games, stats
+from app.routers import players, decks, games, stats, tierlists
 
 app = FastAPI(title="MTG Commander Tracker")
 
@@ -15,6 +15,7 @@ app.include_router(players.router)
 app.include_router(decks.router)
 app.include_router(games.router)
 app.include_router(stats.router)
+app.include_router(tierlists.router)
 
 
 @app.get("/health")

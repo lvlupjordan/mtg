@@ -36,6 +36,10 @@ export const api = {
   },
   game: (id) => req(`/api/games/${id}`),
 
+  tierlists: () => req("/api/tierlists"),
+  tierlist: (userId) => req(`/api/tierlists/${userId}`),
+  saveTierlist: (userId, tiers) => req(`/api/tierlists/${userId}`, { method: "PUT", body: JSON.stringify({ tiers }) }),
+
   stats: () => req("/api/stats/overview"),
   eloRatings: () => req("/api/stats/elo"),
   statColours: () => req("/api/stats/colours"),
