@@ -153,7 +153,7 @@ export default function TierlistPage() {
 
   function handleDrop(e, tier) {
     e.preventDefault()
-    if (!dragging || !canDropInto(tier)) return
+    if (!dragging) return
     const { deckId } = dragging
     const beforeId = dropTarget?.tier === tier ? (dropTarget?.beforeId ?? null) : null
     setDraftTiers(prev => {
