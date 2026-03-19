@@ -185,6 +185,13 @@ export default function TierlistPage() {
 
   function handleReset() {
     if (!data?.decks) return
+    const ids = data.decks.map(d => d.id)
+    const published = allTierlists?.find(t => t.user_id === viewId)
+    setDraftTiers(initTiers(ids, published?.tiers ?? null))
+  }
+
+  function handleEmpty() {
+    if (!data?.decks) return
     setDraftTiers(initTiers(data.decks.map(d => d.id), null))
   }
 
@@ -224,10 +231,11 @@ export default function TierlistPage() {
                 {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Error' : 'Publish'}
               </button>
               <button className={styles.resetBtn} onClick={handleReset}>Reset</button>
+              <button className={styles.emptyBtn} onClick={handleEmpty}>Empty</button>
               <button className={styles.cancelBtn} onClick={cancelEditing}>Cancel</button>
             </>
           ) : (
-            viewId !== 'elo' && (
+            viewId !== 'elo' && viewId !== null && (
               <button className={styles.editBtn} onClick={startEditing}>
                 Edit as {viewingUser?.name ?? '…'}
               </button>
@@ -238,12 +246,17 @@ export default function TierlistPage() {
 
       {!displayTiers ? (
         <p className={styles.noList}>
-          {viewId === 'elo' ? 'Loading Elo ratings…' : `${viewingUser?.name ?? 'This player'} hasn't published a tier list yet.`}
-          {viewId !== 'elo' && !editing && (
-            <button className={styles.editBtn} style={{ marginLeft: 12 }} onClick={startEditing}>
-              Create one
-            </button>
-          )}
+          {viewId === null
+            ? 'Select a player or Elo from the dropdown.'
+            : viewId === 'elo'
+              ? 'Loading Elo ratings…'
+              : <>
+                  {viewingUser?.name ?? 'This player'} hasn't published a tier list yet.
+                  <button className={styles.editBtn} style={{ marginLeft: 12 }} onClick={startEditing}>
+                    Create one
+                  </button>
+                </>
+          }
         </p>
       ) : (
         <TierGrid
