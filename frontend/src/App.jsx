@@ -31,24 +31,18 @@ export default function App() {
           )}
         </div>
         <nav className={styles.nav}>
-          <NavLink to="/decks" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
-            Decks
-          </NavLink>
-          <NavLink to="/players" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
-            Players
-          </NavLink>
-          <NavLink to="/games" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
-            Games
-          </NavLink>
-          <NavLink to="/stats" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
-            Stats
-          </NavLink>
-          <NavLink to="/tracker" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
-            Tracker
-          </NavLink>
-          <NavLink to="/tierlist" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
-            Tier List
-          </NavLink>
+          <div className={styles.navGroup}>
+            <span className={styles.navGroupLabel}>Commander</span>
+            <div className={styles.navGroupLinks}>
+              <NavLink to="/decks" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>Decks</NavLink>
+              <NavLink to="/players" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>Players</NavLink>
+              <NavLink to="/games" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>Games</NavLink>
+              <NavLink to="/stats" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>Stats</NavLink>
+              <NavLink to="/tracker" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>Tracker</NavLink>
+              <NavLink to="/tierlist" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>Tier List</NavLink>
+            </div>
+          </div>
+          <div className={styles.navDivider} />
           <NavLink to="/collection" className={({ isActive }) => isActive ? `${styles.navLink} ${styles.active}` : styles.navLink}>
             Collection
           </NavLink>
