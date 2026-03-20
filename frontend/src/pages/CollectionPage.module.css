@@ -187,14 +187,81 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
   cursor: pointer;
   transition: border-color 0.2s, transform 0.2s;
+  position: relative;
 }
 
 .card:hover {
   border-color: var(--border-2);
   transform: translateY(-3px);
+  z-index: 10;
+}
+
+/* ── Oracle text tooltip ─────────────────────────────────────────────────── */
+
+.oracleTooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  background: var(--surface);
+  border: 1px solid var(--gold-dim);
+  border-radius: 6px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 20;
+  animation: tooltipIn 0.12s ease;
+}
+
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.tooltipName {
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  color: var(--gold-light);
+  letter-spacing: 0.03em;
+  margin-bottom: 3px;
+}
+
+.tooltipType {
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tooltipText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tooltipText p {
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.tooltipPT {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  color: var(--text-bright);
+  text-align: right;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
 }
 
 .cardArt {
@@ -203,6 +270,8 @@
   background-size: cover;
   background-position: center 20%;
   background-color: var(--surface-2);
+  border-radius: 6px 6px 0 0;
+  overflow: hidden;
 }
 
 .cardArtOverlay {

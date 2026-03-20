@@ -226,6 +226,20 @@ function CollectionCard({ entry, onDetail, onEdit, onDelete }) {
       onClick={() => onDetail(entry)}
       layout
     >
+      {hovered && entry.oracle_text && (
+        <div className={styles.oracleTooltip}>
+          <div className={styles.tooltipName}>{entry.name}</div>
+          {entry.type_line && <div className={styles.tooltipType}>{entry.type_line}</div>}
+          <div className={styles.tooltipText}>
+            {entry.oracle_text.split('\n').map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </div>
+          {(entry.power != null && entry.toughness != null) && (
+            <div className={styles.tooltipPT}>{entry.power}/{entry.toughness}</div>
+          )}
+        </div>
+      )}
       <div className={styles.cardArt} style={imgSrc ? { backgroundImage: `url(${imgSrc})` } : {}}>
         <div className={styles.cardArtOverlay} />
         {entry.foil && <span className={styles.foilBadge}>✦ Foil</span>}
