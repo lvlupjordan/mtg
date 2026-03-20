@@ -442,8 +442,8 @@ async def import_collection(
     else:
         all_ids = list({(row.get("Scryfall ID") or "").strip() for row in rows if row.get("Scryfall ID")})
         existing_ids = {
-            r.id for r in db.execute(
-                text("SELECT id FROM cards WHERE id = ANY(:ids)"), {"ids": all_ids}
+            str(r.id) for r in db.execute(
+                text("SELECT id FROM cards WHERE id = ANY(CAST(:ids AS uuid[]))"), {"ids": all_ids}
             ).fetchall()
         }
         missing_ids = [sid for sid in all_ids if sid not in existing_ids]
@@ -483,7 +483,7 @@ async def import_collection(
                     skipped += 1
                 continue
             if card:
-                existing = db.execute(text("SELECT 1 FROM cards WHERE id = :id"), {"id": sid}).fetchone()
+                existing = db.execute(text("SELECT 1 FROM cards WHERE id = CAST(:id AS uuid)"), {"id": sid}).fetchone()
                 if not existing:
                     _upsert_card(db, card)
                     new_card_ids.add(sid)
@@ -517,7 +517,7 @@ async def import_collection(
     tagged_cards = 0
     if new_card_ids:
         oracle_rows = db.execute(
-            text("SELECT id, oracle_id FROM cards WHERE id = ANY(:ids) AND oracle_id IS NOT NULL"),
+            text("SELECT id, oracle_id FROM cards WHERE id = ANY(CAST(:ids AS uuid[])) AND oracle_id IS NOT NULL"),
             {"ids": list(new_card_ids)},
         ).fetchall()
         new_oracle_to_card_ids: dict[str, list[str]] = {}
