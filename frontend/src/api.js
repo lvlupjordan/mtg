@@ -6,6 +6,7 @@ async function req(path, options = {}) {
     ...options,
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (res.status === 204 || res.headers.get("content-length") === "0") return null;
   return res.json();
 }
 
@@ -39,6 +40,32 @@ export const api = {
   tierlists: () => req("/api/tierlists"),
   tierlist: (userId) => req(`/api/tierlists/${userId}`),
   saveTierlist: (userId, tiers) => req(`/api/tierlists/${userId}`, { method: "PUT", body: JSON.stringify({ tiers }) }),
+
+  // Cards
+  searchCardsLocal: (params = {}) => {
+    const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString();
+    return req(`/api/cards${qs ? `?${qs}` : ""}`);
+  },
+  searchScryfall: (q) => req(`/api/cards/scryfall?q=${encodeURIComponent(q)}`),
+  addCardFromScryfall: (card) => req("/api/cards/from-scryfall", { method: "POST", body: JSON.stringify(card) }),
+
+  // Collection
+  collection: (params = {}) => {
+    const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString();
+    return req(`/api/collection${qs ? `?${qs}` : ""}`);
+  },
+  collectionTags: (owner_id) => req(`/api/collection/tags${owner_id ? `?owner_id=${owner_id}` : ""}`),
+  addToCollection: (body) => req("/api/collection", { method: "POST", body: JSON.stringify(body) }),
+  updateCollectionEntry: (id, body) => req(`/api/collection/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteCollectionEntry: (id) => req(`/api/collection/${id}`, { method: "DELETE" }),
+  importCollection: (csvFile, ownerId) => {
+    const form = new FormData();
+    form.append("csv_file", csvFile);
+    const url = new URL(`${BASE}/api/collection/import`);
+    if (ownerId) url.searchParams.set("owner_id", ownerId);
+    return fetch(url.toString(), { method: "POST", body: form })
+      .then(res => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); });
+  },
 
   stats: () => req("/api/stats/overview"),
   eloRatings: () => req("/api/stats/elo"),
