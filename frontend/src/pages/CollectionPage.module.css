@@ -323,27 +323,15 @@
   margin-top: 2px;
 }
 
-.cardFooter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
-}
-
-.cardSet {
-  font-size: 0.65rem;
-  color: var(--text-dim);
-  font-family: 'Crimson Pro', serif;
-  letter-spacing: 0.04em;
-}
-
-.cardQty {
-  font-size: 0.68rem;
-  color: var(--gold-dim);
+.cardQtyBadge {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
   font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  color: var(--gold-light);
   font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
 }
 
 .empty {

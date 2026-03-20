@@ -124,7 +124,7 @@ function ManaCost({ cost }) {
 }
 
 // ── Card detail modal ────────────────────────────────────────────────────────
-function CardDetailModal({ entry, ownerName, onClose, onEdit, onDelete }) {
+function CardDetailModal({ entry, ownerName, onClose }) {
   const lines = entry.oracle_text?.split('\n') || []
   return (
     <div className={styles.modalBg} onClick={onClose}>
@@ -199,10 +199,6 @@ function CardDetailModal({ entry, ownerName, onClose, onEdit, onDelete }) {
               )}
             </div>
             {entry.notes && <div className={styles.detailNotes}>{entry.notes}</div>}
-            <div className={styles.detailActions}>
-              <button className={styles.detailEditBtn} onClick={() => { onClose(); onEdit(entry) }}>Edit</button>
-              <button className={styles.detailDeleteBtn} onClick={() => { onClose(); onDelete(entry) }}>Remove</button>
-            </div>
           </div>
         </div>
       </motion.div>
@@ -211,17 +207,13 @@ function CardDetailModal({ entry, ownerName, onClose, onEdit, onDelete }) {
 }
 
 // ── Collection card (grid tile) ──────────────────────────────────────────────
-function CollectionCard({ entry, onDetail, onEdit, onDelete }) {
-  const [hovered, setHovered] = useState(false)
-
+function CollectionCard({ entry, onDetail }) {
   return (
     <motion.div
       className={styles.card}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22 }}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
       onClick={() => onDetail(entry)}
       layout
     >
@@ -231,44 +223,12 @@ function CollectionCard({ entry, onDetail, onEdit, onDelete }) {
           : <div className={styles.cardImageBlank}>{entry.name}</div>
         }
         {entry.foil && <span className={styles.foilBadge}>✦ Foil</span>}
+        {entry.quantity > 1 && <span className={styles.cardQtyBadge}>×{entry.quantity}</span>}
         <span
           className={styles.rarityDot}
           style={{ background: RARITY_COLOR[entry.rarity] || 'var(--text-dim)' }}
           title={entry.rarity}
         />
-        <AnimatePresence>
-          {hovered && (
-            <motion.div
-              className={styles.cardActions}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              onClick={e => e.stopPropagation()}
-            >
-              <button onClick={e => { e.stopPropagation(); onEdit(entry) }} className={styles.actionBtn}>Edit</button>
-              <button onClick={e => { e.stopPropagation(); onDelete(entry) }} className={`${styles.actionBtn} ${styles.actionBtnDanger}`}>Remove</button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-      <div className={styles.cardBody}>
-        <div className={styles.cardName}>{entry.name}</div>
-        {entry.type_line && <div className={styles.cardType}>{entry.type_line}</div>}
-        {entry.oracle_text && (
-          <div className={styles.cardOracle}>
-            {entry.oracle_text.split('\n').map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
-        )}
-        {(entry.power != null && entry.toughness != null) && (
-          <div className={styles.cardPT}>{entry.power}/{entry.toughness}</div>
-        )}
-        <div className={styles.cardFooter}>
-          <span className={styles.cardSet}>{entry.set_code?.toUpperCase()} #{entry.collector_number}</span>
-          <span className={styles.cardQty}>{entry.quantity > 1 ? `×${entry.quantity}` : ''}</span>
-        </div>
       </div>
     </motion.div>
   )
@@ -627,9 +587,7 @@ function ImportModal({ owners, onClose }) {
 export default function CollectionPage() {
   const [rawQuery, setRawQuery] = useState('')
   const [page, setPage] = useState(1)
-  const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
-  const [editEntry, setEditEntry] = useState(null)
   const [detailEntry, setDetailEntry] = useState(null)
 
   const deferredQuery = useDeferredValue(rawQuery)
@@ -662,15 +620,7 @@ export default function CollectionPage() {
     keepPreviousData: true,
   })
 
-  const qc = useQueryClient()
-
   function resetPage() { setPage(1) }
-
-  async function handleDelete(entry) {
-    if (!confirm(`Remove ${entry.name} from collection?`)) return
-    await api.deleteCollectionEntry(entry.entry_id)
-    qc.invalidateQueries({ queryKey: ['collection'] })
-  }
 
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / 60)
@@ -720,7 +670,6 @@ export default function CollectionPage() {
           )}
         </div>
         <div className={styles.topActions}>
-          <button className={styles.addCardBtn} onClick={() => setShowAdd(true)}>+ Add Card</button>
           <button className={styles.importBtn} onClick={() => setShowImport(true)}>↑ Import CSV</button>
         </div>
       </div>
@@ -744,8 +693,6 @@ export default function CollectionPage() {
             key={entry.entry_id}
             entry={entry}
             onDetail={setDetailEntry}
-            onEdit={setEditEntry}
-            onDelete={handleDelete}
           />
         ))}
       </div>
@@ -769,13 +716,9 @@ export default function CollectionPage() {
             entry={detailEntry}
             ownerName={playerById[detailEntry.owner_id]}
             onClose={() => setDetailEntry(null)}
-            onEdit={setEditEntry}
-            onDelete={handleDelete}
           />
         )}
-        {showAdd && <AddCardModal key="add" owners={players} onClose={() => setShowAdd(false)} />}
         {showImport && <ImportModal key="import" owners={players} onClose={() => setShowImport(false)} />}
-        {editEntry && <EditEntryModal key="edit" entry={editEntry} onClose={() => setEditEntry(null)} />}
       </AnimatePresence>
     </div>
   )
