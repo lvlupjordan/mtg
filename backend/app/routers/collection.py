@@ -540,7 +540,7 @@ async def import_collection(
         ).fetchall()
         new_oracle_to_card_ids: dict[str, list[str]] = {}
         for r in oracle_rows:
-            new_oracle_to_card_ids.setdefault(r.oracle_id, []).append(r.id)
+            new_oracle_to_card_ids.setdefault(str(r.oracle_id), []).append(str(r.id))
 
         card_tags = _fetch_tags_for_new_cards(new_oracle_to_card_ids)
         for card_id, tags in card_tags.items():
