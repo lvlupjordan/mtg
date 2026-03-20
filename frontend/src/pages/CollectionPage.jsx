@@ -124,8 +124,9 @@ function ManaCost({ cost }) {
 }
 
 // ── Card detail modal ────────────────────────────────────────────────────────
-function CardDetailModal({ entry, ownerName, onClose }) {
+function CardDetailModal({ entry, playerById, onClose }) {
   const lines = entry.oracle_text?.split('\n') || []
+  const owners = entry.owners ?? []
   return (
     <div className={styles.modalBg} onClick={onClose}>
       <motion.div
@@ -171,23 +172,26 @@ function CardDetailModal({ entry, ownerName, onClose }) {
               </div>
             )}
             <div className={styles.detailDivider} />
-            <div className={styles.detailMeta}>
-              {ownerName && <span className={styles.detailMetaItem}><span className={styles.detailMetaLabel}>Owner</span>{ownerName}</span>}
-              <span className={styles.detailMetaItem}><span className={styles.detailMetaLabel}>Qty</span>{entry.quantity}</span>
-              {entry.foil && <span className={`${styles.detailMetaItem} ${styles.detailFoil}`}>✦ Foil</span>}
-              {entry.condition && entry.condition !== 'near_mint' && (
-                <span className={styles.detailMetaItem}><span className={styles.detailMetaLabel}>Cond</span>{CONDITION_LABELS[entry.condition] || entry.condition}</span>
-              )}
-              {entry.language && entry.language !== 'en' && (
-                <span className={styles.detailMetaItem}><span className={styles.detailMetaLabel}>Lang</span>{entry.language.toUpperCase()}</span>
-              )}
-              {entry.purchase_price != null && (
-                <span className={styles.detailMetaItem}>
-                  <span className={styles.detailMetaLabel}>Paid</span>
-                  {entry.purchase_price} {entry.purchase_currency}
-                </span>
-              )}
-            </div>
+            {owners.length > 0 && (
+              <div className={styles.detailOwners}>
+                {owners.map((o, i) => (
+                  <div key={i} className={styles.detailOwnerRow}>
+                    <span className={styles.detailOwnerName}>{playerById[o.owner_id] || '?'}</span>
+                    <span className={styles.detailOwnerQty}>×{o.quantity}</span>
+                    {o.foil && <span className={`${styles.detailOwnerTag} ${styles.detailFoil}`}>✦ Foil</span>}
+                    {o.condition && o.condition !== 'near_mint' && (
+                      <span className={styles.detailOwnerTag}>{CONDITION_LABELS[o.condition] || o.condition}</span>
+                    )}
+                    {o.language && o.language !== 'en' && (
+                      <span className={styles.detailOwnerTag}>{o.language.toUpperCase()}</span>
+                    )}
+                    {o.purchase_price != null && (
+                      <span className={styles.detailOwnerTag}>{o.purchase_price} {o.purchase_currency}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className={styles.detailSetRow}>
               <span className={styles.detailSetCode}>{entry.set_code?.toUpperCase()}</span>
               <span className={styles.detailSetName}>{entry.set_name}</span>
@@ -207,7 +211,10 @@ function CardDetailModal({ entry, ownerName, onClose }) {
 }
 
 // ── Collection card (grid tile) ──────────────────────────────────────────────
-function CollectionCard({ entry, onDetail }) {
+function CollectionCard({ entry, onDetail, playerById, showOwners }) {
+  const totalQty = entry.owners.reduce((s, o) => s + o.quantity, 0)
+  const anyFoil = entry.owners.some(o => o.foil)
+
   return (
     <motion.div
       className={styles.card}
@@ -222,8 +229,17 @@ function CollectionCard({ entry, onDetail }) {
           ? <img src={entry.image_uri} alt={entry.name} className={styles.cardImage} />
           : <div className={styles.cardImageBlank}>{entry.name}</div>
         }
-        {entry.foil && <span className={styles.foilBadge}>✦ Foil</span>}
-        {entry.quantity > 1 && <span className={styles.cardQtyBadge}>×{entry.quantity}</span>}
+        {anyFoil && <span className={styles.foilBadge}>✦ Foil</span>}
+        {totalQty > 1 && <span className={styles.cardQtyBadge}>×{totalQty}</span>}
+        {showOwners && (
+          <div className={styles.cardOwnerBadges}>
+            {entry.owners.map(o => (
+              <span key={o.owner_id} className={styles.cardOwnerBadge}>
+                {playerById[o.owner_id] || '?'}{o.quantity > 1 ? ` ×${o.quantity}` : ''}
+              </span>
+            ))}
+          </div>
+        )}
         <span
           className={styles.rarityDot}
           style={{ background: RARITY_COLOR[entry.rarity] || 'var(--text-dim)' }}
@@ -676,7 +692,7 @@ export default function CollectionPage() {
 
       <div className={styles.resultsBar}>
         <span className={styles.resultCount}>
-          {isLoading ? '…' : `${total.toLocaleString()} ${total === 1 ? 'entry' : 'entries'}`}
+          {isLoading ? '…' : `${total.toLocaleString()} ${total === 1 ? 'card' : 'cards'}`}
         </span>
         {totalPages > 1 && (
           <div className={styles.pagination}>
@@ -690,9 +706,11 @@ export default function CollectionPage() {
       <div className={styles.cardGrid}>
         {entries.map(entry => (
           <CollectionCard
-            key={entry.entry_id}
+            key={entry.card_id}
             entry={entry}
             onDetail={setDetailEntry}
+            playerById={playerById}
+            showOwners={!parsed.owner_id}
           />
         ))}
       </div>
@@ -714,7 +732,7 @@ export default function CollectionPage() {
           <CardDetailModal
             key="detail"
             entry={detailEntry}
-            ownerName={playerById[detailEntry.owner_id]}
+            playerById={playerById}
             onClose={() => setDetailEntry(null)}
           />
         )}

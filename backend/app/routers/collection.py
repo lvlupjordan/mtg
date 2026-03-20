@@ -10,21 +10,12 @@ from app.database import get_db
 router = APIRouter(prefix="/api/collection", tags=["collection"])
 
 
-def _entry_row_to_dict(r) -> dict:
+def _card_group_to_dict(r) -> dict:
+    owners = r.owners or []
+    if isinstance(owners, str):
+        owners = json.loads(owners)
     return {
-        "entry_id": r.entry_id,
         "card_id": str(r.card_id),
-        "owner_id": r.owner_id,
-        "quantity": r.quantity,
-        "foil": r.foil,
-        "condition": r.condition,
-        "language": r.language,
-        "purchase_price": float(r.purchase_price) if r.purchase_price is not None else None,
-        "purchase_currency": r.purchase_currency,
-        "notes": r.notes,
-        "acquired_at": r.acquired_at.isoformat() if r.acquired_at else None,
-        "created_at": r.created_at.isoformat() if r.created_at else None,
-        # card fields
         "name": r.name,
         "mana_cost": r.mana_cost,
         "cmc": r.cmc,
@@ -44,6 +35,7 @@ def _entry_row_to_dict(r) -> dict:
         "image_art_crop": r.image_art_crop,
         "back_image_uri": r.back_image_uri,
         "layout": r.layout,
+        "owners": owners,
     }
 
 
@@ -130,7 +122,7 @@ def list_collection(
 
     where = " AND ".join(conditions)
     total = db.execute(text(f"""
-        SELECT COUNT(*) FROM collection_entries ce
+        SELECT COUNT(DISTINCT c.id) FROM collection_entries ce
         JOIN cards c ON c.id = ce.card_id
         WHERE {where}
     """), params).scalar()
@@ -138,21 +130,32 @@ def list_collection(
     params["limit"] = page_size
     params["offset"] = (page - 1) * page_size
     rows = db.execute(text(f"""
-        SELECT ce.id AS entry_id, ce.card_id, ce.owner_id, ce.quantity, ce.foil,
-               ce.condition, ce.language, ce.purchase_price, ce.purchase_currency,
-               ce.notes, ce.acquired_at, ce.created_at,
-               c.name, c.mana_cost, c.cmc, c.type_line, c.oracle_text,
-               c.colors, c.color_identity, c.keywords, c.oracle_tags,
-               c.power, c.toughness, c.rarity, c.set_code, c.set_name,
-               c.collector_number, c.image_uri, c.image_art_crop, c.back_image_uri, c.layout
+        SELECT
+            c.id AS card_id,
+            c.name, c.mana_cost, c.cmc, c.type_line, c.oracle_text,
+            c.colors, c.color_identity, c.keywords, c.oracle_tags,
+            c.power, c.toughness, c.rarity, c.set_code, c.set_name,
+            c.collector_number, c.image_uri, c.image_art_crop, c.back_image_uri, c.layout,
+            json_agg(json_build_object(
+                'entry_id', ce.id,
+                'owner_id', ce.owner_id,
+                'quantity', ce.quantity,
+                'foil', ce.foil,
+                'condition', ce.condition,
+                'language', ce.language,
+                'purchase_price', ce.purchase_price::float,
+                'purchase_currency', ce.purchase_currency,
+                'notes', ce.notes
+            ) ORDER BY ce.owner_id) AS owners
         FROM collection_entries ce
         JOIN cards c ON c.id = ce.card_id
         WHERE {where}
-        ORDER BY c.name, ce.foil DESC
+        GROUP BY c.id
+        ORDER BY c.name
         LIMIT :limit OFFSET :offset
     """), params).fetchall()
 
-    return {"total": total, "page": page, "page_size": page_size, "entries": [_entry_row_to_dict(r) for r in rows]}
+    return {"total": total, "page": page, "page_size": page_size, "entries": [_card_group_to_dict(r) for r in rows]}
 
 
 @router.post("", status_code=201)

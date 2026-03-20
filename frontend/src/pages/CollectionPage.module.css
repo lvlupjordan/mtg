@@ -334,6 +334,27 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.8);
 }
 
+.cardOwnerBadges {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.cardOwnerBadge {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  color: var(--text-bright);
+  background: rgba(9, 8, 14, 0.72);
+  padding: 2px 6px;
+  border-radius: 3px;
+  backdrop-filter: blur(2px);
+}
+
 .empty {
   color: var(--text-dim);
   font-style: italic;
@@ -472,6 +493,41 @@
   height: 1px;
   background: var(--border);
   margin: 2px 0;
+}
+
+.detailOwners {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detailOwnerRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detailOwnerName {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  color: var(--gold-light);
+  letter-spacing: 0.04em;
+}
+
+.detailOwnerQty {
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.detailOwnerTag {
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
 }
 
 .detailMeta {
