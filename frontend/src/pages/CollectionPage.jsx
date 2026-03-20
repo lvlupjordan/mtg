@@ -213,7 +213,6 @@ function CardDetailModal({ entry, ownerName, onClose, onEdit, onDelete }) {
 // ── Collection card (grid tile) ──────────────────────────────────────────────
 function CollectionCard({ entry, onDetail, onEdit, onDelete }) {
   const [hovered, setHovered] = useState(false)
-  const imgSrc = entry.image_art_crop || entry.image_uri
 
   return (
     <motion.div
@@ -226,22 +225,11 @@ function CollectionCard({ entry, onDetail, onEdit, onDelete }) {
       onClick={() => onDetail(entry)}
       layout
     >
-      {hovered && entry.oracle_text && (
-        <div className={styles.oracleTooltip}>
-          <div className={styles.tooltipName}>{entry.name}</div>
-          {entry.type_line && <div className={styles.tooltipType}>{entry.type_line}</div>}
-          <div className={styles.tooltipText}>
-            {entry.oracle_text.split('\n').map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
-          {(entry.power != null && entry.toughness != null) && (
-            <div className={styles.tooltipPT}>{entry.power}/{entry.toughness}</div>
-          )}
-        </div>
-      )}
-      <div className={styles.cardArt} style={imgSrc ? { backgroundImage: `url(${imgSrc})` } : {}}>
-        <div className={styles.cardArtOverlay} />
+      <div className={styles.cardImageWrap}>
+        {entry.image_uri
+          ? <img src={entry.image_uri} alt={entry.name} className={styles.cardImage} />
+          : <div className={styles.cardImageBlank}>{entry.name}</div>
+        }
         {entry.foil && <span className={styles.foilBadge}>✦ Foil</span>}
         <span
           className={styles.rarityDot}
@@ -266,13 +254,21 @@ function CollectionCard({ entry, onDetail, onEdit, onDelete }) {
       </div>
       <div className={styles.cardBody}>
         <div className={styles.cardName}>{entry.name}</div>
-        <div className={styles.cardMeta}>
-          <span className={styles.cardSet}>{entry.set_code?.toUpperCase()} #{entry.collector_number}</span>
-          {entry.quantity > 1 && <span className={styles.cardQty}>×{entry.quantity}</span>}
-        </div>
-        {entry.condition && entry.condition !== 'near_mint' && (
-          <span className={styles.conditionBadge}>{CONDITION_LABELS[entry.condition] || entry.condition}</span>
+        {entry.type_line && <div className={styles.cardType}>{entry.type_line}</div>}
+        {entry.oracle_text && (
+          <div className={styles.cardOracle}>
+            {entry.oracle_text.split('\n').map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </div>
         )}
+        {(entry.power != null && entry.toughness != null) && (
+          <div className={styles.cardPT}>{entry.power}/{entry.toughness}</div>
+        )}
+        <div className={styles.cardFooter}>
+          <span className={styles.cardSet}>{entry.set_code?.toUpperCase()} #{entry.collector_number}</span>
+          <span className={styles.cardQty}>{entry.quantity > 1 ? `×${entry.quantity}` : ''}</span>
+        </div>
       </div>
     </motion.div>
   )
