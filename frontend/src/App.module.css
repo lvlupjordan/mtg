@@ -59,11 +59,10 @@
 
 .navGroupLabel {
   font-family: 'Cinzel', serif;
-  font-size: 9px;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-dim);
-  opacity: 0.5;
 }
 
 .navGroupLinks {
