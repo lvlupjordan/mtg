@@ -74,11 +74,15 @@ def get_tags(owner_id: int | None = Query(default=None), db: Session = Depends(g
 def list_collection(
     owner_id: int | None = Query(default=None),
     q: str | None = Query(default=None),
+    oracle_text: str | None = Query(default=None),
     colors: str | None = Query(default=None),
+    color_identity: str | None = Query(default=None),
     oracle_tags: str | None = Query(default=None),
     rarity: str | None = Query(default=None),
     type_line: str | None = Query(default=None),
     foil: bool | None = Query(default=None),
+    cmc_min: float | None = Query(default=None),
+    cmc_max: float | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=60, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -92,10 +96,18 @@ def list_collection(
     if q:
         conditions.append("LOWER(c.name) LIKE LOWER(:q)")
         params["q"] = f"%{q}%"
+    if oracle_text:
+        conditions.append("LOWER(c.oracle_text) LIKE LOWER(:oracle_text)")
+        params["oracle_text"] = f"%{oracle_text}%"
     if colors:
         for i, col in enumerate(x.strip().upper() for x in colors.split(",") if x.strip()):
             conditions.append(f":col_{i} = ANY(c.colors)")
             params[f"col_{i}"] = col
+    if color_identity:
+        ci_list = [x.strip().upper() for x in color_identity.split(",") if x.strip()]
+        if ci_list:
+            conditions.append("c.color_identity <@ :color_identity")
+            params["color_identity"] = ci_list
     if oracle_tags:
         for i, tag in enumerate(x.strip() for x in oracle_tags.split(",") if x.strip()):
             conditions.append(f":tag_{i} = ANY(c.oracle_tags)")
@@ -109,6 +121,12 @@ def list_collection(
     if foil is not None:
         conditions.append("ce.foil = :foil")
         params["foil"] = foil
+    if cmc_min is not None:
+        conditions.append("c.cmc >= :cmc_min")
+        params["cmc_min"] = cmc_min
+    if cmc_max is not None:
+        conditions.append("c.cmc <= :cmc_max")
+        params["cmc_max"] = cmc_max
 
     where = " AND ".join(conditions)
     total = db.execute(text(f"""
