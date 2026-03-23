@@ -14,12 +14,10 @@
   transition: color 0.15s;
   align-self: flex-start;
 }
+.back:hover { color: var(--gold-light); }
 
-.back:hover {
-  color: var(--gold-light);
-}
+/* ── Hero ───────────────────────────────────────────────────────────────── */
 
-/* Hero */
 .hero {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -28,17 +26,10 @@
 }
 
 @media (max-width: 700px) {
-  .hero {
-    grid-template-columns: 160px 1fr;
-    gap: 20px;
-  }
+  .hero { grid-template-columns: 160px 1fr; gap: 20px; }
 }
-
 @media (max-width: 480px) {
-  .hero {
-    grid-template-columns: 110px 1fr;
-    gap: 12px;
-  }
+  .hero { grid-template-columns: 110px 1fr; gap: 12px; }
   .commander { font-size: 18px; }
 }
 
@@ -63,11 +54,7 @@
 .imageFade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 60%,
-    rgba(9, 8, 14, 0.5) 100%
-  );
+  background: linear-gradient(to bottom, transparent 60%, rgba(9, 8, 14, 0.5) 100%);
 }
 
 .heroContent {
@@ -95,12 +82,11 @@
   color: var(--text-dim);
   border: 1px solid var(--border);
 }
-
-.budget_precon { color: var(--neutral); }
-.budget_budget { color: var(--win); border-color: rgba(78, 203, 168, 0.3); }
+.budget_precon  { color: var(--neutral); }
+.budget_budget  { color: var(--win);  border-color: rgba(78, 203, 168, 0.3); }
 .budget_standard { color: var(--gold); border-color: rgba(200, 149, 58, 0.3); }
 .budget_optimized { color: #c08aff; border-color: rgba(192, 138, 255, 0.3); }
-.budget_cedh { color: var(--loss); border-color: rgba(217, 95, 95, 0.3); }
+.budget_cedh    { color: var(--loss); border-color: rgba(217, 95, 95, 0.3); }
 
 .commander {
   font-size: 32px;
@@ -108,10 +94,7 @@
   letter-spacing: 0.04em;
   line-height: 1.2;
 }
-
-@media (max-width: 700px) {
-  .commander { font-size: 24px; }
-}
+@media (max-width: 700px) { .commander { font-size: 24px; } }
 
 .builderRow {
   display: flex;
@@ -120,26 +103,11 @@
   flex-wrap: wrap;
 }
 
-.builder {
-  font-size: 16px;
-  color: var(--text-dim);
-}
-
-.builder strong {
-  color: var(--text);
-  font-style: normal;
-}
-
-.builderLink {
-  text-decoration: none;
-}
-.builderLink:hover strong {
-  color: var(--gold-light);
-}
-
-.cmc {
-  color: var(--text-dim);
-}
+.builder { font-size: 16px; color: var(--text-dim); }
+.builder strong { color: var(--text); font-style: normal; }
+.builderLink { text-decoration: none; }
+.builderLink:hover strong { color: var(--gold-light); }
+.cmc { color: var(--text-dim); }
 
 .activeToggle {
   display: inline-flex;
@@ -151,11 +119,7 @@
   cursor: pointer;
   transition: opacity 0.15s;
 }
-
-.activeToggle:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.activeToggle:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .track {
   position: relative;
@@ -167,11 +131,7 @@
   transition: background 0.2s, border-color 0.2s;
   flex-shrink: 0;
 }
-
-.activeOn .track {
-  background: rgba(78, 203, 168, 0.25);
-  border-color: var(--win);
-}
+.activeOn .track { background: rgba(78, 203, 168, 0.25); border-color: var(--win); }
 
 .thumb {
   position: absolute;
@@ -183,11 +143,7 @@
   background: var(--text-dim);
   transition: transform 0.2s, background 0.2s;
 }
-
-.activeOn .thumb {
-  transform: translateX(18px);
-  background: var(--win);
-}
+.activeOn .thumb { transform: translateX(18px); background: var(--win); }
 
 .toggleLabel {
   font-family: 'Cinzel', serif;
@@ -198,16 +154,9 @@
   color: var(--text-dim);
   transition: color 0.2s;
 }
+.activeOn .toggleLabel { color: var(--win); }
 
-.activeOn .toggleLabel {
-  color: var(--win);
-}
-
-.tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .tag {
   font-family: 'Cinzel', serif;
@@ -221,32 +170,33 @@
   border: 1px solid var(--border);
 }
 
-/* Stats */
+/* ── Stats + Pilots row ──────────────────────────────────────────────────── */
+
+.statsRow {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .stats {
   display: flex;
-  gap: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  align-self: flex-start;
-  min-width: min(320px, 100%);
-  width: 100%;
+  flex-shrink: 0;
 }
 
 .statBox {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 18px 12px;
+  padding: 18px 20px;
   border-right: 1px solid var(--border);
 }
-
-.statBox:last-child {
-  border-right: none;
-}
+.statBox:last-child { border-right: none; }
 
 .statValue {
   font-family: 'Cinzel', serif;
@@ -264,16 +214,80 @@
   color: var(--text-dim);
 }
 
-/* Columns */
-.columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
+.pilotsBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  flex: 1;
+  min-width: 0;
 }
 
-@media (max-width: 700px) {
-  .columns { grid-template-columns: 1fr; }
+.pilotsLabel {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
+
+.pilotsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pilotChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.pilotChip:hover { border-color: var(--gold-dim); }
+
+.pilotChipName {
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
+  color: var(--text-bright);
+}
+
+.pilotChipWr {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pilotChipGames {
+  font-family: 'Crimson Pro', serif;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ── Body: decklist + games ──────────────────────────────────────────────── */
+
+.body {
+  display: grid;
+  grid-template-columns: 3fr 1.2fr;
+  gap: 32px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .body { grid-template-columns: 1fr; }
+}
+
+.bodyMain { min-width: 0; }
+.bodySide { min-width: 0; }
+
+/* ── Shared section ──────────────────────────────────────────────────────── */
 
 .section {
   display: flex;
@@ -290,228 +304,7 @@
   padding-bottom: 10px;
 }
 
-/* Pilots */
-.pilotList {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pilotRow {
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  background: var(--surface);
-  border-radius: 6px;
-  gap: 8px;
-}
-
-.pilotName {
-  flex: 1;
-  font-size: 15px;
-  color: var(--text-bright);
-  text-decoration: none;
-}
-.pilotName:hover {
-  color: var(--gold-light);
-}
-
-.pilotGames {
-  font-size: 13px;
-  color: var(--text-dim);
-  min-width: 32px;
-  text-align: right;
-}
-
-.pilotWr {
-  font-family: 'Cinzel', serif;
-  font-size: 13px;
-  font-weight: 600;
-  min-width: 40px;
-  text-align: right;
-}
-
-/* Games */
-.gameList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.gameCard {
-  background: var(--surface);
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.gameRow {
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  gap: 12px;
-}
-
-.opponents {
-  border-top: 1px solid var(--border);
-  padding: 6px 14px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.opponent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 0;
-}
-
-.oppPlacement {
-  font-family: 'Cinzel', serif;
-  font-size: 11px;
-  font-weight: 600;
-  min-width: 24px;
-}
-
-.oppCommander {
-  flex: 1;
-  font-size: 13px;
-  color: var(--text);
-  text-decoration: none;
-  transition: color 0.15s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.oppCommander:hover {
-  color: var(--gold-light);
-}
-
-.oppPilot {
-  font-size: 12px;
-  color: var(--text-dim);
-  font-style: italic;
-  white-space: nowrap;
-}
-
-.gamePlacement {
-  font-family: 'Cinzel', serif;
-  font-size: 14px;
-  font-weight: 600;
-  min-width: 36px;
-}
-
-.gameInfo {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.gamePilot {
-  font-size: 15px;
-  color: var(--text-bright);
-}
-
-.gameVc {
-  font-size: 12px;
-  color: var(--text-dim);
-  font-style: italic;
-}
-
-.gameDate {
-  font-size: 12px;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-
-/* Loading */
-.state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 80px 20px;
-  color: var(--text-dim);
-  font-style: italic;
-}
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--border);
-  border-top-color: var(--gold);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.errorText {
-  color: var(--loss);
-}
-
-.editBtn {
-  background: var(--gold);
-  border: none;
-  border-radius: 6px;
-  color: #1a1000;
-  font-family: 'Cinzel', serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.editBtn:hover {
-  background: var(--gold-light);
-}
-
-.moxfieldBtn {
-  font-family: 'Cinzel', serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid var(--border-2);
-  color: var(--text-dim);
-  text-decoration: none;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.moxfieldBtn:hover {
-  color: var(--gold-light);
-  border-color: var(--gold-dim);
-}
-
-/* Decklist */
-.decklistToggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: none;
-  border: none;
-  padding: 0 0 10px;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  border-bottom: 1px solid var(--border);
-}
-
-.decklistChevron {
-  font-size: 10px;
-  color: var(--text-dim);
-  margin-left: auto;
-}
+/* ── Decklist ────────────────────────────────────────────────────────────── */
 
 .decklistLoading {
   display: flex;
@@ -526,27 +319,34 @@
 .decklistError {
   color: var(--loss);
   font-size: 14px;
-  padding: 16px 0;
+  padding: 8px 0;
+}
+
+.noDecklist {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 14px;
+  padding: 8px 0;
 }
 
 .decklistGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 20px 32px;
-  padding-top: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px 28px;
 }
 
 .decklistSection {
   display: flex;
   flex-direction: column;
-  gap: 1px;
 }
 
 .decklistSectionHeader {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 7px;
   margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 .decklistSectionName {
@@ -597,7 +397,139 @@
   flex-shrink: 0;
 }
 
-.manaSymbol {
-  width: 14px;
-  height: 14px;
+.manaSymbol { width: 14px; height: 14px; }
+
+/* ── Games ───────────────────────────────────────────────────────────────── */
+
+.gameList { display: flex; flex-direction: column; gap: 6px; }
+
+.gameCard {
+  background: var(--surface);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
+
+.gameRow {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  gap: 12px;
+}
+
+.opponents {
+  border-top: 1px solid var(--border);
+  padding: 6px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.opponent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.oppPlacement {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 24px;
+}
+
+.oppCommander {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oppCommander:hover { color: var(--gold-light); }
+
+.oppPilot {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.gamePlacement {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 36px;
+}
+
+.gameInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gamePilot { font-size: 15px; color: var(--text-bright); }
+.gameVc { font-size: 12px; color: var(--text-dim); font-style: italic; }
+.gameDate { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.editBtn {
+  background: var(--gold);
+  border: none;
+  border-radius: 6px;
+  color: #1a1000;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.editBtn:hover { background: var(--gold-light); }
+
+.moxfieldBtn {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-2);
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s;
+}
+.moxfieldBtn:hover { color: var(--gold-light); border-color: var(--gold-dim); }
+
+/* ── Loading / error states ──────────────────────────────────────────────── */
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 80px 20px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.errorText { color: var(--loss); }

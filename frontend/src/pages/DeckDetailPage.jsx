@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { api } from '../api'
 import ColorPips from '../components/ColorPips'
 import AddDeckModal from '../components/AddDeckModal'
@@ -29,64 +29,46 @@ function ManaCost({ cost }) {
   )
 }
 
-function Decklist({ deckId }) {
-  const [open, setOpen] = useState(false)
+function DecklistPanel({ deckId }) {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['moxfield', deckId],
     queryFn: () => api.deckMoxfield(deckId),
-    enabled: open,
     staleTime: 5 * 60 * 1000,
   })
 
   return (
     <section className={styles.section}>
-      <button className={styles.decklistToggle} onClick={() => setOpen(o => !o)}>
-        <h2 className={styles.sectionTitle} style={{ border: 'none', padding: 0 }}>Decklist</h2>
-        <span className={styles.decklistChevron}>{open ? '▲' : '▼'}</span>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{ overflow: 'hidden' }}
-          >
-            {isLoading && (
-              <div className={styles.decklistLoading}>
-                <div className={styles.spinner} />
-                <span>Fetching from Moxfield…</span>
+      <h2 className={styles.sectionTitle}>Decklist</h2>
+      {isLoading && (
+        <div className={styles.decklistLoading}>
+          <div className={styles.spinner} />
+          <span>Fetching from Moxfield…</span>
+        </div>
+      )}
+      {isError && (
+        <p className={styles.decklistError}>{error?.message || 'Failed to load decklist'}</p>
+      )}
+      {data && (
+        <div className={styles.decklistGrid}>
+          {Object.entries(data.sections).map(([section, cards]) => (
+            <div key={section} className={styles.decklistSection}>
+              <div className={styles.decklistSectionHeader}>
+                <span className={styles.decklistSectionName}>{section}</span>
+                <span className={styles.decklistSectionCount}>
+                  {cards.reduce((s, c) => s + c.quantity, 0)}
+                </span>
               </div>
-            )}
-            {isError && (
-              <p className={styles.decklistError}>{error?.message || 'Failed to load decklist'}</p>
-            )}
-            {data && (
-              <div className={styles.decklistGrid}>
-                {Object.entries(data.sections).map(([section, cards]) => (
-                  <div key={section} className={styles.decklistSection}>
-                    <div className={styles.decklistSectionHeader}>
-                      <span className={styles.decklistSectionName}>{section}</span>
-                      <span className={styles.decklistSectionCount}>
-                        {cards.reduce((s, c) => s + c.quantity, 0)}
-                      </span>
-                    </div>
-                    {cards.map((card, i) => (
-                      <div key={i} className={styles.decklistCard}>
-                        <span className={styles.decklistQty}>{card.quantity}</span>
-                        <span className={styles.decklistName}>{card.name}</span>
-                        <ManaCost cost={card.mana_cost} />
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {cards.map((card, i) => (
+                <div key={i} className={styles.decklistCard}>
+                  <span className={styles.decklistQty}>{card.quantity}</span>
+                  <span className={styles.decklistName}>{card.name}</span>
+                  <ManaCost cost={card.mana_cost} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   )
 }
@@ -164,6 +146,7 @@ export default function DeckDetailPage() {
     >
       <Link to="/decks" className={styles.back}>← Decks</Link>
 
+      {/* ── Hero ── */}
       <div className={styles.hero}>
         <div className={styles.imageWrap}>
           <img
@@ -185,6 +168,7 @@ export default function DeckDetailPage() {
           </div>
 
           <h1 className={styles.commander}>{deck.commander}</h1>
+
           <div className={styles.builderRow}>
             <p className={styles.builder}>
               Brewed by <Link to={`/players/${deck.builder?.id}`} className={styles.builderLink}><strong>{deck.builder?.name}</strong></Link>
@@ -199,19 +183,12 @@ export default function DeckDetailPage() {
               role="switch"
               aria-checked={deck.active}
             >
-              <span className={styles.track}>
-                <span className={styles.thumb} />
-              </span>
+              <span className={styles.track}><span className={styles.thumb} /></span>
               <span className={styles.toggleLabel}>{deck.active ? 'Active' : 'Retired'}</span>
             </button>
             <button className={styles.editBtn} onClick={() => setShowEdit(true)}>Edit</button>
             {deck.moxfield_url && (
-              <a
-                href={deck.moxfield_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.moxfieldBtn}
-              >
+              <a href={deck.moxfield_url} target="_blank" rel="noopener noreferrer" className={styles.moxfieldBtn}>
                 Moxfield ↗
               </a>
             )}
@@ -219,86 +196,103 @@ export default function DeckDetailPage() {
 
           {deck.strategy?.length > 0 && (
             <div className={styles.tags}>
-              {deck.strategy.map(s => (
-                <span key={s} className={styles.tag}>{s}</span>
-              ))}
+              {deck.strategy.map(s => <span key={s} className={styles.tag}>{s}</span>)}
             </div>
           )}
 
-          <div className={styles.stats}>
-            <StatBox label="Games" value={deck.games} />
-            <StatBox label="Wins" value={deck.wins} color="var(--win)" />
-            <StatBox label="Win Rate" value={`${winPct}%`} color={winColor} />
-            <StatBox
-              label="Avg Place"
-              value={deck.avg_placement ?? '—'}
-              color={deck.avg_placement <= 2 ? 'var(--win)' : deck.avg_placement >= 3 ? 'var(--loss)' : undefined}
-            />
+          {/* Stats + Pilots side by side */}
+          <div className={styles.statsRow}>
+            <div className={styles.stats}>
+              <StatBox label="Games" value={deck.games} />
+              <StatBox label="Wins" value={deck.wins} color="var(--win)" />
+              <StatBox label="Win Rate" value={`${winPct}%`} color={winColor} />
+              <StatBox
+                label="Avg Place"
+                value={deck.avg_placement ?? '—'}
+                color={deck.avg_placement <= 2 ? 'var(--win)' : deck.avg_placement >= 3 ? 'var(--loss)' : undefined}
+              />
+            </div>
+
+            {deck.pilots?.length > 0 && (
+              <div className={styles.pilotsBox}>
+                <span className={styles.pilotsLabel}>Pilots</span>
+                <div className={styles.pilotsList}>
+                  {deck.pilots.map(p => (
+                    <Link key={p.id} to={`/players/${p.id}`} className={styles.pilotChip}>
+                      <span className={styles.pilotChipName}>{p.name}</span>
+                      <span
+                        className={styles.pilotChipWr}
+                        style={{ color: p.win_rate >= 0.4 ? 'var(--win)' : p.win_rate >= 0.25 ? 'var(--gold)' : 'var(--text-dim)' }}
+                      >
+                        {Math.round(p.win_rate * 100)}%
+                      </span>
+                      <span className={styles.pilotChipGames}>{p.games}g</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className={styles.columns}>
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Pilots</h2>
-          <div className={styles.pilotList}>
-            {deck.pilots?.map(p => (
-              <div key={p.id} className={styles.pilotRow}>
-                <Link to={`/players/${p.id}`} className={styles.pilotName}>{p.name}</Link>
-                <span className={styles.pilotGames}>{p.games}g</span>
-                <span
-                  className={styles.pilotWr}
-                  style={{ color: p.win_rate >= 0.4 ? 'var(--win)' : p.win_rate >= 0.25 ? 'var(--gold)' : 'var(--text-dim)' }}
-                >
-                  {Math.round(p.win_rate * 100)}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
+      {/* ── Body: decklist + recent games ── */}
+      <div className={styles.body}>
+        <div className={styles.bodyMain}>
+          {deck.moxfield_url
+            ? <DecklistPanel deckId={id} />
+            : (
+              <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>Decklist</h2>
+                <p className={styles.noDecklist}>
+                  No Moxfield URL set — edit this deck to add one.
+                </p>
+              </section>
+            )
+          }
+        </div>
 
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Recent Games</h2>
-          <div className={styles.gameList}>
-            {deck.recent_games?.map(g => {
-              const { label, color } = placementLabel(g.placement)
-              return (
-                <div key={g.game_id} className={styles.gameCard}>
-                  <div className={styles.gameRow}>
-                    <span className={styles.gamePlacement} style={{ color }}>{label}</span>
-                    <div className={styles.gameInfo}>
-                      <span className={styles.gamePilot}>{g.pilot}</span>
-                      {g.victory_condition && (
-                        <span className={styles.gameVc}>{g.victory_condition}</span>
-                      )}
+        <div className={styles.bodySide}>
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Recent Games</h2>
+            <div className={styles.gameList}>
+              {deck.recent_games?.map(g => {
+                const { label, color } = placementLabel(g.placement)
+                return (
+                  <div key={g.game_id} className={styles.gameCard}>
+                    <div className={styles.gameRow}>
+                      <span className={styles.gamePlacement} style={{ color }}>{label}</span>
+                      <div className={styles.gameInfo}>
+                        <span className={styles.gamePilot}>{g.pilot}</span>
+                        {g.victory_condition && (
+                          <span className={styles.gameVc}>{g.victory_condition}</span>
+                        )}
+                      </div>
+                      <span className={styles.gameDate}>
+                        {new Date(g.played_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
+                      </span>
                     </div>
-                    <span className={styles.gameDate}>
-                      {new Date(g.played_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
-                    </span>
+                    {g.opponents?.length > 0 && (
+                      <div className={styles.opponents}>
+                        {g.opponents.map(o => {
+                          const { label: oLabel, color: oColor } = placementLabel(o.placement)
+                          return (
+                            <div key={o.deck_id} className={styles.opponent}>
+                              <span className={styles.oppPlacement} style={{ color: oColor }}>{oLabel}</span>
+                              <Link to={`/decks/${o.deck_id}`} className={styles.oppCommander}>{o.commander}</Link>
+                              <span className={styles.oppPilot}>{o.pilot}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                  {g.opponents?.length > 0 && (
-                    <div className={styles.opponents}>
-                      {g.opponents.map(o => {
-                        const { label: oLabel, color: oColor } = placementLabel(o.placement)
-                        return (
-                          <div key={o.deck_id} className={styles.opponent}>
-                            <span className={styles.oppPlacement} style={{ color: oColor }}>{oLabel}</span>
-                            <Link to={`/decks/${o.deck_id}`} className={styles.oppCommander}>
-                              {o.commander}
-                            </Link>
-                            <span className={styles.oppPilot}>{o.pilot}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </section>
+                )
+              })}
+            </div>
+          </section>
+        </div>
       </div>
-      {deck.moxfield_url && <Decklist deckId={id} />}
 
       {showEdit && <AddDeckModal deck={deck} onClose={() => setShowEdit(false)} />}
     </motion.div>
