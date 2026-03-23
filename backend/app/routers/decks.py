@@ -328,15 +328,15 @@ def get_moxfield_decklist(deck_id: int, db: Session = Depends(get_db)):
             card = entry.get("card", {})
             type_line = card.get("type_line") or ""
             section = _type_section(type_line, board_name)
-            faces = card.get("card_faces") or []
+            scryfall_id = card.get("scryfall_id")
             image_uri = (
-                card.get("image_uris", {}).get("normal")
-                or (faces[0].get("image_uris", {}).get("normal") if faces else None)
+                f"https://cards.scryfall.io/normal/front/{scryfall_id[0]}/{scryfall_id[1]}/{scryfall_id}.jpg"
+                if scryfall_id else None
             )
             sections.setdefault(section, []).append({
                 "name": card.get("name", "Unknown"),
                 "quantity": entry.get("quantity", 1),
-                "mana_cost": card.get("mana_cost") or (faces[0].get("mana_cost") if faces else ""),
+                "mana_cost": card.get("mana_cost") or "",
                 "cmc": card.get("cmc") or 0,
                 "type_line": type_line,
                 "image_uri": image_uri,
