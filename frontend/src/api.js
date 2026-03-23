@@ -18,6 +18,7 @@ export const api = {
     return req(`/api/decks?${qs.toString()}`);
   },
   deck: (id) => req(`/api/decks/${id}`),
+  deckMoxfield: (id) => req(`/api/decks/${id}/moxfield`),
   createDeck: (body) => req("/api/decks", { method: "POST", body: JSON.stringify(body) }),
   patchDeck: (id, body) => req(`/api/decks/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
 

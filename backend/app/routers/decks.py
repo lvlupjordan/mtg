@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -99,6 +100,7 @@ def list_decks(
                 "budget": d.budget,
                 "active": d.active,
                 "image_uri": db.get(Deck, d.id).image_uri,
+                "moxfield_url": db.get(Deck, d.id).moxfield_url,
                 "builder": {"id": d.builder_id, "name": d.builder_name},
                 "games": d.games,
                 "wins": d.wins,
@@ -163,6 +165,7 @@ def get_deck(deck_id: int, db: Session = Depends(get_db)):
         "budget": deck.budget,
         "active": deck.active,
         "image_uri": deck.image_uri,
+        "moxfield_url": deck.moxfield_url,
         "builder": {"id": builder.id, "name": builder.name},
         "games": stats.games,
         "wins": stats.wins,
@@ -230,6 +233,8 @@ def update_deck(deck_id: int, payload: dict, db: Session = Depends(get_db)):
         deck.builder_id = payload["builder_id"]
     if "notes" in payload:
         deck.notes = payload["notes"]
+    if "moxfield_url" in payload:
+        deck.moxfield_url = payload["moxfield_url"] or None
     db.commit()
     db.refresh(deck)
     return {"id": deck.id, "active": deck.active, "name": deck.name, "commander": deck.commander, "image_uri": deck.image_uri}
@@ -244,6 +249,7 @@ class DeckCreate(BaseModel):
     strategy: list[str] = []
     budget: str | None = None
     notes: str | None = None
+    moxfield_url: str | None = None
     active: bool = True
 
 
@@ -265,6 +271,83 @@ def _fetch_scryfall_image(commander: str) -> str | None:
     return None
 
 
+_SECTION_ORDER = ["Commander", "Creatures", "Instants", "Sorceries", "Enchantments", "Artifacts", "Planeswalkers", "Battles", "Lands", "Other"]
+
+def _type_section(type_line: str, board: str) -> str:
+    if board == "commanders":
+        return "Commander"
+    tl = type_line.lower()
+    if "land" in tl:       return "Lands"
+    if "creature" in tl:   return "Creatures"
+    if "instant" in tl:    return "Instants"
+    if "sorcery" in tl:    return "Sorceries"
+    if "enchantment" in tl: return "Enchantments"
+    if "artifact" in tl:   return "Artifacts"
+    if "planeswalker" in tl: return "Planeswalkers"
+    if "battle" in tl:     return "Battles"
+    return "Other"
+
+
+@router.get("/{deck_id}/moxfield")
+def get_moxfield_decklist(deck_id: int, db: Session = Depends(get_db)):
+    deck = db.get(Deck, deck_id)
+    if not deck:
+        raise HTTPException(404, "Deck not found")
+    if not deck.moxfield_url:
+        raise HTTPException(404, "No Moxfield URL set for this deck")
+
+    match = re.search(r'moxfield\.com/decks/([A-Za-z0-9_-]+)', deck.moxfield_url)
+    if not match:
+        raise HTTPException(400, "Invalid Moxfield URL — expected https://www.moxfield.com/decks/DECK_ID")
+    mox_id = match.group(1)
+
+    try:
+        resp = httpx.get(
+            f"https://api2.moxfield.com/v3/decks/all/{mox_id}",
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept": "application/json",
+                "Referer": "https://www.moxfield.com/",
+            },
+            timeout=15,
+            follow_redirects=True,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"Could not reach Moxfield: {e}")
+
+    if resp.status_code == 404:
+        raise HTTPException(404, "Deck not found on Moxfield — check the URL and ensure the deck is public")
+    if resp.status_code != 200:
+        raise HTTPException(502, f"Moxfield returned {resp.status_code}")
+
+    data = resp.json()
+    sections: dict[str, list] = {}
+
+    for board_name, board in data.get("boards", {}).items():
+        for entry in board.get("cards", {}).values():
+            card = entry.get("card", {})
+            type_line = card.get("type_line") or ""
+            section = _type_section(type_line, board_name)
+            sections.setdefault(section, []).append({
+                "name": card.get("name", "Unknown"),
+                "quantity": entry.get("quantity", 1),
+                "mana_cost": card.get("mana_cost") or "",
+                "cmc": card.get("cmc") or 0,
+                "type_line": type_line,
+            })
+
+    for cards in sections.values():
+        cards.sort(key=lambda c: (c["cmc"], c["name"]))
+
+    ordered = {s: sections[s] for s in _SECTION_ORDER if s in sections}
+    for s in sections:
+        if s not in ordered:
+            ordered[s] = sections[s]
+
+    total = sum(c["quantity"] for cards in sections.values() for c in cards)
+    return {"deck_name": data.get("name"), "total": total, "sections": ordered}
+
+
 @router.post("")
 def create_deck(deck: DeckCreate, db: Session = Depends(get_db)):
     builder = db.get(User, deck.builder_id)
@@ -282,6 +365,7 @@ def create_deck(deck: DeckCreate, db: Session = Depends(get_db)):
         strategy=deck.strategy,
         budget=deck.budget,
         notes=deck.notes,
+        moxfield_url=deck.moxfield_url or None,
         active=deck.active,
         image_uri=image_uri,
         created_at=datetime.utcnow(),

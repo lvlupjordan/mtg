@@ -20,6 +20,7 @@ export default function AddDeckModal({ onClose, deck = null }) {
     commander_cmc: deck.commander_cmc != null ? String(deck.commander_cmc) : '',
     strategy: deck.strategy || [],
     budget: deck.budget || 'Standard',
+    moxfield_url: deck.moxfield_url || '',
   } : {
     commander: '',
     builder_id: '',
@@ -27,6 +28,7 @@ export default function AddDeckModal({ onClose, deck = null }) {
     commander_cmc: '',
     strategy: [],
     budget: 'Standard',
+    moxfield_url: '',
   })
   const [error, setError] = useState(null)
   const [looking, setLooking] = useState(false)
@@ -221,6 +223,17 @@ export default function AddDeckModal({ onClose, deck = null }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className={styles.field}>
+              <label>Moxfield URL <span className={styles.optional}>(optional)</span></label>
+              <input
+                type="url"
+                placeholder="https://www.moxfield.com/decks/…"
+                value={form.moxfield_url}
+                onChange={e => setForm(f => ({ ...f, moxfield_url: e.target.value }))}
+                className={styles.input}
+              />
             </div>
 
             {error && <p className={styles.error}>{error}</p>}

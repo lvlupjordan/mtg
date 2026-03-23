@@ -1,11 +1,95 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api'
 import ColorPips from '../components/ColorPips'
 import AddDeckModal from '../components/AddDeckModal'
 import styles from './DeckDetailPage.module.css'
+
+const MANA_SYMBOL_RE = /\{[^}]+\}/g
+function ManaCost({ cost }) {
+  if (!cost) return null
+  const symbols = cost.match(MANA_SYMBOL_RE) || []
+  return (
+    <span className={styles.manaCost}>
+      {symbols.map((sym, i) => {
+        const code = sym.slice(1, -1).replace('/', '')
+        return (
+          <img
+            key={i}
+            src={`https://svgs.scryfall.io/card-symbols/${code}.svg`}
+            alt={sym}
+            className={styles.manaSymbol}
+            onError={e => { e.target.style.display = 'none' }}
+          />
+        )
+      })}
+    </span>
+  )
+}
+
+function Decklist({ deckId }) {
+  const [open, setOpen] = useState(false)
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['moxfield', deckId],
+    queryFn: () => api.deckMoxfield(deckId),
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  return (
+    <section className={styles.section}>
+      <button className={styles.decklistToggle} onClick={() => setOpen(o => !o)}>
+        <h2 className={styles.sectionTitle} style={{ border: 'none', padding: 0 }}>Decklist</h2>
+        <span className={styles.decklistChevron}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ overflow: 'hidden' }}
+          >
+            {isLoading && (
+              <div className={styles.decklistLoading}>
+                <div className={styles.spinner} />
+                <span>Fetching from Moxfield…</span>
+              </div>
+            )}
+            {isError && (
+              <p className={styles.decklistError}>{error?.message || 'Failed to load decklist'}</p>
+            )}
+            {data && (
+              <div className={styles.decklistGrid}>
+                {Object.entries(data.sections).map(([section, cards]) => (
+                  <div key={section} className={styles.decklistSection}>
+                    <div className={styles.decklistSectionHeader}>
+                      <span className={styles.decklistSectionName}>{section}</span>
+                      <span className={styles.decklistSectionCount}>
+                        {cards.reduce((s, c) => s + c.quantity, 0)}
+                      </span>
+                    </div>
+                    {cards.map((card, i) => (
+                      <div key={i} className={styles.decklistCard}>
+                        <span className={styles.decklistQty}>{card.quantity}</span>
+                        <span className={styles.decklistName}>{card.name}</span>
+                        <ManaCost cost={card.mana_cost} />
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  )
+}
 
 const PLACEMENT_LABEL = {
   1: { label: '1st', color: 'var(--win)' },
@@ -121,6 +205,16 @@ export default function DeckDetailPage() {
               <span className={styles.toggleLabel}>{deck.active ? 'Active' : 'Retired'}</span>
             </button>
             <button className={styles.editBtn} onClick={() => setShowEdit(true)}>Edit</button>
+            {deck.moxfield_url && (
+              <a
+                href={deck.moxfield_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.moxfieldBtn}
+              >
+                Moxfield ↗
+              </a>
+            )}
           </div>
 
           {deck.strategy?.length > 0 && (
@@ -204,6 +298,8 @@ export default function DeckDetailPage() {
           </div>
         </section>
       </div>
+      {deck.moxfield_url && <Decklist deckId={id} />}
+
       {showEdit && <AddDeckModal deck={deck} onClose={() => setShowEdit(false)} />}
     </motion.div>
   )
