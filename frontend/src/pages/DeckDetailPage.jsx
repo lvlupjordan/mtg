@@ -63,6 +63,11 @@ function DecklistPanel({ deckId }) {
                   <span className={styles.decklistQty}>{card.quantity}</span>
                   <span className={styles.decklistName}>{card.name}</span>
                   <ManaCost cost={card.mana_cost} />
+                  {card.image_uri && (
+                    <div className={styles.cardPreview}>
+                      <img src={card.image_uri} alt={card.name} className={styles.cardPreviewImg} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
