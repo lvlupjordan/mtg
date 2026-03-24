@@ -345,10 +345,9 @@ def get_moxfield_decklist(deck_id: int, db: Session = Depends(get_db)):
     for cards in sections.values():
         cards.sort(key=lambda c: (c["cmc"], c["name"]))
 
-    ordered = {s: sections[s] for s in _SECTION_ORDER if s in sections}
-    for s in sections:
-        if s not in ordered:
-            ordered[s] = sections[s]
+    ordered = dict(
+        sorted(sections.items(), key=lambda kv: -sum(c["quantity"] for c in kv[1]))
+    )
 
     total = sum(c["quantity"] for cards in sections.values() for c in cards)
     return {"deck_name": data.get("name"), "total": total, "sections": ordered}
