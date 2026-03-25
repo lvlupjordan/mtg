@@ -441,8 +441,14 @@
   min-height: 0;
 }
 
+/* Carve out space for the floating hub so panels don't sit under it */
+.half:first-child { padding-right: 55px; }
+.half:last-child  { padding-left:  55px; }
+
 @media (orientation: landscape) {
   .half { flex-direction: row; } /* landscape: panels side by side in row */
+  .half:first-child { padding-right: 0; padding-bottom: 55px; }
+  .half:last-child  { padding-left:  0; padding-top:    55px; }
 }
 
 /* Landscape panel — fills its row slot, no rotation wrapper needed */
