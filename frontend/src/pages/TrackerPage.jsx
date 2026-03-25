@@ -47,7 +47,7 @@ function initPlayers(seats, playersData, decksData) {
 }
 
 // ── PlayerPanel ───────────────────────────────────────────────
-function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, delta, isActive, playerTime, clockEnabled }) {
+function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, delta, isActive, playerTime, clockEnabled }) {
   const [mode, setMode] = useState(null)
   const color = PALETTE[player.id % PALETTE.length]
   const cmdMax = allPlayers.length > 0
@@ -59,7 +59,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
 
   return (
     <div
-      className={`${styles.panel} ${rotated ? styles.rotated : ''} ${isDead ? styles.panelDead : ''} ${isActive ? styles.panelActive : ''}`}
+      className={`${styles.panel} ${isDead ? styles.panelDead : ''} ${isActive ? styles.panelActive : ''}`}
       style={{ '--accent': color.accent, '--glow': color.glow }}
     >
       {/* Header */}
@@ -108,7 +108,7 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
         </div>
       </div>
 
-      {/* Expanded overlay — portaled to body to escape any CSS transform context */}
+      {/* Expanded overlay */}
       {mode !== null && createPortal(
         <div className={styles.expanded} onClick={() => setMode(null)}>
           <div className={styles.expCard} onClick={e => e.stopPropagation()}>
@@ -164,32 +164,21 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, rotated, 
   )
 }
 
-// ── SidePanelWrapper ──────────────────────────────────────────
-// Rotates a panel 90° to sit on the left or right edge of the table.
-// Reads dims synchronously on mount to avoid the flash-of-zero issue.
-function SidePanelWrapper({ side, gridArea, children }) {
+// ── ColumnSlot ────────────────────────────────────────────────
+// Rotates a player panel 90° to sit in a left or right column.
+function ColumnSlot({ side, children }) {
   const containerRef = useRef(null)
-  const [dims, setDims] = useState(() => {
-    // Will be updated synchronously via useLayoutEffect
-    return { w: 0, h: 0 }
-  })
+  const [dims, setDims] = useState({ w: 0, h: 0 })
 
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el) return
-
-    // Read initial dims synchronously
-    const rect = el.getBoundingClientRect()
-    if (rect.width > 0 && rect.height > 0) {
-      setDims({ w: Math.round(rect.width), h: Math.round(rect.height) })
+    const update = () => {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.height > 0) setDims({ w: Math.round(r.width), h: Math.round(r.height) })
     }
-
-    const ro = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect
-      if (width > 0 && height > 0) {
-        setDims({ w: Math.round(width), h: Math.round(height) })
-      }
-    })
+    update()
+    const ro = new ResizeObserver(update)
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
@@ -207,52 +196,22 @@ function SidePanelWrapper({ side, gridArea, children }) {
   }
 
   return (
-    <div ref={containerRef} style={{ gridArea, position: 'relative', overflow: 'hidden' }}>
+    <div ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
       <div style={innerStyle}>{children}</div>
     </div>
   )
 }
 
-function getPositions(count) {
-  switch (count) {
-    case 2: return [
-      { gridArea: 'bot' },
-      { gridArea: 'top', rotated: true },
-    ]
-    case 3: return [
-      { gridArea: 'bot' },
-      { gridArea: 'right', side: 'right' },
-      { gridArea: 'top', rotated: true },
-    ]
-    case 4: return [
-      { gridArea: 'bot' },
-      { gridArea: 'right', side: 'right' },
-      { gridArea: 'top', rotated: true },
-      { gridArea: 'left', side: 'left' },
-    ]
-    case 5: return [
-      { gridArea: 'bl' },
-      { gridArea: 'br' },
-      { gridArea: 'right', side: 'right' },
-      { gridArea: 'tr', rotated: true },
-      { gridArea: 'tl', rotated: true },
-    ]
-    case 6: return [
-      { gridArea: 'bl' },
-      { gridArea: 'br' },
-      { gridArea: 'right', side: 'right' },
-      { gridArea: 'tr', rotated: true },
-      { gridArea: 'tl', rotated: true },
-      { gridArea: 'left', side: 'left' },
-    ]
-    default: return Array.from({ length: count }, (_, i) => ({ gridArea: `p${i}` }))
+// Splits player indices into left and right columns
+function getColumns(count) {
+  const leftCount = Math.ceil(count / 2)
+  return {
+    left:  Array.from({ length: leftCount },         (_, i) => i),
+    right: Array.from({ length: count - leftCount }, (_, i) => leftCount + i),
   }
 }
 
 function computePlacements(players, deathOrder) {
-  // deathOrder: array of arrays, earliest deaths first e.g. [[id1], [id2, id3], [id4]]
-  // Alive players (not in deathOrder) all get 1st.
-  // Dead players: last group to die = best dead placement, working down from players.length.
   const allDead = deathOrder.flat()
   const placements = {}
   players.forEach(p => { if (!allDead.includes(p.id)) placements[p.id] = 1 })
@@ -408,12 +367,6 @@ function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
 export default function TrackerPage() {
   const navigate = useNavigate()
 
-  // Attempt orientation lock (only works in standalone PWA, silently fails in browser)
-  useEffect(() => {
-    screen.orientation?.lock('landscape').catch(() => {})
-    return () => { try { screen.orientation?.unlock() } catch {} }
-  }, [])
-
   // ── Persistent state ──
   const [phase, setPhase] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_phase')) ?? 'setup' } catch { return 'setup' }
@@ -439,9 +392,11 @@ export default function TrackerPage() {
   const [turnCounts, setTurnCounts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_turnCounts')) ?? {} } catch { return {} }
   })
-
   const [deathOrder, setDeathOrder] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_deathOrder')) ?? [] } catch { return [] }
+  })
+  const [gameEndTime, setGameEndTime] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_gameEndTime')) ?? null } catch { return null }
   })
 
   const [pickerSeat, setPickerSeat] = useState(null)
@@ -451,10 +406,6 @@ export default function TrackerPage() {
   const [rolling, setRolling] = useState(false)
   const [rollDisplay, setRollDisplay] = useState(null)
   const [tick, setTick] = useState(0)
-
-  const [gameEndTime, setGameEndTime] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('tracker_gameEndTime')) ?? null } catch { return null }
-  })
 
   const deltaTimers  = useRef({})
   const startTimeRef = useRef(() => {
@@ -473,15 +424,13 @@ export default function TrackerPage() {
   useEffect(() => { localStorage.setItem('tracker_deathOrder',   JSON.stringify(deathOrder))   }, [deathOrder])
   useEffect(() => { localStorage.setItem('tracker_gameEndTime',  JSON.stringify(gameEndTime))  }, [gameEndTime])
 
-  // Detect deaths — group players who die in the same state update
-  // Also freeze timers when only 1 player remains alive
+  // Detect deaths
   useEffect(() => {
     if (!players.length) return
     const allDead = deathOrder.flat()
     const newDead = players.filter(p => {
       const cmdMax = Math.max(0, ...players.map(opp => p.cmdDamage[opp.id] || 0))
-      const dead = p.life <= 0 || p.poison >= 10 || cmdMax >= 21
-      return dead && !allDead.includes(p.id)
+      return (p.life <= 0 || p.poison >= 10 || cmdMax >= 21) && !allDead.includes(p.id)
     })
     if (newDead.length > 0) {
       const updatedDead = [...allDead, ...newDead.map(p => p.id)]
@@ -490,7 +439,6 @@ export default function TrackerPage() {
       if (aliveCount <= 1 && !gameEndTime) {
         const endTime = Date.now()
         setGameEndTime(endTime)
-        // Freeze the active player's clock at this moment
         if (activeTurnId != null && turnStart != null) {
           setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + (endTime - turnStart) }))
           setTurnStart(null)
@@ -499,14 +447,14 @@ export default function TrackerPage() {
     }
   }, [players])
 
-  // 1-second tick for live clock display
+  // 1-second tick for clock display
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000)
     return () => clearInterval(id)
   }, [])
 
   const now = Date.now()
-  void tick // consumed to force re-render each second
+  void tick
 
   // ── Data ──
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
@@ -555,19 +503,17 @@ export default function TrackerPage() {
   }, [])
 
   // ── Roll for first ──
-  function rollForFirst(pool) {
-    if (rolling) return
-    const p = pool ?? players
-    if (!p.length) return
+  function rollForFirst() {
+    if (rolling || !players.length) return
     setRolling(true)
     const buf = new Uint32Array(1)
     crypto.getRandomValues(buf)
-    const winner = p[buf[0] % p.length]
+    const winner = players[buf[0] % players.length]
     let step = 0
     function next() {
       const rnd = new Uint32Array(1)
       crypto.getRandomValues(rnd)
-      setRollDisplay(p[rnd[0] % p.length].name)
+      setRollDisplay(players[rnd[0] % players.length].name)
       step++
       if (step >= 22) {
         setActiveTurnId(winner.id)
@@ -590,23 +536,32 @@ export default function TrackerPage() {
   }
 
   function endTurn() {
-    if (activeTurnId == null || turnStart == null) return
-    const elapsed = Date.now() - turnStart
-    setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + elapsed }))
+    // If no active player yet, start from first
+    if (activeTurnId == null) {
+      const first = players.find(p => !isPlayerDead(p))
+      if (!first) return
+      setActiveTurnId(first.id)
+      setTurnStart(Date.now())
+      return
+    }
+    const now2 = Date.now()
+    if (clockEnabled && turnStart != null) {
+      setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + (now2 - turnStart) }))
+    }
     setTurnCounts(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + 1 }))
     const n   = players.length
     const idx = players.findIndex(p => p.id === activeTurnId)
     let next
     for (let i = 1; i < n; i++) {
-      const candidate = players[(idx - i + n) % n]
+      const candidate = players[(idx + i) % n]
       if (!isPlayerDead(candidate)) { next = candidate; break }
     }
     if (!next) return
     setActiveTurnId(next.id)
-    setTurnStart(Date.now())
+    setTurnStart(clockEnabled ? now2 : null)
   }
 
-  // ── Start / reset game ──
+  // ── Start game (reinitialises everything) ──
   function startGame() {
     const newPlayers = initPlayers(seats, activePlayers, allDecks)
     const st = Date.now()
@@ -647,6 +602,7 @@ export default function TrackerPage() {
   // SETUP PHASE
   // ════════════════════════════════════════════════════════════
   if (phase === 'setup') {
+    const hasActiveGame = players.length > 0
     return (
       <div className={styles.setup}>
         <div className={styles.setupCard}>
@@ -699,7 +655,12 @@ export default function TrackerPage() {
 
           <div className={styles.setupFooter}>
             <button className={styles.addSeatBtn} onClick={addSeat} disabled={seats.length >= 6}>+ Add Seat</button>
-            <button className={styles.startBtn} onClick={startGame}>Begin</button>
+            {hasActiveGame && (
+              <button className={styles.resumeBtn} onClick={() => setPhase('game')}>Resume</button>
+            )}
+            <button className={styles.startBtn} onClick={startGame}>
+              {hasActiveGame ? 'New Game' : 'Begin'}
+            </button>
           </div>
         </div>
 
@@ -718,8 +679,8 @@ export default function TrackerPage() {
   // ════════════════════════════════════════════════════════════
   // GAME PHASE
   // ════════════════════════════════════════════════════════════
-  const count     = players.length
-  const positions = getPositions(count)
+  const count = players.length
+  const { left: leftIndices, right: rightIndices } = getColumns(count)
 
   const gameOver = gameEndTime != null
   const liveTimes = Object.fromEntries(players.map(p => [
@@ -727,54 +688,100 @@ export default function TrackerPage() {
     (playerTimes[p.id] || 0) + (!gameOver && clockEnabled && activeTurnId === p.id && turnStart ? now - turnStart : 0),
   ]))
 
+  const activePlayer = players.find(p => p.id === activeTurnId)
+  const activeColor  = activePlayer ? PALETTE[activePlayer.id % PALETTE.length].accent : null
+
   return (
     <div className={styles.game}>
-      <div className={`${styles.gameGrid} ${styles['grid' + count]}`}>
-        {players.map((p, i) => {
-          const pos   = positions[i] ?? { gridArea: `p${i}` }
-          const panel = (
-            <PlayerPanel
-              player={p}
-              allPlayers={players}
-              onLife={changeLife}
-              onPoison={changePoison}
-              onCmdDmg={changeCmdDmg}
-              rotated={pos.rotated ?? false}
-              delta={deltas[p.id] ?? null}
-              isActive={activeTurnId === p.id}
-              playerTime={liveTimes[p.id]}
-              clockEnabled={clockEnabled}
-            />
+      {/* Left column */}
+      <div className={styles.col}>
+        {leftIndices.map(i => {
+          const p = players[i]
+          return (
+            <ColumnSlot key={p.id} side="left">
+              <PlayerPanel
+                player={p}
+                allPlayers={players}
+                onLife={changeLife}
+                onPoison={changePoison}
+                onCmdDmg={changeCmdDmg}
+                delta={deltas[p.id] ?? null}
+                isActive={activeTurnId === p.id}
+                playerTime={liveTimes[p.id]}
+                clockEnabled={clockEnabled}
+              />
+            </ColumnSlot>
           )
-          if (pos.side) {
-            return <SidePanelWrapper key={p.id} side={pos.side} gridArea={pos.gridArea}>{panel}</SidePanelWrapper>
-          }
-          return <div key={p.id} style={{ gridArea: pos.gridArea }}>{panel}</div>
         })}
       </div>
 
-      <div className={styles.gamebar}>
-        <button className={styles.barbtn} onClick={() => navigate('/decks')}>⌂</button>
-        <button className={styles.barbtn} onClick={() => setPhase('setup')}>← Setup</button>
-
-        <div className={styles.barroll}>
-          {rolling  && <span className={styles.barrolling}>{rollDisplay}</span>}
-          {!rolling && rollDisplay && <span className={styles.barfirst}>🎲 {rollDisplay} goes first</span>}
-          <button className={styles.barbtn} onClick={() => rollForFirst()} title="Roll for first">🎲</button>
+      {/* Central hub */}
+      <div className={styles.hub}>
+        <div className={styles.hubTop}>
+          <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
+          <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
         </div>
 
-        <div className={styles.barclock}>
-          <button className={`${styles.barbtn} ${clockEnabled ? styles.barbtnOn : ''}`} onClick={() => setClockEnabled(e => !e)} title="Chess clock">⏱</button>
-          {clockEnabled && activeTurnId != null && (
-            <button className={`${styles.barbtn} ${styles.barbtnEndTurn}`} onClick={endTurn}>End Turn</button>
+        <div className={styles.hubMid}>
+          <button
+            className={`${styles.hubBtn} ${clockEnabled ? styles.hubBtnOn : ''}`}
+            onClick={() => setClockEnabled(e => !e)}
+            title="Chess clock"
+          >⏱</button>
+          <button
+            className={styles.hubBtn}
+            onClick={rollForFirst}
+            disabled={rolling}
+            title="Roll for first"
+          >🎲</button>
+          {rolling && <span className={styles.hubRolling}>{rollDisplay}</span>}
+          {!rolling && rollDisplay && <span className={styles.hubFirst}>{rollDisplay}</span>}
+        </div>
+
+        {/* END TURN — the big one */}
+        <div className={styles.hubCenter}>
+          {activeColor && (
+            <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 12px ${activeColor}55` }} />
           )}
+          <button
+            className={styles.endTurnBtn}
+            onClick={endTurn}
+            style={activeColor ? { '--btn-color': activeColor } : {}}
+          >
+            <span>END</span>
+            <span>TURN</span>
+          </button>
         </div>
 
-        <button className={styles.barbtn} onClick={resetGame}>Reset</button>
-        {gameSaved
-          ? <span className={styles.savedBadge}>✓ Saved</span>
-          : <button className={`${styles.barbtn} ${styles.barbtnSave}`} onClick={() => setShowSave(true)}>Save</button>
-        }
+        <div className={styles.hubBot}>
+          <button className={styles.hubBtn} onClick={resetGame} title="Reset">↺</button>
+          {gameSaved
+            ? <span className={styles.savedBadge}>✓</span>
+            : <button className={styles.hubBtn} onClick={() => setShowSave(true)} title="Save game">💾</button>
+          }
+        </div>
+      </div>
+
+      {/* Right column */}
+      <div className={styles.col}>
+        {rightIndices.map(i => {
+          const p = players[i]
+          return (
+            <ColumnSlot key={p.id} side="right">
+              <PlayerPanel
+                player={p}
+                allPlayers={players}
+                onLife={changeLife}
+                onPoison={changePoison}
+                onCmdDmg={changeCmdDmg}
+                delta={deltas[p.id] ?? null}
+                isActive={activeTurnId === p.id}
+                playerTime={liveTimes[p.id]}
+                clockEnabled={clockEnabled}
+              />
+            </ColumnSlot>
+          )
+        })}
       </div>
 
       {showSave && (
