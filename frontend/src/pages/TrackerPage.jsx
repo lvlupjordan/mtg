@@ -409,6 +409,10 @@ export default function TrackerPage() {
     try { return JSON.parse(localStorage.getItem('tracker_gameEndTime')) ?? null } catch { return null }
   })
 
+  const [gameStarted, setGameStarted] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tracker_gameStarted')) ?? false } catch { return false }
+  })
+
   const [pickerSeat, setPickerSeat] = useState(null)
   const [deltas, setDeltas] = useState({})
   const [showSave, setShowSave] = useState(false)
@@ -421,6 +425,8 @@ export default function TrackerPage() {
   const startTimeRef = useRef(() => {
     try { return JSON.parse(localStorage.getItem('tracker_startTime')) ?? null } catch { return null }
   })
+
+  useEffect(() => { localStorage.setItem('tracker_gameStarted', JSON.stringify(gameStarted)) }, [gameStarted])
 
   // Persist to localStorage
   useEffect(() => { localStorage.setItem('tracker_phase',        JSON.stringify(phase))        }, [phase])
@@ -527,16 +533,26 @@ export default function TrackerPage() {
       step++
       if (step >= 22) {
         setActiveTurnId(winner.id)
-        setTurnStart(Date.now())
         setRollDisplay(winner.name)
         setRolling(false)
         localStorage.setItem('tracker_activeTurnId', JSON.stringify(winner.id))
-        localStorage.setItem('tracker_turnStart',    JSON.stringify(Date.now()))
       } else {
         setTimeout(next, step < 10 ? 55 : step < 17 ? 90 : 140)
       }
     }
     setTimeout(next, 55)
+  }
+
+  // ── Hub main button ──
+  function hubMainBtnClick() {
+    if (activeTurnId == null) {
+      rollForFirst()
+    } else if (!gameStarted) {
+      setGameStarted(true)
+      setTurnStart(Date.now())
+    } else {
+      endTurn()
+    }
   }
 
   // ── End turn ──
@@ -546,14 +562,7 @@ export default function TrackerPage() {
   }
 
   function endTurn() {
-    // If no active player yet, start from first
-    if (activeTurnId == null) {
-      const first = players.find(p => !isPlayerDead(p))
-      if (!first) return
-      setActiveTurnId(first.id)
-      setTurnStart(Date.now())
-      return
-    }
+    if (activeTurnId == null) return
     const now2 = Date.now()
     if (clockEnabled && turnStart != null) {
       setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + (now2 - turnStart) }))
@@ -587,6 +596,7 @@ export default function TrackerPage() {
     setTurnStart(null)
     setRollDisplay(null)
     setGameSaved(false)
+    setGameStarted(false)
     setPhase('game')
   }
 
@@ -606,6 +616,7 @@ export default function TrackerPage() {
     setTurnStart(null)
     setRollDisplay(null)
     setGameSaved(false)
+    setGameStarted(false)
   }
 
   // ════════════════════════════════════════════════════════════
@@ -663,6 +674,16 @@ export default function TrackerPage() {
             })}
           </div>
 
+          {hasActiveGame && (
+            <div className={styles.setupGameActions}>
+              {gameSaved
+                ? <span className={styles.setupSavedBadge}>✓ Saved</span>
+                : <button className={styles.setupSecondaryBtn} onClick={() => setShowSave(true)}>Save Game</button>
+              }
+              <button className={styles.setupSecondaryBtn} onClick={resetGame}>Reset Totals</button>
+            </div>
+          )}
+
           <div className={styles.setupFooter}>
             <button className={styles.addSeatBtn} onClick={addSeat} disabled={seats.length >= 6}>+ Add Seat</button>
             {hasActiveGame && (
@@ -680,6 +701,18 @@ export default function TrackerPage() {
             allDecks={allDecks}
             onSelect={d => { updateSeat(pickerSeat, 'deck_id', String(d.id)); setPickerSeat(null) }}
             onClose={() => setPickerSeat(null)}
+          />
+        )}
+        {showSave && (
+          <SaveGameOverlay
+            players={players}
+            deathOrder={deathOrder}
+            turnCount={Object.values(turnCounts).length > 0 ? Math.max(...Object.values(turnCounts)) : null}
+            totalGameTime={startTimeRef.current ? Math.round(((gameEndTime ?? Date.now()) - startTimeRef.current) / 1000) : null}
+            turnCounts={turnCounts}
+            playerTimes={playerTimes}
+            onClose={() => setShowSave(false)}
+            onSaved={() => { setShowSave(false); setGameSaved(true) }}
           />
         )}
       </div>
@@ -735,33 +768,30 @@ export default function TrackerPage() {
         })}
       </div>
 
-      {/* Floating hub */}
+      {/* Floating hub — 3 elements only */}
       <div className={styles.hub}>
         <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
         <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
-        <div className={styles.hubSep} />
-        <button
-          className={`${styles.hubBtn} ${clockEnabled ? styles.hubBtnOn : ''}`}
-          onClick={() => setClockEnabled(e => !e)}
-          title="Chess clock"
-        >⏱</button>
-        <button className={styles.hubBtn} onClick={rollForFirst} disabled={rolling} title="Roll for first">🎲</button>
-        <div className={styles.hubSep} />
         <div className={styles.hubCenter}>
           {activeColor && (
-            <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 12px ${activeColor}55` }} />
+            <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 16px ${activeColor}66` }} />
           )}
-          <button className={styles.endTurnBtn} onClick={endTurn}>
-            <span>END</span>
-            <span>TURN</span>
+          <button
+            className={styles.endTurnBtn}
+            onClick={hubMainBtnClick}
+            disabled={rolling}
+          >
+            {rolling ? (
+              <span className={styles.endTurnSingle}>···</span>
+            ) : activeTurnId == null ? (
+              <><span>PICK</span><span>FIRST</span></>
+            ) : !gameStarted ? (
+              <><span>START</span><span>GAME</span></>
+            ) : (
+              <><span>END</span><span>TURN</span></>
+            )}
           </button>
         </div>
-        <div className={styles.hubSep} />
-        <button className={styles.hubBtn} onClick={resetGame} title="Reset">↺</button>
-        {gameSaved
-          ? <span className={styles.savedBadge}>✓</span>
-          : <button className={styles.hubBtn} onClick={() => setShowSave(true)} title="Save game">💾</button>
-        }
       </div>
 
       {/* Second half: right col (portrait) or bottom row (landscape) */}

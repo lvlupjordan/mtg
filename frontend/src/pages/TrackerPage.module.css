@@ -197,6 +197,42 @@
 .addSeatBtn:hover:not(:disabled) { color: var(--text-bright); border-color: var(--border-2); }
 .addSeatBtn:disabled { opacity: 0.3; cursor: default; }
 
+.setupGameActions {
+  display: flex;
+  gap: 8px;
+  padding: clamp(6px, 1.2svh, 10px) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.setupSecondaryBtn {
+  flex: 1;
+  padding: clamp(5px, 1svh, 8px);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: clamp(9px, 1.3svh, 11px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.14s;
+}
+.setupSecondaryBtn:hover { color: var(--text-bright); border-color: var(--border-2); }
+
+.setupSavedBadge {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(10px, 1.4svh, 12px);
+  color: var(--win);
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
 .resumeBtn {
   padding: clamp(6px, 1.5svh, 12px) clamp(10px, 2svh, 18px);
   background: none;
@@ -427,40 +463,22 @@
   z-index: 20;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 28px;
-  box-shadow: 0 4px 28px rgba(0,0,0,0.65), 0 0 0 4px var(--bg);
+  border-radius: 60px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 5px var(--bg);
   display: flex;
-  flex-direction: column;  /* portrait: vertical pill */
+  flex-direction: column;
   align-items: center;
-  padding: 8px 0;
-  gap: 2px;
-  width: 56px;
+  padding: 10px 0;
+  gap: 6px;
+  width: 100px;
 }
 
-/* Landscape: rotate hub to a horizontal pill */
 @media (orientation: landscape) {
   .hub {
     flex-direction: row;
     width: auto;
-    height: 56px;
-    padding: 0 8px;
-    border-radius: 28px;
-  }
-}
-
-.hubSep {
-  width: 36px;
-  height: 1px;
-  background: var(--border);
-  flex-shrink: 0;
-  margin: 2px 0;
-}
-
-@media (orientation: landscape) {
-  .hubSep {
-    width: 1px;
-    height: 36px;
-    margin: 0 2px;
+    height: 100px;
+    padding: 0 10px;
   }
 }
 
@@ -469,11 +487,11 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 @media (orientation: landscape) {
-  .hubCenter { padding: 0 4px; }
+  .hubCenter { padding: 0 2px; }
 }
 
 .hubBtn {
@@ -500,35 +518,10 @@
   background: rgba(200,149,58,0.08) !important;
 }
 
-.hubRolling {
-  font-family: 'Cinzel', serif;
-  font-size: 8px;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-  text-align: center;
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  animation: rollFlicker 0.15s infinite;
-}
-
-.hubFirst {
-  font-family: 'Cinzel', serif;
-  font-size: 8px;
-  letter-spacing: 0.04em;
-  color: var(--gold-light);
-  text-align: center;
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .turnRing {
   position: absolute;
-  width: 64px;
-  height: 64px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   border: 2px solid;
   pointer-events: none;
@@ -536,8 +529,8 @@
 }
 
 .endTurnBtn {
-  width: 54px;
-  height: 54px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   background: var(--surface-2);
   border: 2px solid var(--gold-dim);
@@ -547,34 +540,32 @@
   align-items: center;
   justify-content: center;
   font-family: 'Cinzel', serif;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
   color: var(--gold);
   gap: 1px;
-  box-shadow: 0 0 16px rgba(200,149,58,0.2);
+  box-shadow: 0 0 20px rgba(200,149,58,0.25);
   transition: transform 0.1s, box-shadow 0.15s, background 0.15s;
   position: relative;
   z-index: 1;
 }
 .endTurnBtn:hover {
   background: rgba(200,149,58,0.12);
-  box-shadow: 0 0 24px rgba(200,149,58,0.35);
+  box-shadow: 0 0 28px rgba(200,149,58,0.4);
 }
 .endTurnBtn:active {
-  transform: scale(0.92);
-  box-shadow: 0 0 8px rgba(200,149,58,0.15);
+  transform: scale(0.93);
+  box-shadow: 0 0 10px rgba(200,149,58,0.15);
+}
+.endTurnBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
-.savedBadge {
-  font-family: 'Cinzel', serif;
+.endTurnSingle {
+  letter-spacing: 0.2em;
   font-size: 14px;
-  color: var(--win);
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* ── Player Panel ───────────────────────────────────────────── */
