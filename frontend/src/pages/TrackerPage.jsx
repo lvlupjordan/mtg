@@ -768,8 +768,8 @@ export default function TrackerPage() {
         })}
       </div>
 
-      {/* Center strip — dedicated space between halves */}
-      <div className={styles.centerStrip}>
+      {/* Hub — floats at center cross-point */}
+      <div className={styles.hub}>
         <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
         <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
         <div className={styles.hubCenter}>

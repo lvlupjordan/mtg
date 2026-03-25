@@ -453,31 +453,34 @@
   min-height: 0;
 }
 
-/* ── Center strip — dedicated column between the two halves ─── */
+/* ── Hub — floats at center cross-point ─────────────────────── */
 
-.centerStrip {
-  flex-shrink: 0;
-  width: 88px;
+.hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.7), 0 0 0 4px var(--bg);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  z-index: 20;
+  padding: 6px 0;
+  gap: 4px;
+  width: 72px;
+  /* Let clicks pass through to panels — only buttons catch input */
+  pointer-events: none;
 }
 
 @media (orientation: landscape) {
-  .centerStrip {
+  .hub {
     flex-direction: row;
     width: auto;
-    height: 88px;
-    border-left: none;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
+    height: 72px;
+    padding: 0 6px;
   }
 }
 
@@ -498,15 +501,16 @@
   border: 1px solid transparent;
   border-radius: 7px;
   color: var(--text-dim);
-  font-size: 16px;
-  width: 40px;
-  height: 40px;
+  font-size: 14px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.12s;
   flex-shrink: 0;
+  pointer-events: auto;
 }
 .hubBtn:hover { color: var(--text-bright); background: rgba(255,255,255,0.05); }
 .hubBtn:disabled { opacity: 0.4; cursor: default; }
@@ -519,8 +523,8 @@
 
 .turnRing {
   position: absolute;
-  width: 96px;
-  height: 96px;
+  width: 74px;
+  height: 74px;
   border-radius: 50%;
   border: 2px solid;
   pointer-events: none;
@@ -528,8 +532,9 @@
 }
 
 .endTurnBtn {
-  width: 84px;
-  height: 84px;
+  width: 62px;
+  height: 62px;
+  pointer-events: auto;
   border-radius: 50%;
   background: var(--surface-2);
   border: 2px solid var(--gold-dim);
