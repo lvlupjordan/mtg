@@ -768,8 +768,8 @@ export default function TrackerPage() {
         })}
       </div>
 
-      {/* Floating hub — 3 elements only */}
-      <div className={styles.hub}>
+      {/* Center strip — dedicated space between halves */}
+      <div className={styles.centerStrip}>
         <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
         <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
         <div className={styles.hubCenter}>

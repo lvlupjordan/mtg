@@ -441,14 +441,8 @@
   min-height: 0;
 }
 
-/* Carve out space for the floating hub so panels don't sit under it */
-.half:first-child { padding-right: 55px; }
-.half:last-child  { padding-left:  55px; }
-
 @media (orientation: landscape) {
   .half { flex-direction: row; } /* landscape: panels side by side in row */
-  .half:first-child { padding-right: 0; padding-bottom: 55px; }
-  .half:last-child  { padding-left:  0; padding-top:    55px; }
 }
 
 /* Landscape panel — fills its row slot, no rotation wrapper needed */
@@ -459,32 +453,31 @@
   min-height: 0;
 }
 
-/* ── Central hub — floats over both halves ──────────────────── */
+/* ── Center strip — dedicated column between the two halves ─── */
 
-.hub {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 20;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 60px;
-  box-shadow: 0 4px 32px rgba(0,0,0,0.7), 0 0 0 5px var(--bg);
+.centerStrip {
+  flex-shrink: 0;
+  width: 88px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 0;
+  justify-content: center;
   gap: 6px;
-  width: 100px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  z-index: 20;
 }
 
 @media (orientation: landscape) {
-  .hub {
+  .centerStrip {
     flex-direction: row;
     width: auto;
-    height: 100px;
-    padding: 0 10px;
+    height: 88px;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
   }
 }
 
