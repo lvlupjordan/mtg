@@ -324,6 +324,8 @@ def get_moxfield_decklist(deck_id: int, db: Session = Depends(get_db)):
     sections: dict[str, list] = {}
 
     for board_name, board in data.get("boards", {}).items():
+        if board_name not in ("mainboard", "commanders"):
+            continue
         for entry in board.get("cards", {}).values():
             card = entry.get("card", {})
             type_line = card.get("type_line") or ""
