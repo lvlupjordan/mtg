@@ -367,6 +367,16 @@ function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
 export default function TrackerPage() {
   const navigate = useNavigate()
 
+  const [isLandscape, setIsLandscape] = useState(
+    () => window.matchMedia('(orientation: landscape)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: landscape)')
+    const handler = e => setIsLandscape(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   // ── Persistent state ──
   const [phase, setPhase] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_phase')) ?? 'setup' } catch { return 'setup' }
@@ -691,96 +701,79 @@ export default function TrackerPage() {
   const activePlayer = players.find(p => p.id === activeTurnId)
   const activeColor  = activePlayer ? PALETTE[activePlayer.id % PALETTE.length].accent : null
 
+  function renderPanel(p, flip = false) {
+    return (
+      <PlayerPanel
+        player={p}
+        allPlayers={players}
+        onLife={changeLife}
+        onPoison={changePoison}
+        onCmdDmg={changeCmdDmg}
+        delta={deltas[p.id] ?? null}
+        isActive={activeTurnId === p.id}
+        playerTime={liveTimes[p.id]}
+        clockEnabled={clockEnabled}
+        flipped={flip}
+      />
+    )
+  }
+
   return (
     <div className={styles.game}>
-      {/* Left column */}
-      <div className={styles.col}>
+      {/* First half: left col (portrait) or top row (landscape) */}
+      <div className={styles.half}>
         {leftIndices.map(i => {
           const p = players[i]
-          return (
-            <ColumnSlot key={p.id} side="left">
-              <PlayerPanel
-                player={p}
-                allPlayers={players}
-                onLife={changeLife}
-                onPoison={changePoison}
-                onCmdDmg={changeCmdDmg}
-                delta={deltas[p.id] ?? null}
-                isActive={activeTurnId === p.id}
-                playerTime={liveTimes[p.id]}
-                clockEnabled={clockEnabled}
-              />
-            </ColumnSlot>
-          )
+          if (isLandscape) {
+            return (
+              <div key={p.id} className={styles.flatPanel} style={{ transform: 'rotate(180deg)' }}>
+                {renderPanel(p, true)}
+              </div>
+            )
+          }
+          return <ColumnSlot key={p.id} side="left">{renderPanel(p)}</ColumnSlot>
         })}
       </div>
 
-      {/* Central hub */}
+      {/* Floating hub */}
       <div className={styles.hub}>
-        <div className={styles.hubTop}>
-          <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
-          <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
-        </div>
-
-        <div className={styles.hubMid}>
-          <button
-            className={`${styles.hubBtn} ${clockEnabled ? styles.hubBtnOn : ''}`}
-            onClick={() => setClockEnabled(e => !e)}
-            title="Chess clock"
-          >⏱</button>
-          <button
-            className={styles.hubBtn}
-            onClick={rollForFirst}
-            disabled={rolling}
-            title="Roll for first"
-          >🎲</button>
-          {rolling && <span className={styles.hubRolling}>{rollDisplay}</span>}
-          {!rolling && rollDisplay && <span className={styles.hubFirst}>{rollDisplay}</span>}
-        </div>
-
-        {/* END TURN — the big one */}
+        <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
+        <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
+        <div className={styles.hubSep} />
+        <button
+          className={`${styles.hubBtn} ${clockEnabled ? styles.hubBtnOn : ''}`}
+          onClick={() => setClockEnabled(e => !e)}
+          title="Chess clock"
+        >⏱</button>
+        <button className={styles.hubBtn} onClick={rollForFirst} disabled={rolling} title="Roll for first">🎲</button>
+        <div className={styles.hubSep} />
         <div className={styles.hubCenter}>
           {activeColor && (
             <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 12px ${activeColor}55` }} />
           )}
-          <button
-            className={styles.endTurnBtn}
-            onClick={endTurn}
-            style={activeColor ? { '--btn-color': activeColor } : {}}
-          >
+          <button className={styles.endTurnBtn} onClick={endTurn}>
             <span>END</span>
             <span>TURN</span>
           </button>
         </div>
-
-        <div className={styles.hubBot}>
-          <button className={styles.hubBtn} onClick={resetGame} title="Reset">↺</button>
-          {gameSaved
-            ? <span className={styles.savedBadge}>✓</span>
-            : <button className={styles.hubBtn} onClick={() => setShowSave(true)} title="Save game">💾</button>
-          }
-        </div>
+        <div className={styles.hubSep} />
+        <button className={styles.hubBtn} onClick={resetGame} title="Reset">↺</button>
+        {gameSaved
+          ? <span className={styles.savedBadge}>✓</span>
+          : <button className={styles.hubBtn} onClick={() => setShowSave(true)} title="Save game">💾</button>
+        }
       </div>
 
-      {/* Right column */}
-      <div className={styles.col}>
+      {/* Second half: right col (portrait) or bottom row (landscape) */}
+      <div className={styles.half}>
         {rightIndices.map(i => {
           const p = players[i]
-          return (
-            <ColumnSlot key={p.id} side="right">
-              <PlayerPanel
-                player={p}
-                allPlayers={players}
-                onLife={changeLife}
-                onPoison={changePoison}
-                onCmdDmg={changeCmdDmg}
-                delta={deltas[p.id] ?? null}
-                isActive={activeTurnId === p.id}
-                playerTime={liveTimes[p.id]}
-                clockEnabled={clockEnabled}
-              />
-            </ColumnSlot>
-          )
+          if (isLandscape) {
+            return (
+              <div key={p.id} className={styles.flatPanel}>{renderPanel(p)}</div>
+            )
+          }
+          return <ColumnSlot key={p.id} side="right">{renderPanel(p)}</ColumnSlot>
         })}
       </div>
 
