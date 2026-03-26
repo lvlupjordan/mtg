@@ -12,7 +12,7 @@ const PALETTE = [
   { accent: '#4ecba8', glow: 'rgba(78,203,168,0.08)'   },
   { accent: '#5b9bd5', glow: 'rgba(91,155,213,0.08)'   },
   { accent: '#d95f5f', glow: 'rgba(217,95,95,0.08)'    },
-  { accent: '#3aaa6a', glow: 'rgba(58,170,106,0.08)'   },
+  { accent: '#d4cfc4', glow: 'rgba(212,207,196,0.08)'  },
   { accent: '#a87fc1', glow: 'rgba(168,127,193,0.08)'  },
 ]
 
@@ -47,12 +47,51 @@ function initPlayers(seats, playersData, decksData) {
 }
 
 // ── PlayerPanel (headless — life area only) ───────────────────
-function PlayerPanel({ player, allPlayers, onLife, delta, isActive }) {
+function useZonePress(onLife, playerId, amount) {
+  const holdTimer   = useRef(null)
+  const repeatTimer = useRef(null)
+  const didHold     = useRef(false)
+
+  useEffect(() => () => {
+    clearTimeout(holdTimer.current)
+    clearInterval(repeatTimer.current)
+  }, [])
+
+  function onPointerDown(e) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    didHold.current = false
+    holdTimer.current = setTimeout(() => {
+      didHold.current = true
+      onLife(playerId, amount * 10)
+      repeatTimer.current = setInterval(() => onLife(playerId, amount * 10), 600)
+    }, 400)
+  }
+
+  function onPointerUp() {
+    clearTimeout(holdTimer.current)
+    clearInterval(repeatTimer.current)
+    if (!didHold.current) onLife(playerId, amount)
+    didHold.current = false
+  }
+
+  function onPointerCancel() {
+    clearTimeout(holdTimer.current)
+    clearInterval(repeatTimer.current)
+    didHold.current = true
+  }
+
+  return { onPointerDown, onPointerUp, onPointerCancel }
+}
+
+function PlayerPanel({ player, allPlayers, onLife, delta, deltaKey, isActive }) {
   const color = PALETTE[player.id % PALETTE.length]
   const cmdMax = allPlayers.length > 0
     ? Math.max(...allPlayers.map(p => player.cmdDamage[p.id] || 0))
     : 0
   const isDead = player.life <= 0 || player.poison >= 10 || cmdMax >= 21
+
+  const plusProps  = useZonePress(onLife, player.id,  1)
+  const minusProps = useZonePress(onLife, player.id, -1)
 
   return (
     <div
@@ -61,20 +100,18 @@ function PlayerPanel({ player, allPlayers, onLife, delta, isActive }) {
     >
       <div className={styles.lifeArea}>
         {player.image_uri && <img src={player.image_uri} className={styles.cmdArt} alt="" />}
-        <div className={styles.zonePlus} onClick={() => onLife(player.id, 1)}>
+        <div className={styles.zonePlus} {...plusProps}>
           <span className={styles.chevron}>▲</span>
-          <button className={styles.fivebtn} onClick={e => { e.stopPropagation(); onLife(player.id, 5) }}>+5</button>
         </div>
         <div className={styles.lifeCenter}>
           <span className={`${styles.lifenum} ${isDead ? styles.lifenumDead : ''}`}>{player.life}</span>
           {delta != null && (
-            <span className={`${styles.delta} ${delta > 0 ? styles.deltapos : styles.deltaneg}`}>
-              {delta > 0 ? '+' : ''}{delta}
+            <span key={deltaKey} className={`${styles.delta} ${delta.v > 0 ? styles.deltapos : styles.deltaneg}`}>
+              {delta.v > 0 ? '+' : ''}{delta.v}
             </span>
           )}
         </div>
-        <div className={styles.zoneMinus} onClick={() => onLife(player.id, -1)}>
-          <button className={styles.fivebtn} onClick={e => { e.stopPropagation(); onLife(player.id, -5) }}>−5</button>
+        <div className={styles.zoneMinus} {...minusProps}>
           <span className={styles.chevron}>▼</span>
         </div>
       </div>
@@ -94,7 +131,7 @@ function PlayerOverlay({ players, overlayState, onPoison, onCmdDmg, onClose }) {
   if (!player) return null
   return createPortal(
     <div className={styles.expanded} onClick={onClose}>
-      <div className={styles.expCard} onClick={e => e.stopPropagation()}>
+      <div className={`${styles.expCard} ${overlayState.flipped ? styles.expCardFlipped : ''}`} onClick={e => e.stopPropagation()}>
         <button className={styles.expClose} onClick={onClose}>✕</button>
         {mode === 'poison' && (
           <div className={styles.expSection}>
@@ -356,11 +393,12 @@ export default function TrackerPage() {
 
   const [pickerSeat, setPickerSeat] = useState(null)
   const [overlayState, setOverlayState] = useState(null) // { playerId, mode: 'poison'|'cmd' }
-  const [deltas, setDeltas] = useState({})
+  const [deltas, setDeltas] = useState({}) // { [id]: { v: number, n: number } }
   const [showSave, setShowSave] = useState(false)
   const [gameSaved, setGameSaved] = useState(false)
   const [rolling, setRolling] = useState(false)
-  const [rollDisplay, setRollDisplay] = useState(null)
+  const [rollHighlightId, setRollHighlightId] = useState(null)
+  const [firstSeatIdx, setFirstSeatIdx] = useState(null) // null = roll randomly
   const [tick, setTick] = useState(0)
 
   const deltaTimers  = useRef({})
@@ -433,7 +471,7 @@ export default function TrackerPage() {
   // ── Life / poison / cmd damage ──
   const changeLife = useCallback((id, amount) => {
     setPlayers(prev => prev.map(p => p.id === id ? { ...p, life: p.life + amount } : p))
-    setDeltas(prev => ({ ...prev, [id]: (prev[id] ?? 0) + amount }))
+    setDeltas(prev => ({ ...prev, [id]: { v: (prev[id]?.v ?? 0) + amount, n: (prev[id]?.n ?? 0) + 1 } }))
     clearTimeout(deltaTimers.current[id])
     deltaTimers.current[id] = setTimeout(() => {
       setDeltas(prev => { const n = { ...prev }; delete n[id]; return n })
@@ -453,7 +491,7 @@ export default function TrackerPage() {
       const newVal = Math.max(0, cur + amount)
       return { ...p, cmdDamage: { ...p.cmdDamage, [fromId]: newVal }, life: p.life - (newVal - cur) }
     }))
-    setDeltas(prev => ({ ...prev, [playerId]: (prev[playerId] ?? 0) - amount }))
+    setDeltas(prev => ({ ...prev, [playerId]: { v: (prev[playerId]?.v ?? 0) - amount, n: (prev[playerId]?.n ?? 0) + 1 } }))
     clearTimeout(deltaTimers.current[playerId])
     deltaTimers.current[playerId] = setTimeout(() => {
       setDeltas(prev => { const n = { ...prev }; delete n[playerId]; return n })
@@ -464,25 +502,37 @@ export default function TrackerPage() {
   function rollForFirst() {
     if (rolling || !players.length) return
     setRolling(true)
+    const n = players.length
     const buf = new Uint32Array(1)
     crypto.getRandomValues(buf)
-    const winner = players[buf[0] % players.length]
+    const winnerIdx = buf[0] % n
+
+    // Build sequence: 3 fast laps then slow approach landing on winner
+    const fastLaps = 3
+    const slowSteps = n + winnerIdx + 1   // one more lap + reach winner
+    const totalSteps = fastLaps * n + slowSteps
+    // last index = (totalSteps - 1) % n = (3n + n + winnerIdx) % n = winnerIdx ✓
+
     let step = 0
     function next() {
-      const rnd = new Uint32Array(1)
-      crypto.getRandomValues(rnd)
-      setRollDisplay(players[rnd[0] % players.length].name)
+      setRollHighlightId(players[step % n].id)
       step++
-      if (step >= 22) {
-        setActiveTurnId(winner.id)
-        setRollDisplay(winner.name)
+      if (step >= totalSteps) {
+        setActiveTurnId(players[winnerIdx].id)
+        localStorage.setItem('tracker_activeTurnId', JSON.stringify(players[winnerIdx].id))
         setRolling(false)
-        localStorage.setItem('tracker_activeTurnId', JSON.stringify(winner.id))
+        setTimeout(() => setRollHighlightId(null), 300)
       } else {
-        setTimeout(next, step < 10 ? 55 : step < 17 ? 90 : 140)
+        const progress = step / totalSteps
+        const delay = progress < 0.55 ? 60
+                    : progress < 0.70 ? 110
+                    : progress < 0.82 ? 180
+                    : progress < 0.91 ? 280
+                    : 420
+        setTimeout(next, delay)
       }
     }
-    setTimeout(next, 55)
+    setTimeout(next, 60)
   }
 
   // ── Hub main button ──
@@ -532,11 +582,11 @@ export default function TrackerPage() {
     setDeltas({})
     setDeathOrder([])
     setGameEndTime(null)
-    setActiveTurnId(null)
+    setActiveTurnId(firstSeatIdx != null ? newPlayers[firstSeatIdx]?.id ?? null : null)
     setPlayerTimes({})
     setTurnCounts({})
     setTurnStart(null)
-    setRollDisplay(null)
+    setRollHighlightId(null)
     setGameSaved(false)
     setGameStarted(false)
     setPhase('game')
@@ -556,7 +606,7 @@ export default function TrackerPage() {
     setPlayerTimes({})
     setTurnCounts({})
     setTurnStart(null)
-    setRollDisplay(null)
+    setRollHighlightId(null)
     setGameSaved(false)
     setGameStarted(false)
   }
@@ -626,6 +676,24 @@ export default function TrackerPage() {
             </div>
           )}
 
+          <div className={styles.firstPickRow}>
+            <span className={styles.firstPickLabel}>Goes first</span>
+            <button
+              className={`${styles.firstPickBtn} ${firstSeatIdx === null ? styles.firstPickBtnOn : ''}`}
+              onClick={() => setFirstSeatIdx(null)}
+            >Random</button>
+            {seats.map((seat, i) => {
+              const name = seat.is_stranger ? (seat.stranger_name || `Seat ${i+1}`) : (activePlayers?.find(p => String(p.id) === String(seat.pilot_id))?.name || `Seat ${i+1}`)
+              return (
+                <button
+                  key={i}
+                  className={`${styles.firstPickBtn} ${firstSeatIdx === i ? styles.firstPickBtnOn : ''}`}
+                  onClick={() => setFirstSeatIdx(i)}
+                >{name}</button>
+              )
+            })}
+          </div>
+
           <div className={styles.setupFooter}>
             <button className={styles.addSeatBtn} onClick={addSeat} disabled={seats.length >= 6}>+ Add Seat</button>
             {hasActiveGame && (
@@ -664,13 +732,12 @@ export default function TrackerPage() {
   // ════════════════════════════════════════════════════════════
   // GAME PHASE
   // ════════════════════════════════════════════════════════════
-  const count = players.length
-  const topCount      = Math.ceil(count / 2)
-  const topPlayers    = players.slice(0, topCount)
-  const bottomPlayers = players.slice(topCount)
-  // Even-indexed players go in the left name column, odd in the right
-  const leftNamePlayers  = players.filter((_, i) => i % 2 === 0)
-  const rightNamePlayers = players.filter((_, i) => i % 2 === 1)
+  const count              = players.length
+  const topCount           = Math.ceil(count / 2)
+  const topPlayers         = players.slice(0, topCount)
+  const bottomPlayersReversed = [...players.slice(topCount)].reverse()
+  // One column per panel position, each containing [topPlayer, bottomPlayer]
+  const columns = topPlayers.map((tp, i) => [tp, bottomPlayersReversed[i]].filter(Boolean))
 
   const gameOver = gameEndTime != null
   const liveTimes = Object.fromEntries(players.map(p => [
@@ -688,7 +755,8 @@ export default function TrackerPage() {
         allPlayers={players}
         onLife={changeLife}
         delta={deltas[p.id] ?? null}
-        isActive={activeTurnId === p.id}
+        deltaKey={deltas[p.id]?.n ?? 0}
+        isActive={activeTurnId === p.id || rollHighlightId === p.id}
       />
     )
   }
@@ -700,8 +768,8 @@ export default function TrackerPage() {
         key={p.id}
         player={p}
         allPlayers={players}
-        onOpenOverlay={(id, mode) => setOverlayState({ playerId: id, mode })}
-        isActive={activeTurnId === p.id}
+        onOpenOverlay={(id, mode) => setOverlayState({ playerId: id, mode, flipped })}
+        isActive={activeTurnId === p.id || rollHighlightId === p.id}
         playerTime={liveTimes[p.id]}
         clockEnabled={clockEnabled}
         flipped={flipped}
@@ -710,56 +778,53 @@ export default function TrackerPage() {
   }
 
   return (
-    <div className={styles.game}>
-      {/* Top row — rotated 180° to face players on the opposite side */}
-      <div className={styles.gameRow}>
-        {topPlayers.map(p => (
-          <div key={p.id} className={`${styles.rowPanel} ${styles.rowPanelFlipped}`}>
-            {renderPanel(p)}
-          </div>
-        ))}
-      </div>
-
-      {/* Centre strip: left names | hub | right names */}
-      <div className={styles.centreStrip}>
-        <div className={styles.stripNames}>
-          {leftNamePlayers.map(renderNameEntry)}
+    <div className={styles.game} style={{ '--ncols': topCount }}>
+      {/* Top panels — grid row 1, rotated 180° */}
+      {topPlayers.map((p, i) => (
+        <div key={p.id}
+          className={`${styles.rowPanel} ${styles.rowPanelFlipped}`}
+          style={{ gridColumn: i + 1, gridRow: 1 }}>
+          {renderPanel(p)}
         </div>
+      ))}
 
-        <div className={styles.stripHub}>
-          <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
-          <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
-          <div className={styles.hubCenter}>
-            {activeColor && (
-              <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 16px ${activeColor}66` }} />
+      {/* Name columns — grid row 2, one per panel column */}
+      {columns.map((col, i) => (
+        <div key={`nc${i}`} className={styles.stripNameCol} style={{ gridColumn: i + 1, gridRow: 2 }}>
+          {col.map(renderNameEntry)}
+        </div>
+      ))}
+
+      {/* Hub — absolutely centred over the strip */}
+      <div className={styles.stripHub}>
+        <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
+        <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
+        <div className={styles.hubCenter}>
+          {activeColor && (
+            <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 16px ${activeColor}66` }} />
+          )}
+          <button className={styles.endTurnBtn} onClick={hubMainBtnClick} disabled={rolling}>
+            {rolling ? (
+              <span className={styles.endTurnSingle}>···</span>
+            ) : activeTurnId == null ? (
+              <><span>PICK</span><span>FIRST</span></>
+            ) : !gameStarted ? (
+              <><span>START</span><span>GAME</span></>
+            ) : (
+              <><span>END</span><span>TURN</span></>
             )}
-            <button className={styles.endTurnBtn} onClick={hubMainBtnClick} disabled={rolling}>
-              {rolling ? (
-                <span className={styles.endTurnSingle}>···</span>
-              ) : activeTurnId == null ? (
-                <><span>PICK</span><span>FIRST</span></>
-              ) : !gameStarted ? (
-                <><span>START</span><span>GAME</span></>
-              ) : (
-                <><span>END</span><span>TURN</span></>
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.stripNames}>
-          {rightNamePlayers.map(renderNameEntry)}
+          </button>
         </div>
       </div>
 
-      {/* Bottom row — normal orientation */}
-      <div className={styles.gameRow}>
-        {bottomPlayers.map(p => (
-          <div key={p.id} className={styles.rowPanel}>
-            {renderPanel(p)}
-          </div>
-        ))}
-      </div>
+      {/* Bottom panels — grid row 3, reversed so col 0 = leftmost */}
+      {bottomPlayersReversed.map((p, i) => (
+        <div key={p.id}
+          className={styles.rowPanel}
+          style={{ gridColumn: i + 1, gridRow: 3 }}>
+          {renderPanel(p)}
+        </div>
+      ))}
 
       {overlayState && (
         <PlayerOverlay

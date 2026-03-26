@@ -173,6 +173,45 @@
 .removeBtn:hover:not(:disabled) { color: var(--loss); border-color: var(--loss); }
 .removeBtn:disabled { opacity: 0.25; cursor: default; }
 
+.firstPickRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.firstPickLabel {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.firstPickBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.14s;
+}
+.firstPickBtn:hover { color: var(--text-bright); border-color: var(--border-2); }
+.firstPickBtnOn {
+  color: var(--gold-light);
+  border-color: var(--gold-dim);
+  background: rgba(200,149,58,0.08);
+}
+
 .setupFooter {
   display: flex;
   align-items: center;
@@ -421,26 +460,15 @@
 .game {
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;  /* portrait: topRow / centreStrip / bottomRow */
+  display: grid;
+  grid-template-columns: repeat(var(--ncols, 2), 1fr);
+  grid-template-rows: 1fr 120px 1fr;
   overflow: hidden;
   background: var(--bg);
 }
 
-
-/* Row of panels (top or bottom) */
-.gameRow {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  min-height: 0;
-  min-width: 0;
-}
-
-
-/* Individual panel slot */
+/* Panel slot — grid position set via inline style */
 .rowPanel {
-  flex: 1;
   position: relative;
   overflow: hidden;
   min-width: 0;
@@ -449,46 +477,43 @@
 
 .rowPanelFlipped { transform: rotate(180deg); }
 
+/* Remove the border edge that faces the strip so panels bleed into name columns */
+.rowPanelFlipped .panel { border-top: none; }
+.rowPanel:not(.rowPanelFlipped) .panel { border-top: none; }
 
-/* ── Centre strip ─────────────────────────────────────────────── */
+/* ── Name columns (one per panel column, grid row 2) ─────────── */
 
-.centreStrip {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  height: 110px;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
-.stripNames {
-  flex: 1;
+.stripNameCol {
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
-  padding: 8px 10px;
-  gap: 2px;
+  justify-content: center;
+  padding: 0 10px;
   overflow: hidden;
   min-width: 0;
-  align-self: stretch;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  position: relative;
+  z-index: 1;
 }
 
+/* Hub — absolutely centred over the strip row */
 .stripHub {
-  flex-shrink: 0;
+  position: absolute;
+  left: 50%;
+  top: 50svh;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 0 14px;
-  height: 78px;
+  height: 94px;
   border: 1px solid var(--border);
   border-radius: 50px;
   background: var(--surface);
-  margin: 0 8px;
   box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+  z-index: 10;
 }
 
 
@@ -497,14 +522,18 @@
 .nameEntry {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
-  padding: 1px 0;
+  padding: 0 8px;
+  flex: 1;
+}
+
+.nameEntry + .nameEntry {
+  border-top: 1px solid var(--border-2);
 }
 
 .nameEntryActive {
   background: rgba(255,255,255,0.03);
-  border-radius: 4px;
 }
 
 .nameEntryFlipped {
@@ -566,9 +595,9 @@
   border: 1px solid transparent;
   border-radius: 6px;
   color: var(--text-dim);
-  font-size: 13px;
-  width: 28px;
-  height: 28px;
+  font-size: 18px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -587,8 +616,8 @@
 
 .turnRing {
   position: absolute;
-  width: 66px;
-  height: 66px;
+  width: 82px;
+  height: 82px;
   border-radius: 50%;
   border: 2px solid;
   pointer-events: none;
@@ -596,8 +625,8 @@
 }
 
 .endTurnBtn {
-  width: 56px;
-  height: 56px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   background: var(--surface-2);
   border: 2px solid var(--gold-dim);
@@ -809,9 +838,9 @@
   border: 1px solid transparent;
   border-radius: 4px;
   color: var(--text-dim);
-  font-size: 14px;
-  width: 26px;
-  height: 26px;
+  font-size: 36px;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -856,25 +885,6 @@
   pointer-events: none;
 }
 
-.fivebtn {
-  position: absolute;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--text-dim);
-  font-family: 'Cinzel', serif;
-  font-size: clamp(12px, 1.5svh, 14px);
-  font-weight: 600;
-  padding: clamp(5px, 0.9svh, 8px) clamp(10px, 1.5svh, 14px);
-  cursor: pointer;
-  transition: all 0.12s;
-  z-index: 1;
-}
-.fivebtn:hover { color: var(--text-bright); border-color: var(--border-2); }
-
-/* Position +5 and -5 at the far edge of their zone */
-.zonePlus  .fivebtn { top:    clamp(3px, 0.8svh, 8px);  right: clamp(4px, 1svh, 10px); }
-.zoneMinus .fivebtn { bottom: clamp(3px, 0.8svh, 8px);  right: clamp(4px, 1svh, 10px); }
 
 .lifeCenter {
   position: relative;
@@ -977,6 +987,8 @@
   flex-direction: column;
   gap: clamp(12px, 2svh, 20px);
 }
+
+.expCardFlipped { transform: rotate(180deg); }
 
 .expClose {
   position: absolute;
