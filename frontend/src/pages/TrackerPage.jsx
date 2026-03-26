@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -46,53 +46,25 @@ function initPlayers(seats, playersData, decksData) {
   })
 }
 
-// ── PlayerPanel ───────────────────────────────────────────────
-function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, delta, isActive, playerTime, clockEnabled }) {
-  const [mode, setMode] = useState(null)
+// ── PlayerPanel (headless — life area only) ───────────────────
+function PlayerPanel({ player, allPlayers, onLife, delta, isActive }) {
   const color = PALETTE[player.id % PALETTE.length]
   const cmdMax = allPlayers.length > 0
     ? Math.max(...allPlayers.map(p => player.cmdDamage[p.id] || 0))
     : 0
   const isDead = player.life <= 0 || player.poison >= 10 || cmdMax >= 21
 
-  const toggleMode = m => setMode(cur => cur === m ? null : m)
-
   return (
     <div
       className={`${styles.panel} ${isDead ? styles.panelDead : ''} ${isActive ? styles.panelActive : ''}`}
       style={{ '--accent': color.accent, '--glow': color.glow }}
     >
-      {/* Header */}
-      <div className={styles.panelHead}>
-        <div className={styles.pnameBlock}>
-          <span className={styles.pname}>{player.name}</span>
-          {player.commander && <span className={styles.pcommander}>{player.commander}</span>}
-        </div>
-        <div className={styles.picons}>
-          {clockEnabled && playerTime != null && (
-            <span className={`${styles.statbadge} ${isActive ? styles.clockActive : ''}`}>
-              {formatTime(playerTime)}
-            </span>
-          )}
-          {player.poison > 0 && (
-            <span className={styles.statbadge} style={{ color: '#7bc67b' }}>☠{player.poison}</span>
-          )}
-          {cmdMax > 0 && (
-            <span className={styles.statbadge} style={{ color: '#d9a060' }}>⚔{cmdMax}</span>
-          )}
-          <button className={`${styles.iconbtn} ${mode === 'poison' ? styles.iconon : ''}`} onClick={() => toggleMode('poison')}>☠</button>
-          <button className={`${styles.iconbtn} ${mode === 'cmd'    ? styles.iconon : ''}`} onClick={() => toggleMode('cmd')}>⚔</button>
-        </div>
-      </div>
-
-      {/* Life area */}
       <div className={styles.lifeArea}>
         {player.image_uri && <img src={player.image_uri} className={styles.cmdArt} alt="" />}
         <div className={styles.zonePlus} onClick={() => onLife(player.id, 1)}>
           <span className={styles.chevron}>▲</span>
           <button className={styles.fivebtn} onClick={e => { e.stopPropagation(); onLife(player.id, 5) }}>+5</button>
         </div>
-
         <div className={styles.lifeCenter}>
           <span className={`${styles.lifenum} ${isDead ? styles.lifenumDead : ''}`}>{player.life}</span>
           {delta != null && (
@@ -101,60 +73,11 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, delta, is
             </span>
           )}
         </div>
-
         <div className={styles.zoneMinus} onClick={() => onLife(player.id, -1)}>
           <button className={styles.fivebtn} onClick={e => { e.stopPropagation(); onLife(player.id, -5) }}>−5</button>
           <span className={styles.chevron}>▼</span>
         </div>
       </div>
-
-      {/* Expanded overlay */}
-      {mode !== null && createPortal(
-        <div className={styles.expanded} onClick={() => setMode(null)}>
-          <div className={styles.expCard} onClick={e => e.stopPropagation()}>
-            <button className={styles.expClose} onClick={() => setMode(null)}>✕</button>
-
-            {mode === 'poison' && (
-              <div className={styles.expSection}>
-                <span className={styles.explabel}>☠ Poison / Toxic</span>
-                <div className={styles.ctrrow}>
-                  <button className={styles.ctrbtn} onClick={() => onPoison(player.id, -1)}>−</button>
-                  <span className={`${styles.ctrval} ${player.poison >= 10 ? styles.deadval : player.poison > 0 ? styles.warnval : ''}`}>
-                    {player.poison}
-                  </span>
-                  <button className={styles.ctrbtn} onClick={() => onPoison(player.id, 1)}>+</button>
-                </div>
-              </div>
-            )}
-
-            {mode === 'cmd' && (
-              <div className={styles.expSection}>
-                <span className={styles.explabel}>⚔ Commander Damage</span>
-                {allPlayers.map(opp => {
-                  const dmg = player.cmdDamage[opp.id] || 0
-                  const oppColor = PALETTE[opp.id % PALETTE.length]
-                  return (
-                    <div key={opp.id} className={styles.cmdrow}>
-                      <div className={styles.cmdnameBlock}>
-                        <span className={styles.cmdname} style={{ color: oppColor.accent }}>{opp.name}</span>
-                        {opp.commander && <span className={styles.cmdcommander}>{opp.commander}</span>}
-                      </div>
-                      <div className={styles.ctrrow}>
-                        <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, -1)}>−</button>
-                        <span className={`${styles.ctrval} ${dmg >= 21 ? styles.deadval : dmg >= 15 ? styles.warnval : ''}`}>{dmg}</span>
-                        <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, 1)}>+</button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Dead overlay */}
       {isDead && (
         <div className={styles.deadOverlay}>
           <span className={styles.deadSym}>☠</span>
@@ -164,52 +87,80 @@ function PlayerPanel({ player, allPlayers, onLife, onPoison, onCmdDmg, delta, is
   )
 }
 
-// ── ColumnSlot ────────────────────────────────────────────────
-// Rotates a player panel 90° to sit in a left or right column.
-function ColumnSlot({ side, children }) {
-  const containerRef = useRef(null)
-  const [dims, setDims] = useState({ w: 0, h: 0 })
+// ── PlayerOverlay (poison / cmd damage — portaled to body) ────
+function PlayerOverlay({ players, overlayState, onPoison, onCmdDmg, onClose }) {
+  const { playerId, mode } = overlayState
+  const player = players.find(p => p.id === playerId)
+  if (!player) return null
+  return createPortal(
+    <div className={styles.expanded} onClick={onClose}>
+      <div className={styles.expCard} onClick={e => e.stopPropagation()}>
+        <button className={styles.expClose} onClick={onClose}>✕</button>
+        {mode === 'poison' && (
+          <div className={styles.expSection}>
+            <span className={styles.explabel}>☠ Poison / Toxic</span>
+            <div className={styles.ctrrow}>
+              <button className={styles.ctrbtn} onClick={() => onPoison(player.id, -1)}>−</button>
+              <span className={`${styles.ctrval} ${player.poison >= 10 ? styles.deadval : player.poison > 0 ? styles.warnval : ''}`}>
+                {player.poison}
+              </span>
+              <button className={styles.ctrbtn} onClick={() => onPoison(player.id, 1)}>+</button>
+            </div>
+          </div>
+        )}
+        {mode === 'cmd' && (
+          <div className={styles.expSection}>
+            <span className={styles.explabel}>⚔ Commander Damage</span>
+            {players.map(opp => {
+              const dmg = player.cmdDamage[opp.id] || 0
+              const oppColor = PALETTE[opp.id % PALETTE.length]
+              return (
+                <div key={opp.id} className={styles.cmdrow}>
+                  <div className={styles.cmdnameBlock}>
+                    <span className={styles.cmdname} style={{ color: oppColor.accent }}>{opp.name}</span>
+                    {opp.commander && <span className={styles.cmdcommander}>{opp.commander}</span>}
+                  </div>
+                  <div className={styles.ctrrow}>
+                    <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, -1)}>−</button>
+                    <span className={`${styles.ctrval} ${dmg >= 21 ? styles.deadval : dmg >= 15 ? styles.warnval : ''}`}>{dmg}</span>
+                    <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, 1)}>+</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  )
+}
 
-  useLayoutEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const update = () => {
-      const r = el.getBoundingClientRect()
-      if (r.width > 0 && r.height > 0) setDims({ w: Math.round(r.width), h: Math.round(r.height) })
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const { w, h } = dims
-  let innerStyle
-  if (w > 0 && h > 0) {
-    if (side === 'right') {
-      innerStyle = { position: 'absolute', width: h, height: w, top: h, left: 0, transformOrigin: 'top left', transform: 'rotate(-90deg)' }
-    } else {
-      innerStyle = { position: 'absolute', width: h, height: w, top: 0, left: w, transformOrigin: 'top left', transform: 'rotate(90deg)' }
-    }
-  } else {
-    innerStyle = { visibility: 'hidden', position: 'absolute', width: '100%', height: '100%' }
-  }
-
+// ── PlayerNameEntry (lives in centre strip) ───────────────────
+function PlayerNameEntry({ player, allPlayers, onOpenOverlay, isActive, playerTime, clockEnabled }) {
+  const color = PALETTE[player.id % PALETTE.length]
+  const cmdMax = allPlayers.length > 0
+    ? Math.max(...allPlayers.map(p => player.cmdDamage[p.id] || 0))
+    : 0
   return (
-    <div ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0 }}>
-      <div style={innerStyle}>{children}</div>
+    <div className={`${styles.nameEntry} ${isActive ? styles.nameEntryActive : ''}`} style={{ '--accent': color.accent }}>
+      <div className={styles.nameEntryText}>
+        <span className={styles.nameEntryName}>{player.name}</span>
+        {player.commander && <span className={styles.nameEntryCommander}>{player.commander}</span>}
+      </div>
+      <div className={styles.nameEntryBadges}>
+        {clockEnabled && playerTime != null && (
+          <span className={`${styles.statbadge} ${isActive ? styles.clockActive : ''}`}>{formatTime(playerTime)}</span>
+        )}
+        {player.poison > 0 && <span className={styles.statbadge} style={{ color: '#7bc67b' }}>☠{player.poison}</span>}
+        {cmdMax > 0  && <span className={styles.statbadge} style={{ color: '#d9a060' }}>⚔{cmdMax}</span>}
+        <button className={styles.iconbtn} onClick={() => onOpenOverlay(player.id, 'poison')}>☠</button>
+        <button className={styles.iconbtn} onClick={() => onOpenOverlay(player.id, 'cmd')}>⚔</button>
+      </div>
     </div>
   )
 }
 
-// Splits player indices into left and right columns
-function getColumns(count) {
-  const leftCount = Math.ceil(count / 2)
-  return {
-    left:  Array.from({ length: leftCount },         (_, i) => i),
-    right: Array.from({ length: count - leftCount }, (_, i) => leftCount + i),
-  }
-}
 
 function computePlacements(players, deathOrder) {
   const allDead = deathOrder.flat()
@@ -367,16 +318,6 @@ function DeckPickerModal({ pilotId, allDecks, onSelect, onClose }) {
 export default function TrackerPage() {
   const navigate = useNavigate()
 
-  const [isLandscape, setIsLandscape] = useState(
-    () => window.matchMedia('(orientation: landscape)').matches
-  )
-  useEffect(() => {
-    const mq = window.matchMedia('(orientation: landscape)')
-    const handler = e => setIsLandscape(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
-
   // ── Persistent state ──
   const [phase, setPhase] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tracker_phase')) ?? 'setup' } catch { return 'setup' }
@@ -414,6 +355,7 @@ export default function TrackerPage() {
   })
 
   const [pickerSeat, setPickerSeat] = useState(null)
+  const [overlayState, setOverlayState] = useState(null) // { playerId, mode: 'poison'|'cmd' }
   const [deltas, setDeltas] = useState({})
   const [showSave, setShowSave] = useState(false)
   const [gameSaved, setGameSaved] = useState(false)
@@ -723,7 +665,12 @@ export default function TrackerPage() {
   // GAME PHASE
   // ════════════════════════════════════════════════════════════
   const count = players.length
-  const { left: leftIndices, right: rightIndices } = getColumns(count)
+  const topCount      = Math.ceil(count / 2)
+  const topPlayers    = players.slice(0, topCount)
+  const bottomPlayers = players.slice(topCount)
+  // Even-indexed players go in the left name column, odd in the right
+  const leftNamePlayers  = players.filter((_, i) => i % 2 === 0)
+  const rightNamePlayers = players.filter((_, i) => i % 2 === 1)
 
   const gameOver = gameEndTime != null
   const liveTimes = Object.fromEntries(players.map(p => [
@@ -734,78 +681,93 @@ export default function TrackerPage() {
   const activePlayer = players.find(p => p.id === activeTurnId)
   const activeColor  = activePlayer ? PALETTE[activePlayer.id % PALETTE.length].accent : null
 
-  function renderPanel(p, flip = false) {
+  function renderPanel(p) {
     return (
       <PlayerPanel
         player={p}
         allPlayers={players}
         onLife={changeLife}
-        onPoison={changePoison}
-        onCmdDmg={changeCmdDmg}
         delta={deltas[p.id] ?? null}
+        isActive={activeTurnId === p.id}
+      />
+    )
+  }
+
+  function renderNameEntry(p) {
+    return (
+      <PlayerNameEntry
+        key={p.id}
+        player={p}
+        allPlayers={players}
+        onOpenOverlay={(id, mode) => setOverlayState({ playerId: id, mode })}
         isActive={activeTurnId === p.id}
         playerTime={liveTimes[p.id]}
         clockEnabled={clockEnabled}
-        flipped={flip}
       />
     )
   }
 
   return (
     <div className={styles.game}>
-      {/* First half: left col (portrait) or top row (landscape) */}
-      <div className={styles.half}>
-        {leftIndices.map(i => {
-          const p = players[i]
-          if (isLandscape) {
-            return (
-              <div key={p.id} className={styles.flatPanel} style={{ transform: 'rotate(180deg)' }}>
-                {renderPanel(p, true)}
-              </div>
-            )
-          }
-          return <ColumnSlot key={p.id} side="left">{renderPanel(p)}</ColumnSlot>
-        })}
+      {/* Top row — rotated 180° to face players on the opposite side */}
+      <div className={styles.gameRow}>
+        {topPlayers.map(p => (
+          <div key={p.id} className={`${styles.rowPanel} ${styles.rowPanelFlipped}`}>
+            {renderPanel(p)}
+          </div>
+        ))}
       </div>
 
-      {/* Hub — floats at center cross-point */}
-      <div className={styles.hub}>
-        <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
-        <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
-        <div className={styles.hubCenter}>
-          {activeColor && (
-            <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 16px ${activeColor}66` }} />
-          )}
-          <button
-            className={styles.endTurnBtn}
-            onClick={hubMainBtnClick}
-            disabled={rolling}
-          >
-            {rolling ? (
-              <span className={styles.endTurnSingle}>···</span>
-            ) : activeTurnId == null ? (
-              <><span>PICK</span><span>FIRST</span></>
-            ) : !gameStarted ? (
-              <><span>START</span><span>GAME</span></>
-            ) : (
-              <><span>END</span><span>TURN</span></>
+      {/* Centre strip: left names | hub | right names */}
+      <div className={styles.centreStrip}>
+        <div className={styles.stripNames}>
+          {leftNamePlayers.map(renderNameEntry)}
+        </div>
+
+        <div className={styles.stripHub}>
+          <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
+          <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
+          <div className={styles.hubCenter}>
+            {activeColor && (
+              <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 16px ${activeColor}66` }} />
             )}
-          </button>
+            <button className={styles.endTurnBtn} onClick={hubMainBtnClick} disabled={rolling}>
+              {rolling ? (
+                <span className={styles.endTurnSingle}>···</span>
+              ) : activeTurnId == null ? (
+                <><span>PICK</span><span>FIRST</span></>
+              ) : !gameStarted ? (
+                <><span>START</span><span>GAME</span></>
+              ) : (
+                <><span>END</span><span>TURN</span></>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.stripNames}>
+          {rightNamePlayers.map(renderNameEntry)}
         </div>
       </div>
 
-      {/* Second half: right col (portrait) or bottom row (landscape) */}
-      <div className={styles.half}>
-        {rightIndices.map(i => {
-          const p = players[i]
-          if (isLandscape) {
-            return (
-              <div key={p.id} className={styles.flatPanel}>{renderPanel(p)}</div>
-            )
-          }
-          return <ColumnSlot key={p.id} side="right">{renderPanel(p)}</ColumnSlot>
-        })}
+      {/* Bottom row — normal orientation */}
+      <div className={styles.gameRow}>
+        {bottomPlayers.map(p => (
+          <div key={p.id} className={styles.rowPanel}>
+            {renderPanel(p)}
+          </div>
+        ))}
       </div>
+
+      {overlayState && (
+        <PlayerOverlay
+          players={players}
+          overlayState={overlayState}
+          onPoison={changePoison}
+          onCmdDmg={changeCmdDmg}
+          onClose={() => setOverlayState(null)}
+        />
+      )}
 
       {showSave && (
         <SaveGameOverlay
