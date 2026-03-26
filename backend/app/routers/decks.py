@@ -264,8 +264,8 @@ def _fetch_scryfall_image(commander: str) -> str | None:
         if r.status_code == 200:
             card = r.json()
             if "card_faces" in card and "image_uris" in card["card_faces"][0]:
-                return card["card_faces"][0]["image_uris"].get("normal")
-            return card.get("image_uris", {}).get("normal")
+                return card["card_faces"][0]["image_uris"].get("art_crop")
+            return card.get("image_uris", {}).get("art_crop")
     except Exception:
         pass
     return None
