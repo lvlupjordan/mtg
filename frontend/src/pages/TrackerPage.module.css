@@ -449,9 +449,6 @@
 
 .rowPanelFlipped { transform: rotate(180deg); }
 
-@media (orientation: landscape) {
-  .rowPanelFlipped { transform: none; }
-}
 
 /* ── Centre strip ─────────────────────────────────────────────── */
 
