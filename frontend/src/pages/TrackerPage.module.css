@@ -456,35 +456,39 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  align-items: stretch;
-  height: 72px;
+  align-items: center;
+  height: 110px;
+  background: var(--bg);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
 }
-
 
 .stripNames {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-around;
-  padding: 6px 8px;
+  padding: 8px 10px;
   gap: 2px;
   overflow: hidden;
   min-width: 0;
+  align-self: stretch;
 }
 
 .stripHub {
   flex-shrink: 0;
   display: flex;
-  flex-direction: row;   /* ⌂  END TURN  ⚙  side by side in portrait */
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 10px;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  gap: 8px;
+  padding: 0 14px;
+  height: 78px;
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  background: var(--surface);
+  margin: 0 8px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.4);
 }
 
 
@@ -501,6 +505,10 @@
 .nameEntryActive {
   background: rgba(255,255,255,0.03);
   border-radius: 4px;
+}
+
+.nameEntryFlipped {
+  transform: rotate(180deg);
 }
 
 .nameEntryText {

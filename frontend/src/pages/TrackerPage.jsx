@@ -137,13 +137,13 @@ function PlayerOverlay({ players, overlayState, onPoison, onCmdDmg, onClose }) {
 }
 
 // ── PlayerNameEntry (lives in centre strip) ───────────────────
-function PlayerNameEntry({ player, allPlayers, onOpenOverlay, isActive, playerTime, clockEnabled }) {
+function PlayerNameEntry({ player, allPlayers, onOpenOverlay, isActive, playerTime, clockEnabled, flipped }) {
   const color = PALETTE[player.id % PALETTE.length]
   const cmdMax = allPlayers.length > 0
     ? Math.max(...allPlayers.map(p => player.cmdDamage[p.id] || 0))
     : 0
   return (
-    <div className={`${styles.nameEntry} ${isActive ? styles.nameEntryActive : ''}`} style={{ '--accent': color.accent }}>
+    <div className={`${styles.nameEntry} ${isActive ? styles.nameEntryActive : ''} ${flipped ? styles.nameEntryFlipped : ''}`} style={{ '--accent': color.accent }}>
       <div className={styles.nameEntryText}>
         <span className={styles.nameEntryName}>{player.name}</span>
         {player.commander && <span className={styles.nameEntryCommander}>{player.commander}</span>}
@@ -694,6 +694,7 @@ export default function TrackerPage() {
   }
 
   function renderNameEntry(p) {
+    const flipped = players.indexOf(p) < topCount
     return (
       <PlayerNameEntry
         key={p.id}
@@ -703,6 +704,7 @@ export default function TrackerPage() {
         isActive={activeTurnId === p.id}
         playerTime={liveTimes[p.id]}
         clockEnabled={clockEnabled}
+        flipped={flipped}
       />
     )
   }
