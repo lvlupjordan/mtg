@@ -174,13 +174,13 @@ function PlayerOverlay({ players, overlayState, onPoison, onCmdDmg, onClose }) {
 }
 
 // ── PlayerNameEntry (lives in centre strip) ───────────────────
-function PlayerNameEntry({ player, allPlayers, onOpenOverlay, isActive, playerTime, clockEnabled, flipped }) {
+function PlayerNameEntry({ player, allPlayers, onOpenOverlay, isActive, playerTime, clockEnabled, flipped, padLeft = 10, padRight = 10 }) {
   const color = PALETTE[player.id % PALETTE.length]
   const cmdMax = allPlayers.length > 0
     ? Math.max(...allPlayers.map(p => player.cmdDamage[p.id] || 0))
     : 0
   return (
-    <div className={`${styles.nameEntry} ${isActive ? styles.nameEntryActive : ''} ${flipped ? styles.nameEntryFlipped : ''}`} style={{ '--accent': color.accent }}>
+    <div className={`${styles.nameEntry} ${isActive ? styles.nameEntryActive : ''} ${flipped ? styles.nameEntryFlipped : ''}`} style={{ '--accent': color.accent, paddingLeft: flipped ? padRight : padLeft, paddingRight: flipped ? padLeft : padRight }}>
       <div className={styles.nameEntryText}>
         <span className={styles.nameEntryName}>{player.name}</span>
         {player.commander && <span className={styles.nameEntryCommander}>{player.commander}</span>}
@@ -761,7 +761,7 @@ export default function TrackerPage() {
     )
   }
 
-  function renderNameEntry(p) {
+  function renderNameEntry(p, padLeft = 10, padRight = 10) {
     const flipped = players.indexOf(p) < topCount
     return (
       <PlayerNameEntry
@@ -773,6 +773,8 @@ export default function TrackerPage() {
         playerTime={liveTimes[p.id]}
         clockEnabled={clockEnabled}
         flipped={flipped}
+        padLeft={padLeft}
+        padRight={padRight}
       />
     )
   }
@@ -789,11 +791,25 @@ export default function TrackerPage() {
       ))}
 
       {/* Name columns — grid row 2, one per panel column */}
-      {columns.map((col, i) => (
-        <div key={`nc${i}`} className={styles.stripNameCol} style={{ gridColumn: i + 1, gridRow: 2 }}>
-          {col.map(renderNameEntry)}
-        </div>
-      ))}
+      {columns.map((col, i) => {
+        // Pad content away from the hub (hub ~206px wide, centred)
+        const W = window.innerWidth
+        const hubHalf = 103
+        const colW = W / topCount
+        const cx = W / 2
+        const colLeft = i * colW
+        const colRight = (i + 1) * colW
+        const hubLeft = cx - hubHalf
+        const hubRight = cx + hubHalf
+        const padLeft  = hubRight > colLeft  && hubLeft  <= colLeft  ? Math.ceil(hubRight - colLeft  + 8) : 10
+        const padRight = hubLeft  < colRight && hubRight >= colRight ? Math.ceil(colRight - hubLeft  + 8) : 10
+        return (
+          <div key={`nc${i}`} className={styles.stripNameCol}
+            style={{ gridColumn: i + 1, gridRow: 2, padding: 0 }}>
+            {col.map(p => renderNameEntry(p, padLeft, padRight))}
+          </div>
+        )
+      })}
 
       {/* Hub — absolutely centred over the strip */}
       <div className={styles.stripHub}>
