@@ -466,7 +466,7 @@
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  height: 96px;
+  height: 72px;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -475,7 +475,7 @@
 @media (orientation: landscape) {
   .centreStrip {
     flex-direction: column;
-    width: 96px;
+    width: 72px;
     height: auto;
     border-top: none;
     border-bottom: none;
@@ -498,23 +498,23 @@
 .stripHub {
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;   /* ⌂  END TURN  ⚙  side by side in portrait */
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 0 10px;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
 }
 
 @media (orientation: landscape) {
   .stripHub {
-    flex-direction: row;
+    flex-direction: column;  /* stacked in the vertical strip */
     border-left: none;
     border-right: none;
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
-    padding: 8px 6px;
+    padding: 10px 0;
   }
 }
 
@@ -586,18 +586,17 @@
 .hubBtn {
   background: none;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 6px;
   color: var(--text-dim);
-  font-size: 14px;
-  width: 34px;
-  height: 34px;
+  font-size: 13px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.12s;
   flex-shrink: 0;
-  pointer-events: auto;
 }
 .hubBtn:hover { color: var(--text-bright); background: rgba(255,255,255,0.05); }
 .hubBtn:disabled { opacity: 0.4; cursor: default; }
@@ -610,8 +609,8 @@
 
 .turnRing {
   position: absolute;
-  width: 74px;
-  height: 74px;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
   border: 2px solid;
   pointer-events: none;
@@ -619,9 +618,8 @@
 }
 
 .endTurnBtn {
-  width: 62px;
-  height: 62px;
-  pointer-events: auto;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--surface-2);
   border: 2px solid var(--gold-dim);
