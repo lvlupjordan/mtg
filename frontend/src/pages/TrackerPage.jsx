@@ -99,7 +99,7 @@ function PlayerPanel({ player, allPlayers, onLife, delta, deltaKey, isActive }) 
       style={{ '--accent': color.accent, '--glow': color.glow }}
     >
       <div className={styles.lifeArea}>
-        {player.image_uri && <img src={player.image_uri} className={styles.cmdArt} alt="" />}
+        {player.image_uri && <img src={player.image_uri.replace('/normal/', '/art_crop/')} className={styles.cmdArt} alt="" />}
         <div className={styles.zonePlus} {...plusProps}>
           <span className={styles.chevron}>▲</span>
         </div>
