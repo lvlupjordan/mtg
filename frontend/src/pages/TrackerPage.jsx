@@ -592,24 +592,6 @@ export default function TrackerPage() {
     setPhase('game')
   }
 
-  function resetGame() {
-    if (!window.confirm('Reset all life totals?')) return
-    const newPlayers = initPlayers(seats, activePlayers, allDecks)
-    const st = Date.now()
-    startTimeRef.current = st
-    localStorage.setItem('tracker_startTime', JSON.stringify(st))
-    setPlayers(newPlayers)
-    setDeltas({})
-    setDeathOrder([])
-    setGameEndTime(null)
-    setActiveTurnId(null)
-    setPlayerTimes({})
-    setTurnCounts({})
-    setTurnStart(null)
-    setRollHighlightId(null)
-    setGameSaved(false)
-    setGameStarted(false)
-  }
 
   // ════════════════════════════════════════════════════════════
   // SETUP PHASE
@@ -672,7 +654,7 @@ export default function TrackerPage() {
                 ? <span className={styles.setupSavedBadge}>✓ Saved</span>
                 : <button className={styles.setupSecondaryBtn} onClick={() => setShowSave(true)}>Save Game</button>
               }
-              <button className={styles.setupSecondaryBtn} onClick={resetGame}>Reset Totals</button>
+
             </div>
           )}
 
