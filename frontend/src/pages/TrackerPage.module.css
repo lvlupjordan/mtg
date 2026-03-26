@@ -427,9 +427,6 @@
   background: var(--bg);
 }
 
-@media (orientation: landscape) {
-  .game { flex-direction: row; }  /* landscape: leftCol | centreStrip | rightCol */
-}
 
 /* Row of panels (top or bottom) */
 .gameRow {
@@ -440,9 +437,6 @@
   min-width: 0;
 }
 
-@media (orientation: landscape) {
-  .gameRow { flex-direction: column; }
-}
 
 /* Individual panel slot */
 .rowPanel {
@@ -472,17 +466,6 @@
   background: var(--surface);
 }
 
-@media (orientation: landscape) {
-  .centreStrip {
-    flex-direction: column;
-    width: 72px;
-    height: auto;
-    border-top: none;
-    border-bottom: none;
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-  }
-}
 
 .stripNames {
   flex: 1;
@@ -507,16 +490,6 @@
   border-right: 1px solid var(--border);
 }
 
-@media (orientation: landscape) {
-  .stripHub {
-    flex-direction: column;  /* stacked in the vertical strip */
-    border-left: none;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    padding: 10px 0;
-  }
-}
 
 /* ── Player name entry ────────────────────────────────────────── */
 
