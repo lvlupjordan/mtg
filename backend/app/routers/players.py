@@ -79,8 +79,6 @@ def create_player(payload: dict, db: Session = Depends(get_db)):
     name = (payload.get("name") or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
-    if db.query(User).filter(User.name == name).first():
-        raise HTTPException(status_code=409, detail="Player already exists")
     user = User(
         name=name,
         created_at=datetime.utcnow(),
@@ -102,9 +100,6 @@ def patch_player(player_id: int, payload: dict, db: Session = Depends(get_db)):
         name = (payload["name"] or "").strip()
         if not name:
             raise HTTPException(status_code=400, detail="Name is required")
-        existing = db.query(User).filter(User.name == name, User.id != player_id).first()
-        if existing:
-            raise HTTPException(status_code=409, detail="Player already exists")
         user.name = name
     if "show_as_brewer" in payload:
         user.show_as_brewer = bool(payload["show_as_brewer"])
@@ -126,7 +121,7 @@ def list_players(brewers_only: bool = False, include_all: bool = False, db: Sess
             func.count(case((GameSeat.placement == 1, 1))).label("wins"),
             func.avg(GameSeat.placement).label("avg_placement"),
         )
-        .join(GameSeat, GameSeat.pilot_id == User.id)
+        .outerjoin(GameSeat, GameSeat.pilot_id == User.id)
         .filter(User.name.notin_(EXCLUDED))
     )
     if not include_all:
