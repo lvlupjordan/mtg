@@ -124,7 +124,7 @@ function PlayerPanel({ player, allPlayers, onLife, delta, deltaKey, isActive }) 
   )
 }
 
-// ── PlayerOverlay (poison / cmd damage — portaled to body) ────
+// ── PlayerOverlay (commander damage + poison — portaled to body) ────
 function PlayerOverlay({ players, overlayState, onPoison, onCmdDmg, onClose }) {
   const { playerId, mode } = overlayState
   const player = players.find(p => p.id === playerId)
@@ -133,39 +133,39 @@ function PlayerOverlay({ players, overlayState, onPoison, onCmdDmg, onClose }) {
     <div className={styles.expanded} onClick={onClose}>
       <div className={`${styles.expCard} ${overlayState.flipped ? styles.expCardFlipped : ''}`} onClick={e => e.stopPropagation()}>
         <button className={styles.expClose} onClick={onClose}>✕</button>
-        {mode === 'poison' && (
-          <div className={styles.expSection}>
-            <span className={styles.explabel}>☠ Poison / Toxic</span>
-            <div className={styles.ctrrow}>
-              <button className={styles.ctrbtn} onClick={() => onPoison(player.id, -1)}>−</button>
-              <span className={`${styles.ctrval} ${player.poison >= 10 ? styles.deadval : player.poison > 0 ? styles.warnval : ''}`}>
-                {player.poison}
-              </span>
-              <button className={styles.ctrbtn} onClick={() => onPoison(player.id, 1)}>+</button>
-            </div>
-          </div>
-        )}
         {mode === 'cmd' && (
-          <div className={styles.expSection}>
-            <span className={styles.explabel}>⚔ Commander Damage</span>
-            {players.map(opp => {
-              const dmg = player.cmdDamage[opp.id] || 0
-              const oppColor = PALETTE[opp.id % PALETTE.length]
-              return (
-                <div key={opp.id} className={styles.cmdrow}>
-                  <div className={styles.cmdnameBlock}>
-                    <span className={styles.cmdname} style={{ color: oppColor.accent }}>{opp.name}</span>
-                    {opp.commander && <span className={styles.cmdcommander}>{opp.commander}</span>}
+          <>
+            <div className={styles.expSection}>
+              <span className={styles.explabel}>⚔ Commander Damage</span>
+              {players.map(opp => {
+                const dmg = player.cmdDamage[opp.id] || 0
+                const oppColor = PALETTE[opp.id % PALETTE.length]
+                return (
+                  <div key={opp.id} className={styles.cmdrow}>
+                    <div className={styles.cmdnameBlock}>
+                      <span className={styles.cmdname} style={{ color: oppColor.accent }}>{opp.name}</span>
+                      {opp.commander && <span className={styles.cmdcommander}>{opp.commander}</span>}
+                    </div>
+                    <div className={styles.ctrrow}>
+                      <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, -1)}>−</button>
+                      <span className={`${styles.ctrval} ${dmg >= 21 ? styles.deadval : dmg >= 15 ? styles.warnval : ''}`}>{dmg}</span>
+                      <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, 1)}>+</button>
+                    </div>
                   </div>
-                  <div className={styles.ctrrow}>
-                    <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, -1)}>−</button>
-                    <span className={`${styles.ctrval} ${dmg >= 21 ? styles.deadval : dmg >= 15 ? styles.warnval : ''}`}>{dmg}</span>
-                    <button className={styles.ctrbtn} onClick={() => onCmdDmg(player.id, opp.id, 1)}>+</button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+            <div className={styles.expSection}>
+              <span className={styles.explabel}>☠ Poison / Toxic</span>
+              <div className={styles.ctrrow}>
+                <button className={styles.ctrbtn} onClick={() => onPoison(player.id, -1)}>−</button>
+                <span className={`${styles.ctrval} ${player.poison >= 10 ? styles.deadval : player.poison > 0 ? styles.warnval : ''}`}>
+                  {player.poison}
+                </span>
+                <button className={styles.ctrbtn} onClick={() => onPoison(player.id, 1)}>+</button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>,
@@ -191,7 +191,6 @@ function PlayerNameEntry({ player, allPlayers, onOpenOverlay, isActive, playerTi
         )}
         {player.poison > 0 && <span className={styles.statbadge} style={{ color: '#7bc67b' }}>☠{player.poison}</span>}
         {cmdMax > 0  && <span className={styles.statbadge} style={{ color: '#d9a060' }}>⚔{cmdMax}</span>}
-        <button className={styles.iconbtn} onClick={() => onOpenOverlay(player.id, 'poison')}>☠</button>
         <button className={styles.iconbtn} onClick={() => onOpenOverlay(player.id, 'cmd')}>⚔</button>
       </div>
     </div>
@@ -392,7 +391,7 @@ export default function TrackerPage() {
   })
 
   const [pickerSeat, setPickerSeat] = useState(null)
-  const [overlayState, setOverlayState] = useState(null) // { playerId, mode: 'poison'|'cmd' }
+  const [overlayState, setOverlayState] = useState(null) // { playerId, mode: 'cmd' }
   const [deltas, setDeltas] = useState({}) // { [id]: { v: number, n: number } }
   const [showSave, setShowSave] = useState(false)
   const [gameSaved, setGameSaved] = useState(false)
