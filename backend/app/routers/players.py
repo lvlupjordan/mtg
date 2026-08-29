@@ -11,6 +11,10 @@ router = APIRouter(prefix="/api/players", tags=["players"])
 
 EXCLUDED = ["Random", "Precon"]
 
+# Non-person builders selectable as a deck's brewer (but excluded from player
+# and brewer stats via EXCLUDED). Kept in sync intentionally.
+RESERVED_BUILDERS = ["Precon"]
+
 
 COLOUR_ORDER = ["W", "U", "B", "R", "G"]
 
@@ -146,6 +150,19 @@ def list_players(brewers_only: bool = False, include_all: bool = False, db: Sess
         }
         for r in rows
     ]
+
+
+@router.get("/reserved")
+def list_reserved_builders(db: Session = Depends(get_db)):
+    """Non-person builders (e.g. Precon) that can be assigned as a deck's brewer.
+    Declared before /{player_id} so the literal path is matched first."""
+    rows = (
+        db.query(User.id, User.name)
+        .filter(User.name.in_(RESERVED_BUILDERS))
+        .order_by(User.name)
+        .all()
+    )
+    return [{"id": r.id, "name": r.name} for r in rows]
 
 
 @router.get("/{player_id}")

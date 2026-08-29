@@ -12,6 +12,7 @@ const BUDGETS = ['Precon', 'Budget', 'Standard', 'Optimized', 'cEDH']
 export default function AddDeckModal({ onClose, deck = null }) {
   const qc = useQueryClient()
   const { data: players } = useQuery({ queryKey: ['players', 'brewers'], queryFn: () => api.players({ brewers_only: true }) })
+  const { data: reserved } = useQuery({ queryKey: ['players', 'reserved'], queryFn: () => api.reservedBuilders() })
 
   const [form, setForm] = useState(deck ? {
     commander: deck.commander || '',
@@ -155,10 +156,17 @@ export default function AddDeckModal({ onClose, deck = null }) {
                   onChange={e => setForm(f => ({ ...f, builder_id: e.target.value }))}
                   className={styles.select}
                 >
-                  <option value="">Select player</option>
+                  <option value="">Select brewer</option>
                   {realPlayers.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
+                  {(reserved?.length ?? 0) > 0 && (
+                    <optgroup label="Preconstructed / non-player">
+                      {reserved.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
 

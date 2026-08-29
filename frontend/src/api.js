@@ -26,6 +26,7 @@ export const api = {
     const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString()
     return req(`/api/players${qs ? `?${qs}` : ""}`)
   },
+  reservedBuilders: () => req("/api/players/reserved"),
   createPlayer: (body) => req("/api/players", { method: "POST", body: JSON.stringify(body) }),
   patchPlayer: (id, body) => req(`/api/players/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   player: (id) => req(`/api/players/${id}`),
