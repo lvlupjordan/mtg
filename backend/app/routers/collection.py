@@ -75,6 +75,8 @@ def list_collection(
     foil: bool | None = Query(default=None),
     cmc_min: float | None = Query(default=None),
     cmc_max: float | None = Query(default=None),
+    set_code: str | None = Query(default=None),
+    sort: str = Query(default="name", description="name | date (date = recently added first)"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=60, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -119,6 +121,16 @@ def list_collection(
     if cmc_max is not None:
         conditions.append("c.cmc <= :cmc_max")
         params["cmc_max"] = cmc_max
+    if set_code:
+        conditions.append("LOWER(c.set_code) = LOWER(:set_code)")
+        params["set_code"] = set_code
+
+    # Whitelisted sort — a card can span multiple entries (grouped by c.id), so
+    # "date added" uses the most recent entry's created_at.
+    order_clause = {
+        "name": "c.name",
+        "date": "MAX(ce.created_at) DESC, c.name",
+    }.get(sort, "c.name")
 
     where = " AND ".join(conditions)
     total = db.execute(text(f"""
@@ -151,7 +163,7 @@ def list_collection(
         JOIN cards c ON c.id = ce.card_id
         WHERE {where}
         GROUP BY c.id
-        ORDER BY c.name
+        ORDER BY {order_clause}
         LIMIT :limit OFFSET :offset
     """), params).fetchall()
 

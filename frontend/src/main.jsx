@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.jsx'
 
-console.log('%c MTG Tracker v1.2 ', 'background:#c8953a;color:#1a1000;font-weight:bold;padding:2px 6px;border-radius:3px;')
+console.log('%c MTG Tracker v1.3 ', 'background:#c8953a;color:#1a1000;font-weight:bold;padding:2px 6px;border-radius:3px;')
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -137,6 +137,26 @@
   letter-spacing: 0.06em;
 }
 
+.resultsRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sortSelect {
+  padding: 9px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
 .pagination,
 .paginationBottom {
   display: flex;

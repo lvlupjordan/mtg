@@ -84,6 +84,7 @@ function parseQuery(raw, players) {
       }
       case 'oracletag': case 'tag': case 't': oracle_tags.push(val); break
       case 'type': case 'ty': result.type_line = val; break
+      case 'set': case 'e': result.set_code = val; break
       case 'rarity': case 'r': result.rarity = RARITY_MAP[val.toLowerCase()] || val.toLowerCase(); break
       case 'c': case 'color': case 'colors': resolveColors(val).forEach(c => colors.push(c)); break
       case 'o': case 'oracle': case 'text': result.oracle_text = val; break
@@ -602,6 +603,7 @@ function ImportModal({ owners, onClose }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function CollectionPage() {
   const [rawQuery, setRawQuery] = useState('')
+  const [sort, setSort] = useState('name')
   const [page, setPage] = useState(1)
   const [showImport, setShowImport] = useState(false)
   const [detailEntry, setDetailEntry] = useState(null)
@@ -617,6 +619,8 @@ export default function CollectionPage() {
   const params = {
     page,
     page_size: 60,
+    ...(sort !== 'name' && { sort }),
+    ...(parsed.set_code && { set_code: parsed.set_code }),
     ...(parsed.owner_id != null && { owner_id: parsed.owner_id }),
     ...(parsed.q && { q: parsed.q }),
     ...(parsed.oracle_text && { oracle_text: parsed.oracle_text }),
@@ -652,6 +656,7 @@ export default function CollectionPage() {
     if (parsed.colors) chips.push({ label: `c: ${parsed.colors}` })
     if (parsed.oracle_tags) parsed.oracle_tags.split(',').forEach(t => chips.push({ label: `tag: ${t}` }))
     if (parsed.type_line) chips.push({ label: `type: ${parsed.type_line}` })
+    if (parsed.set_code) chips.push({ label: `set: ${parsed.set_code}` })
     if (parsed.rarity) chips.push({ label: `rarity: ${parsed.rarity}` })
     if (parsed.foil != null) chips.push({ label: `foil: ${parsed.foil ? 'yes' : 'no'}` })
     if (parsed.cmc_min != null && parsed.cmc_max != null && parsed.cmc_min === parsed.cmc_max) {
@@ -669,7 +674,7 @@ export default function CollectionPage() {
         <div className={styles.searchWrap}>
           <input
             className={styles.searchBar}
-            placeholder="Search… owner:jordan commander:jund cmc:3 oracletag:ramp type:creature o:draw foil:yes"
+            placeholder="Search… owner:jordan commander:jund cmc:3 tag:ramp type:creature set:dsk o:draw foil:yes"
             value={rawQuery}
             onChange={e => { setRawQuery(e.target.value); resetPage() }}
             spellCheck={false}
@@ -694,6 +699,16 @@ export default function CollectionPage() {
         <span className={styles.resultCount}>
           {isLoading ? '…' : `${total.toLocaleString()} ${total === 1 ? 'card' : 'cards'}`}
         </span>
+        <div className={styles.resultsRight}>
+          <select
+            className={styles.sortSelect}
+            value={sort}
+            onChange={e => { setSort(e.target.value); resetPage() }}
+            title="Sort order"
+          >
+            <option value="name">Name A–Z</option>
+            <option value="date">Recently added</option>
+          </select>
         {totalPages > 1 && (
           <div className={styles.pagination}>
             <button className={styles.pageBtn} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹</button>
@@ -701,6 +716,7 @@ export default function CollectionPage() {
             <button className={styles.pageBtn} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>›</button>
           </div>
         )}
+        </div>
       </div>
 
       <div className={styles.cardGrid}>
