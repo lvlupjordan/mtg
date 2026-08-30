@@ -14,7 +14,7 @@ export default function AddGameModal({ onClose, game = null }) {
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData } = useQuery({
     queryKey: ['decks-all'],
-    queryFn: () => api.decks({ page_size: 100, sort: 'games' }),
+    queryFn: api.allDecks,
   })
 
   const players = playersData?.filter(p => p.name !== 'Random') ?? []

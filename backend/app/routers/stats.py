@@ -526,15 +526,10 @@ def query_stats(
     ]
 
 
-@router.get("/elo")
-def elo_ratings(db: Session = Depends(get_db)):
-    """
-    Multiplayer Elo ratings for all decks.
-    Each game is processed chronologically. Every pair of decks in the same game
-    is compared by placement — the better-placed deck wins the head-to-head.
-    Beating a highly-rated deck is worth more (standard Elo expectation).
-    K=32, starting rating 1500.
-    """
+def compute_elo_ratings(db: Session):
+    """Multiplayer Elo over all Commander games, processed chronologically.
+    Every pair of decks in a game is compared by placement; K=32, start 1500.
+    Returns (ratings, games_count, wins_count) keyed by deck_id."""
     games = (
         db.query(Game)
         .filter(Game.variant == "Commander")
@@ -585,6 +580,14 @@ def elo_ratings(db: Session = Depends(get_db)):
             games_count[s.deck_id] += 1
             if s.placement == 1:
                 wins_count[s.deck_id] += 1
+
+    return ratings, games_count, wins_count
+
+
+@router.get("/elo")
+def elo_ratings(db: Session = Depends(get_db)):
+    """Multiplayer Elo ratings for all decks (see compute_elo_ratings)."""
+    ratings, games_count, wins_count = compute_elo_ratings(db)
 
     deck_ids = list(ratings.keys())
     decks_by_id = {d.id: d for d in db.query(Deck).filter(Deck.id.in_(deck_ids)).all()}

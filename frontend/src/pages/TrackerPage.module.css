@@ -61,7 +61,7 @@
 
 .seatRow {
   display: grid;
-  grid-template-columns: clamp(14px, 2svh, 20px) 1fr 1fr auto auto;
+  grid-template-columns: clamp(14px, 2svh, 20px) 1fr 1fr auto auto auto;
   align-items: center;
   gap: clamp(4px, 1svh, 8px);
 }
@@ -149,6 +149,35 @@
   transition: all 0.15s;
 }
 .strangerBtn:hover { color: var(--text-bright); }
+
+.suggestBtn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--gold-dim, var(--text-dim));
+  font-size: clamp(11px, 1.6svh, 14px);
+  padding: clamp(3px, 0.8svh, 6px) clamp(5px, 1svh, 9px);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.suggestBtn:hover:not(:disabled) { color: var(--text-bright); border-color: var(--gold-dim); }
+.suggestBtn:disabled { opacity: 0.35; cursor: default; }
+
+.suggestReason {
+  margin-top: clamp(6px, 1.2svh, 10px);
+  padding: clamp(5px, 1svh, 8px) clamp(8px, 1.4svh, 12px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'Crimson Pro', serif;
+  font-size: clamp(10px, 1.4svh, 12px);
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.3;
+}
+.suggestReason b { color: var(--gold, var(--text-bright)); font-weight: 600; }
+
 .strangerBtnOn {
   background: rgba(200, 149, 58, 0.12);
   border-color: var(--gold-dim);

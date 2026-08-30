@@ -349,7 +349,7 @@ export default function StatsPage() {
   const { data: players } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData } = useQuery({
     queryKey: ['decks-all'],
-    queryFn: () => api.decks({ page_size: 500 }),
+    queryFn: api.allDecks,
   })
 
   const isDeckMetric = DECK_METRICS.includes(metric)

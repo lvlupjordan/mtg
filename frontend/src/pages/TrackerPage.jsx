@@ -398,6 +398,8 @@ export default function TrackerPage() {
   })
 
   const [pickerSeat, setPickerSeat] = useState(null)
+  const [suggesting, setSuggesting] = useState(null) // seat index currently being suggested
+  const [lastSuggest, setLastSuggest] = useState(null) // { seat, commander, reason } — most recent suggestion
   const [overlayState, setOverlayState] = useState(null) // { playerId, mode: 'cmd' }
   const [deltas, setDeltas] = useState({}) // { [id]: { v: number, n: number } }
   const [showSave, setShowSave] = useState(false)
@@ -462,7 +464,7 @@ export default function TrackerPage() {
   const { data: playersData } = useQuery({ queryKey: ['players'], queryFn: api.players })
   const { data: decksData }   = useQuery({
     queryKey: ['decks-all'],
-    queryFn:  () => api.decks({ page_size: 100, sort: 'games' }),
+    queryFn:  api.allDecks,
   })
 
   const activePlayers = playersData?.filter(p => !['Random', 'Precon'].includes(p.name)) ?? []
@@ -473,6 +475,29 @@ export default function TrackerPage() {
     setSeats(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
   const addSeat    = () => { if (seats.length < 6) setSeats(prev => [...prev, emptySeat()]) }
   const removeSeat = i  => { if (seats.length > 2) setSeats(prev => prev.filter((_, idx) => idx !== i)) }
+
+  async function suggestForSeat(i) {
+    const seat = seats[i]
+    if (!seat.pilot_id || suggesting != null) return
+    setSuggesting(i)
+    try {
+      const podIds = seats
+        .filter((s, idx) => idx !== i && !s.is_stranger && s.deck_id)
+        .map(s => s.deck_id)
+      const excludeIds = seat.deck_id ? [seat.deck_id] : []
+      const res = await api.suggestDeck(seat.pilot_id, podIds, excludeIds)
+      if (res?.suggestion) {
+        updateSeat(i, 'deck_id', String(res.suggestion.id))
+        const reasons = res.suggestion.reasons || []
+        setLastSuggest({
+          seat: i + 1,
+          commander: res.suggestion.commander,
+          reason: reasons.length ? reasons.join(' · ') : 'balanced pick',
+        })
+      }
+    } catch { /* ignore — leave seat unchanged */ }
+    finally { setSuggesting(null) }
+  }
 
   // ── Life / poison / cmd damage ──
   const changeLife = useCallback((id, amount) => {
@@ -609,7 +634,6 @@ export default function TrackerPage() {
       <div className={styles.setup}>
         <div className={styles.setupCard}>
           <h1 className={styles.setupTitle}>Life Tracker</h1>
-          <p className={styles.setupSub}>Commander · {LIFE_START} starting life</p>
 
           <div className={styles.setupSeats}>
             {seats.map((seat, i) => {
@@ -643,6 +667,13 @@ export default function TrackerPage() {
                           <span className={styles.deckPickerBtnPlaceholder}>Choose Deck…</span>
                         )}
                       </button>
+
+                      <button
+                        className={styles.suggestBtn}
+                        disabled={!seat.pilot_id || suggesting != null}
+                        onClick={() => suggestForSeat(i)}
+                        title={seat.pilot_id ? 'Suggest a deck' : 'Pick a player first'}
+                      >{suggesting === i ? '…' : '🎲'}</button>
                     </>
                   )}
 
@@ -654,6 +685,12 @@ export default function TrackerPage() {
               )
             })}
           </div>
+
+          {lastSuggest && (
+            <div className={styles.suggestReason}>
+              🎲 Seat {lastSuggest.seat}: <b>{lastSuggest.commander}</b> — {lastSuggest.reason}
+            </div>
+          )}
 
           {hasActiveGame && (
             <div className={styles.setupGameActions}>

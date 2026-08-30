@@ -1,5 +1,7 @@
 import re
-from datetime import datetime
+import math
+import random
+from datetime import datetime, date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, case, and_, or_, text
@@ -9,6 +11,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.deck import Deck
 from app.models.game import GameSeat
+from app.routers.stats import compute_elo_ratings
 
 router = APIRouter(prefix="/api/decks", tags=["decks"])
 
@@ -109,6 +112,168 @@ def list_decks(
             }
             for d in rows
         ],
+    }
+
+
+@router.get("/all")
+def list_all_decks(db: Session = Depends(get_db)):
+    """Every deck with the minimal fields selectors need, unpaginated. Single
+    source of truth for deck pickers so they never miss a deck (unlike the
+    paginated browse endpoint). Declared before /{deck_id} so the literal wins."""
+    rows = (
+        db.query(
+            Deck.id, Deck.name, Deck.commander, Deck.color_identity,
+            Deck.image_uri, Deck.active, Deck.budget,
+            User.id.label("builder_id"), User.name.label("builder_name"),
+        )
+        .join(User, Deck.builder_id == User.id)
+        .order_by(Deck.commander)
+        .all()
+    )
+    return {"decks": [
+        {
+            "id": r.id, "name": r.name, "commander": r.commander,
+            "color_identity": r.color_identity, "image_uri": r.image_uri,
+            "active": r.active, "budget": r.budget,
+            "builder": {"id": r.builder_id, "name": r.builder_name},
+        }
+        for r in rows
+    ]}
+
+
+@router.get("/suggest")
+def suggest_deck(
+    pilot_id: int = Query(..., description="Seat's player — candidates are their active decks"),
+    pod: str = Query(default="", description="Comma-separated deck ids already chosen in the pod"),
+    exclude: str = Query(default="", description="Deck ids to exclude (e.g. the current pick, so a re-roll differs)"),
+    db: Session = Depends(get_db),
+):
+    """Suggest one of a player's active decks for a seat, scored against the
+    decks already in the pod by freshness, colour/strategy diversity, power fit
+    (Elo) and a grudge factor (poor past record vs the pod). Declared before
+    /{deck_id} so the literal path wins."""
+    pod_ids = [int(x) for x in pod.split(",") if x.strip().isdigit()]
+    exclude_ids = {int(x) for x in exclude.split(",") if x.strip().isdigit()}
+
+    base = [
+        d for d in db.query(Deck)
+        .filter(Deck.builder_id == pilot_id, Deck.active == True).all()
+        if d.id not in pod_ids
+    ]
+    # Drop the just-suggested deck(s) so a re-roll returns something new — unless
+    # that would leave nothing (e.g. the player owns only one eligible deck).
+    candidates = [d for d in base if d.id not in exclude_ids] or base
+    if not candidates:
+        return {"suggestion": None, "alternates": [], "candidate_count": 0}
+
+    cand_ids = [d.id for d in candidates]
+
+    # Last played per candidate
+    lp_rows = db.execute(text("""
+        SELECT gs.deck_id AS deck_id, MAX(g.played_at) AS last_played
+        FROM game_seats gs JOIN games g ON g.id = gs.game_id
+        WHERE gs.deck_id = ANY(:ids)
+        GROUP BY gs.deck_id
+    """), {"ids": cand_ids}).fetchall()
+    last_played = {r.deck_id: r.last_played for r in lp_rows}
+
+    # Grudge: candidate co-appearances with pod decks, and how often it placed worse
+    grudge = {}
+    if pod_ids:
+        gr_rows = db.execute(text("""
+            SELECT a.deck_id AS deck_id,
+                   COUNT(*) AS shared,
+                   SUM(CASE WHEN a.placement > b.placement THEN 1 ELSE 0 END) AS losses
+            FROM game_seats a
+            JOIN game_seats b ON a.game_id = b.game_id AND b.deck_id = ANY(:pod)
+            WHERE a.deck_id = ANY(:ids)
+              AND a.placement IS NOT NULL AND b.placement IS NOT NULL
+            GROUP BY a.deck_id
+        """), {"ids": cand_ids, "pod": pod_ids}).fetchall()
+        grudge = {r.deck_id: (r.shared, r.losses or 0) for r in gr_rows}
+
+    ratings, _, _ = compute_elo_ratings(db)
+    def elo(did):
+        return ratings.get(did, 1500.0)
+
+    pod_decks = db.query(Deck).filter(Deck.id.in_(pod_ids)).all() if pod_ids else []
+    pod_colours, pod_strats = set(), set()
+    for d in pod_decks:
+        pod_colours.update(d.color_identity or [])
+        pod_strats.update(d.strategy or [])
+    pod_avg_elo = (sum(elo(d.id) for d in pod_decks) / len(pod_decks)) if pod_decks else None
+
+    today = date.today()
+    def days_since(did):
+        lp = last_played.get(did)
+        if lp is None:
+            return None
+        lpd = lp.date() if hasattr(lp, "date") else lp
+        return (today - lpd).days
+
+    FRESH_CAP, ELO_CAP = 60, 300
+
+    # Base weights (grudge now weighted alongside the rest), each randomized
+    # ±20–30% per request so the blend — and therefore the pick — varies per click.
+    BASE_W = {"fresh": 0.30, "diversity": 0.25, "power": 0.20, "grudge": 0.25}
+    W = {k: v * (1 + random.choice([-1, 1]) * random.uniform(0.20, 0.30)) for k, v in BASE_W.items()}
+
+    scored = []
+    for d in candidates:
+        ds = days_since(d.id)
+        fresh = 1.0 if ds is None else min(ds, FRESH_CAP) / FRESH_CAP
+
+        if pod_decks:
+            cols = d.color_identity or []
+            col_div = (len([c for c in cols if c not in pod_colours]) / len(cols)) if cols else 0.5
+            strs = d.strategy or []
+            str_div = (len([s for s in strs if s not in pod_strats]) / len(strs)) if strs else 0.5
+            diversity = (col_div + str_div) / 2
+        else:
+            diversity = 0.5
+
+        power_fit = (1 - min(abs(elo(d.id) - pod_avg_elo), ELO_CAP) / ELO_CAP) if pod_avg_elo is not None else 0.5
+
+        shared, losses = grudge.get(d.id, (0, 0))
+        grudge_score = (losses / shared) * (min(shared, 6) / 6) if shared else 0.0
+
+        jitter = random.uniform(0, 0.06)  # tiny tie-breaker
+        score = W["fresh"] * fresh + W["diversity"] * diversity + W["power"] * power_fit + W["grudge"] * grudge_score + jitter
+
+        reasons = []
+        if ds is None:
+            reasons.append("never played")
+        elif ds >= 21:
+            reasons.append(f"not played in {ds} days")
+        if pod_decks and diversity >= 0.6:
+            reasons.append("brings fresh colours/strategy")
+        if shared >= 2 and losses / shared >= 0.6:
+            reasons.append(f"{losses}/{shared} record vs this pod — grudge match")
+        scored.append((score, d, {"days_since": ds, "elo": round(elo(d.id)), "reasons": reasons}))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    # Weighted-random pick (softmax over scores) so repeat clicks vary rather
+    # than always returning the single top-scored deck.
+    mx = scored[0][0]
+    weights = [math.exp((s[0] - mx) * 4) for s in scored]
+    chosen_idx = random.choices(range(len(scored)), weights=weights, k=1)[0]
+    chosen = scored[chosen_idx]
+    alternates = [e for idx, e in enumerate(scored) if idx != chosen_idx][:2]
+
+    def pack(entry):
+        _, d, meta = entry
+        return {
+            "id": d.id, "name": d.name, "commander": d.commander,
+            "color_identity": d.color_identity, "image_uri": d.image_uri,
+            "budget": d.budget, "elo": meta["elo"],
+            "days_since_played": meta["days_since"], "reasons": meta["reasons"],
+        }
+
+    return {
+        "suggestion": pack(chosen),
+        "alternates": [pack(e) for e in alternates],
+        "candidate_count": len(candidates),
     }
 
 

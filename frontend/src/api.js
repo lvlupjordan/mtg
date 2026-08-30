@@ -17,8 +17,13 @@ export const api = {
     if (colours?.length) qs.set("colours", colours.join(","));
     return req(`/api/decks?${qs.toString()}`);
   },
+  allDecks: () => req(`/api/decks/all`),
   deck: (id) => req(`/api/decks/${id}`),
   deckMoxfield: (id) => req(`/api/decks/${id}/moxfield`),
+  suggestDeck: (pilotId, podIds = [], excludeIds = []) =>
+    req(`/api/decks/suggest?pilot_id=${pilotId}` +
+        `${podIds.length ? `&pod=${podIds.join(",")}` : ""}` +
+        `${excludeIds.length ? `&exclude=${excludeIds.join(",")}` : ""}`),
   createDeck: (body) => req("/api/decks", { method: "POST", body: JSON.stringify(body) }),
   patchDeck: (id, body) => req(`/api/decks/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
 
