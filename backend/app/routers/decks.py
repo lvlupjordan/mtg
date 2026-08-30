@@ -213,9 +213,10 @@ def suggest_deck(
 
     FRESH_CAP, ELO_CAP = 60, 300
 
-    # Base weights (grudge now weighted alongside the rest), each randomized
-    # ±20–30% per request so the blend — and therefore the pick — varies per click.
-    BASE_W = {"fresh": 0.30, "diversity": 0.25, "power": 0.20, "grudge": 0.25}
+    # Base weights — grudge is the dominant factor so revenge picks actually
+    # surface. Each is randomized ±20–30% per request so the blend (and pick)
+    # varies per click.
+    BASE_W = {"fresh": 0.25, "diversity": 0.20, "power": 0.15, "grudge": 0.40}
     W = {k: v * (1 + random.choice([-1, 1]) * random.uniform(0.20, 0.30)) for k, v in BASE_W.items()}
 
     scored = []
@@ -235,7 +236,8 @@ def suggest_deck(
         power_fit = (1 - min(abs(elo(d.id) - pod_avg_elo), ELO_CAP) / ELO_CAP) if pod_avg_elo is not None else 0.5
 
         shared, losses = grudge.get(d.id, (0, 0))
-        grudge_score = (losses / shared) * (min(shared, 6) / 6) if shared else 0.0
+        # loss rate, lightly scaled by volume (full strength by 3 shared games)
+        grudge_score = (losses / shared) * (min(shared, 3) / 3) if shared else 0.0
 
         jitter = random.uniform(0, 0.06)  # tiny tie-breaker
         score = W["fresh"] * fresh + W["diversity"] * diversity + W["power"] * power_fit + W["grudge"] * grudge_score + jitter
