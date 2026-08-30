@@ -1209,6 +1209,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.saveSeatStat {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+  opacity: 0.85;
+}
 
 .savePlaceInput {
   width: 60px;

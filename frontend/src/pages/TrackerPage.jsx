@@ -266,6 +266,13 @@ function SaveGameOverlay({ players, deathOrder, turnCount, totalGameTime, turnCo
                 <div key={p.id} className={styles.savePlacementRow}>
                   <span className={styles.savePname} style={{ color: color.accent }}>{p.name}</span>
                   {p.commander && <span className={styles.savePcommander}>{p.commander}</span>}
+                  {(turnCounts[p.id] || playerTimes[p.id]) && (
+                    <span className={styles.saveSeatStat}>
+                      {turnCounts[p.id] ? `${turnCounts[p.id]} turns` : ''}
+                      {turnCounts[p.id] && playerTimes[p.id] ? ' · ' : ''}
+                      {playerTimes[p.id] ? formatTime(playerTimes[p.id]) : ''}
+                    </span>
+                  )}
                   <input
                     type="number" min="1" max="6" step="1"
                     placeholder="—"
@@ -555,7 +562,8 @@ export default function TrackerPage() {
   function endTurn() {
     if (activeTurnId == null) return
     const now2 = Date.now()
-    if (clockEnabled && turnStart != null) {
+    // Always capture per-player time; `clockEnabled` only controls the live display.
+    if (turnStart != null) {
       setPlayerTimes(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + (now2 - turnStart) }))
     }
     setTurnCounts(prev => ({ ...prev, [activeTurnId]: (prev[activeTurnId] || 0) + 1 }))
@@ -568,7 +576,7 @@ export default function TrackerPage() {
     }
     if (!next) return
     setActiveTurnId(next.id)
-    setTurnStart(clockEnabled ? now2 : null)
+    setTurnStart(now2)
   }
 
   // ── Start game (reinitialises everything) ──
@@ -796,6 +804,7 @@ export default function TrackerPage() {
       <div className={styles.stripHub}>
         <button className={styles.hubBtn} onClick={() => navigate('/decks')} title="Home">⌂</button>
         <button className={styles.hubBtn} onClick={() => setPhase('setup')} title="Setup">⚙</button>
+        <button className={styles.hubBtn} onClick={() => setClockEnabled(v => !v)} title={clockEnabled ? 'Hide turn timers' : 'Show turn timers'} style={{ opacity: clockEnabled ? 1 : 0.4 }}>⏱</button>
         <div className={styles.hubCenter}>
           {activeColor && (
             <div className={styles.turnRing} style={{ borderColor: activeColor, boxShadow: `0 0 16px ${activeColor}66` }} />
