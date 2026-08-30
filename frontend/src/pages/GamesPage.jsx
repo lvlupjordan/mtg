@@ -22,6 +22,13 @@ function placementColor(p) {
   return 'var(--text-dim)'
 }
 
+function formatDuration(seconds) {
+  if (!seconds) return null
+  const m = Math.round(seconds / 60)
+  if (m < 60) return `${m} min`
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
+}
+
 const PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 265 370%22%3E%3Crect width%3D%22265%22 height%3D%22370%22 fill%3D%22%231a1728%22%2F%3E%3C%2Fsvg%3E'
 
 function GameCard({ game, index, gameNumber, onEdit }) {
@@ -42,6 +49,7 @@ function GameCard({ game, index, gameNumber, onEdit }) {
             {new Date(game.played_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
           {game.turn_count && <span className={styles.gameMeta}>{game.turn_count} turns</span>}
+          {formatDuration(game.total_game_time) && <span className={styles.gameMeta}>{formatDuration(game.total_game_time)}</span>}
         </div>
         <div className={styles.gameHeaderRight}>
           {winner && (

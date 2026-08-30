@@ -336,9 +336,9 @@ def query_stats(
     limit: int = 10,
     db: Session = Depends(get_db),
 ):
-    if metric not in {"win_rate", "games", "avg_placement", "wins", "decks", "active_decks"}:
+    if metric not in {"win_rate", "games", "avg_placement", "wins", "decks", "active_decks", "avg_turn_length"}:
         raise HTTPException(400, "Invalid metric")
-    if dimension not in {"player", "deck", "colour", "identity", "month"}:
+    if dimension not in {"player", "deck", "colour", "identity", "month", "seat"}:
         raise HTTPException(400, "Invalid dimension")
 
     # ── Deck count metrics (no game data needed) ──────────────────────────────
@@ -406,12 +406,18 @@ def query_stats(
             params["fv"] = filter_value
 
     where_sql = f"WHERE {base_where} {filter_where}"
+    # Turn order is only meaningful for tracker-logged games (the only path that
+    # records turn_count); manually-entered games have arbitrary seat order.
+    if dimension == "seat":
+        where_sql += " AND g.turn_count IS NOT NULL"
 
     metric_sql = {
         "win_rate": "ROUND(SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::numeric / NULLIF(COUNT(gs.id), 0), 3)",
         "games": "COUNT(gs.id)::int",
         "wins": "SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::int",
         "avg_placement": "ROUND(AVG(gs.placement)::numeric, 2)",
+        # avg seconds per turn — only over seats that actually recorded time (nulls ignored)
+        "avg_turn_length": "ROUND(SUM(gs.time_spent)::numeric / NULLIF(SUM(CASE WHEN gs.time_spent IS NOT NULL THEN gs.turns END), 0), 1)",
     }[metric]
 
     # Colour / identity: fetch per-deck rows and aggregate in Python
@@ -421,7 +427,9 @@ def query_stats(
                 d.color_identity,
                 COUNT(gs.id)::int AS games,
                 SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::int AS wins,
-                COALESCE(AVG(gs.placement), 0)::float AS avg_placement
+                COALESCE(AVG(gs.placement), 0)::float AS avg_placement,
+                COALESCE(SUM(gs.time_spent), 0)::float AS time_sum,
+                COALESCE(SUM(CASE WHEN gs.time_spent IS NOT NULL THEN gs.turns ELSE 0 END), 0)::float AS timed_turns
             FROM game_seats gs
             JOIN decks d ON gs.deck_id = d.id
             JOIN users u ON gs.pilot_id = u.id
@@ -444,10 +452,12 @@ def query_stats(
 
             for key in keys:
                 if key not in buckets:
-                    buckets[key] = {"games": 0, "wins": 0, "total_placement": 0.0}
+                    buckets[key] = {"games": 0, "wins": 0, "total_placement": 0.0, "time_sum": 0.0, "timed_turns": 0.0}
                 buckets[key]["games"] += r.games
                 buckets[key]["wins"] += r.wins
                 buckets[key]["total_placement"] += r.avg_placement * r.games
+                buckets[key]["time_sum"] += r.time_sum
+                buckets[key]["timed_turns"] += r.timed_turns
 
         result = []
         for label, v in buckets.items():
@@ -459,6 +469,8 @@ def query_stats(
                 val = v["games"]
             elif metric == "wins":
                 val = v["wins"]
+            elif metric == "avg_turn_length":
+                val = round(v["time_sum"] / v["timed_turns"], 1) if v["timed_turns"] else None
             else:
                 val = round(v["total_placement"] / v["games"], 2) if v["games"] else None
 
@@ -483,6 +495,10 @@ def query_stats(
         group_select = "d.commander AS label"
         group_by = "d.commander"
         order_by = "value DESC NULLS LAST"
+    elif dimension == "seat":
+        group_select = "gs.seat::text AS label, gs.seat AS sort_key"
+        group_by = "gs.seat"
+        order_by = "sort_key ASC"
     else:  # month
         group_select = "TO_CHAR(DATE_TRUNC('month', g.played_at), 'Mon YYYY') AS label, DATE_TRUNC('month', g.played_at) AS sort_key"
         group_by = "DATE_TRUNC('month', g.played_at)"

@@ -73,21 +73,26 @@ const PIP_COLOUR = {
 }
 
 const METRICS = [
-  { value: 'win_rate',     label: 'win rate' },
-  { value: 'games',        label: 'games played' },
-  { value: 'wins',         label: 'wins' },
-  { value: 'avg_placement',label: 'avg placement' },
-  { value: 'decks',        label: 'decks built' },
-  { value: 'active_decks', label: 'active decks' },
+  { value: 'win_rate',       label: 'win rate' },
+  { value: 'games',          label: 'games played' },
+  { value: 'wins',           label: 'wins' },
+  { value: 'avg_placement',  label: 'avg placement' },
+  { value: 'avg_turn_length',label: 'avg turn length' },
+  { value: 'decks',          label: 'decks built' },
+  { value: 'active_decks',   label: 'active decks' },
 ]
 
 const DIMENSIONS = [
   { value: 'player',   label: 'player' },
   { value: 'deck',     label: 'deck' },
+  { value: 'seat',     label: 'turn order' },
   { value: 'colour',   label: 'colour' },
   { value: 'identity', label: 'commander identity' },
   { value: 'month',    label: 'month' },
 ]
+
+// Metrics that have no cumulative-over-time meaning
+const NO_TIMESERIES_METRICS = ['decks', 'active_decks', 'avg_turn_length']
 
 const OVER_OPTIONS = [
   { value: '', label: '—' },
@@ -118,6 +123,10 @@ function fmt(metric, val) {
   if (val === null || val === undefined) return '—'
   if (metric === 'win_rate') return `${Math.round(val * 100)}%`
   if (metric === 'avg_placement') return val.toFixed ? val.toFixed(2) : val
+  if (metric === 'avg_turn_length') {
+    const s = Math.round(val)
+    return s >= 60 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s` : `${s}s`
+  }
   return val
 }
 
@@ -343,9 +352,10 @@ export default function StatsPage() {
     queryFn: () => api.decks({ page_size: 500 }),
   })
 
-  const canUseOver = TIME_DIMS.includes(dimension)
-  const activeOver = canUseOver ? over : ''
   const isDeckMetric = DECK_METRICS.includes(metric)
+  const noTimeseries = NO_TIMESERIES_METRICS.includes(metric)
+  const canUseOver = TIME_DIMS.includes(dimension) && !noTimeseries
+  const activeOver = canUseOver ? over : ''
   const isIdentityGrid = dimension === 'identity' && !activeOver
 
   function handleDimensionChange(val) {
@@ -360,8 +370,8 @@ export default function StatsPage() {
 
   function handleMetricChange(val) {
     setMetric(val)
-    // Deck metrics don't support timeseries — clear over
-    if (DECK_METRICS.includes(val)) setOver('')
+    // These metrics have no timeseries — clear over
+    if (NO_TIMESERIES_METRICS.includes(val)) setOver('')
   }
 
   const queryEnabled = !filterBy || !!filterValue
