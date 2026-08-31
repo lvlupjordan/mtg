@@ -382,7 +382,9 @@ export default function StatsPage() {
     filter_by: filterBy || undefined,
     filter_value: filterValue || undefined,
     min_games: isIdentityGrid ? 0 : minGames,
-    limit,
+    // The identity grid renders every identity, so it must not be capped at the
+    // top-N limit (which would drop lower-win-rate identities like Rakdos).
+    limit: isIdentityGrid ? 100 : limit,
   }
 
   const { data: barData, isLoading: barLoading } = useQuery({
