@@ -284,7 +284,7 @@
   .body { grid-template-columns: 1fr; }
 }
 
-.bodyMain { min-width: 0; }
+.bodyMain { min-width: 0; display: flex; flex-direction: column; gap: 32px; }
 .bodySide { min-width: 0; }
 
 /* ── Shared section ──────────────────────────────────────────────────────── */
