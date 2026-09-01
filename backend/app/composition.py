@@ -110,7 +110,8 @@ def _ensure_cards_tagged(db: Session, cards: list[dict]) -> dict[str, tuple[str,
     if not missing_ids:
         return known
 
-    # 1) Resolve the unseen cards by Scryfall id and add them to `cards`.
+    # 1) Resolve the unseen cards by Scryfall id (don't insert yet).
+    resolved: dict[str, dict] = {}          # card_id -> card dict
     new_oracle_to_ids: dict[str, list[str]] = {}
     with httpx.Client(timeout=25, headers={"User-Agent": "MTGTracker/1.0"}) as client:
         for i in range(0, len(missing_ids), 75):
@@ -126,19 +127,21 @@ def _ensure_cards_tagged(db: Session, cards: list[dict]) -> dict[str, tuple[str,
                 raise RuntimeError("Scryfall is busy resolving cards; try again shortly")
             for c in resp.json().get("data", []):
                 card = _scryfall_card_to_dict(c)
-                _upsert_card(db, card)
+                resolved[card["id"]] = card
                 oid = card.get("oracle_id")
                 if oid:
                     new_oracle_to_ids.setdefault(oid, []).append(card["id"])
             time.sleep(0.1)
-    db.commit()
 
-    # 2) Tag the new cards with the proven collection tagger (gentle, tag-centric).
-    n_new = sum(len(v) for v in new_oracle_to_ids.values())
-    log.info("composition: tagging %s new cards via collection tagger", n_new)
+    # 2) Tag them FIRST (raises on persistent 429). Doing this before inserting
+    #    means a tagging failure can't leave empty-tagged cards cached forever.
+    log.info("composition: tagging %s new cards via collection tagger", len(resolved))
     tags_by_id = _fetch_tags_for_new_cards(new_oracle_to_ids)
-    for card_id, tags in tags_by_id.items():
-        db.execute(text("UPDATE cards SET oracle_tags = :t WHERE id = :id"), {"t": tags, "id": card_id})
+
+    # 3) Insert the cards WITH their tags.
+    for card_id, card in resolved.items():
+        card["oracle_tags"] = tags_by_id.get(card_id, [])
+        _upsert_card(db, card)
     db.commit()
 
     # 3) Re-read the now-present cards into `known`.

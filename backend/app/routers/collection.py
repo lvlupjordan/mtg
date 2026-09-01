@@ -368,23 +368,30 @@ def _fetch_tags_for_new_cards(new_oracle_to_card_ids: dict[str, list[str]]) -> d
                 f"?q=oracletag%3A{tag}&unique=cards&order=name"
             )
             while url:
-                try:
-                    resp = client.get(url)
-                    if resp.status_code == 404:
+                # Retry 429s (rate-limit) rather than silently skipping — a skip
+                # caches empty tags that then stick forever. Raise if persistent.
+                resp = None
+                for attempt in range(4):
+                    try:
+                        resp = client.get(url)
+                    except Exception:
+                        resp = None
+                    if resp is not None and resp.status_code != 429:
                         break
-                    if resp.status_code != 200:
-                        break
-                    data = resp.json()
-                    for card in data.get("data", []):
-                        oid = card.get("oracle_id")
-                        if oid and oid in collection_oracle_ids:
-                            for cid in new_oracle_to_card_ids[oid]:
-                                card_tags.setdefault(cid, set()).add(tag)
-                    url = data.get("next_page") if data.get("has_more") else None
-                    if url:
-                        time.sleep(0.1)
-                except Exception:
+                    time.sleep(min(3 * (attempt + 1), 15))
+                if resp is None or resp.status_code == 429:
+                    raise RuntimeError("Scryfall is rate-limiting during tagging; try again shortly")
+                if resp.status_code != 200:
                     break
+                data = resp.json()
+                for card in data.get("data", []):
+                    oid = card.get("oracle_id")
+                    if oid and oid in collection_oracle_ids:
+                        for cid in new_oracle_to_card_ids[oid]:
+                            card_tags.setdefault(cid, set()).add(tag)
+                url = data.get("next_page") if data.get("has_more") else None
+                if url:
+                    time.sleep(0.1)
             time.sleep(0.1)
     return {cid: sorted(tags) for cid, tags in card_tags.items()}
 

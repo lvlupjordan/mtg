@@ -232,11 +232,6 @@ function SaveGameOverlay({ players, deathOrder, turnCount, totalGameTime, turnCo
     const vals = players.map(p => parseFloat(placements[p.id]))
     if (vals.some(isNaN)) return setError('All players need a placement')
     if (!vals.includes(1)) return setError('At least one player must be 1st')
-    // TEMP diagnostic: catches the per-seat turn/time desync on back-to-back games.
-    console.warn('[TRACKER SAVE] player ids:', players.map(p => p.id),
-      '| turnCounts keys:', Object.keys(turnCounts), turnCounts,
-      '| playerTimes keys:', Object.keys(playerTimes), playerTimes,
-      '| resolved per-seat turns:', players.map(p => turnCounts[p.id]))
     mutation.mutate({
       played_at: new Date().toISOString().slice(0, 10),
       variant: 'Commander',
