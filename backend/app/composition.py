@@ -6,11 +6,15 @@ Rules-only, no manual overrides. A card counts in every category it matches,
 so the percentages can exceed 100%.
 """
 import re
+import json
 import time
+import logging
 import urllib.parse
 import httpx
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+log = logging.getLogger("composition")
 
 from app.routers.collection import _scryfall_card_to_dict, _upsert_card
 
@@ -104,6 +108,7 @@ def _scry_get(client: httpx.Client, url: str):
         if r.status_code == 404:
             return None
         if r.status_code == 429:
+            log.warning("scryfall 429 (search, attempt %s)", attempt + 1)
             time.sleep(min(5 * (attempt + 1), 20))
             continue
         time.sleep(2)
@@ -209,40 +214,76 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
     }
 
 
-def get_composition(db: Session, deck, refresh: bool = False) -> dict:
-    """Return a deck's composition, rebuilding from Moxfield when missing, stale,
-    or when refresh=True. Requires deck.moxfield_url."""
-    ensure_table(db)
-    if not deck.moxfield_url:
-        raise ValueError("No Moxfield URL set for this deck")
+def _read_snapshot(db: Session, deck_id: int):
+    return db.execute(text("""
+        SELECT total_cards, lands, categories, synced_at
+        FROM deck_compositions WHERE deck_id = :id
+    """), {"id": deck_id}).fetchone()
 
-    if not refresh:
-        # Snapshot-first: always serve an existing snapshot (any age) so a deck
-        # page never blocks on Moxfield. Staleness is shown via synced_at; the
-        # user rebuilds explicitly with refresh=True. Only build when none exists.
-        row = db.execute(text("""
-            SELECT total_cards, lands, categories, synced_at
-            FROM deck_compositions WHERE deck_id = :id
-        """), {"id": deck.id}).fetchone()
-        if row:
-            return _snapshot_to_response(deck.id, row)
 
-    cards = _fetch_moxfield_cards(deck.moxfield_url)
-    tagmap = _ensure_cards_tagged(db, cards)
-    result = _compute(cards, tagmap)
-
-    import json
+def _save_snapshot(db: Session, deck_id: int, result: dict):
     db.execute(text("""
         INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at)
         VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now())
         ON CONFLICT (deck_id) DO UPDATE SET
             total_cards = EXCLUDED.total_cards, lands = EXCLUDED.lands,
             categories = EXCLUDED.categories, synced_at = now()
-    """), {"id": deck.id, "total": result["total_cards"], "lands": result["lands"],
+    """), {"id": deck_id, "total": result["total_cards"], "lands": result["lands"],
            "cats": json.dumps(result["categories"])})
     db.commit()
 
-    row = db.execute(text("""
-        SELECT total_cards, lands, categories, synced_at FROM deck_compositions WHERE deck_id = :id
-    """), {"id": deck.id}).fetchone()
-    return _snapshot_to_response(deck.id, row)
+
+def _building_response(deck_id: int, row=None) -> dict:
+    if row:
+        resp = _snapshot_to_response(deck_id, row)
+        resp["building"] = True
+        return resp
+    return {"deck_id": deck_id, "building": True, "total_cards": 0, "lands": 0,
+            "nonland": 0, "synced_at": None,
+            "categories": [{"name": c, "count": 0, "pct_of_nonland": 0, "cards": []}
+                           for c in CATEGORY_ORDER]}
+
+
+def get_composition(db: Session, deck, refresh: bool = False) -> dict:
+    """Return a deck's composition. Snapshot-first: an existing snapshot is served
+    instantly (staleness shown via synced_at); rebuilds happen only on first-ever
+    view or refresh=True. Single-flight per deck via a Postgres advisory lock —
+    concurrent requests (a refresh, a second viewer) get a `building` status
+    instead of starting a duplicate build. Requires deck.moxfield_url."""
+    ensure_table(db)
+    if not deck.moxfield_url:
+        raise ValueError("No Moxfield URL set for this deck")
+
+    if not refresh:
+        row = _read_snapshot(db, deck.id)
+        if row:
+            return _snapshot_to_response(deck.id, row)
+
+    # Single-flight: only one build per deck at a time. The advisory lock is held
+    # on a DEDICATED connection for the whole build — the session's connection can
+    # change across the commits below, so we must not lock/unlock through it.
+    lock_conn = db.get_bind().connect()
+    got = lock_conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": deck.id}).scalar()
+    if not got:
+        lock_conn.close()
+        log.info("composition build already in progress deck=%s — returning building status", deck.id)
+        return _building_response(deck.id, _read_snapshot(db, deck.id))
+
+    t0 = time.time()
+    try:
+        log.info("composition build start deck=%s", deck.id)
+        cards = _fetch_moxfield_cards(deck.moxfield_url)
+        tagmap = _ensure_cards_tagged(db, cards)
+        result = _compute(cards, tagmap)
+        _save_snapshot(db, deck.id, result)
+        log.info("composition build done deck=%s in %.1fs (total=%s)", deck.id, time.time() - t0, result["total_cards"])
+    except Exception as e:
+        log.warning("composition build FAILED deck=%s after %.1fs: %s", deck.id, time.time() - t0, e)
+        raise
+    finally:
+        try:
+            lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": deck.id})
+        finally:
+            lock_conn.close()  # closing the connection also releases the lock
+
+    return _snapshot_to_response(deck.id, _read_snapshot(db, deck.id))

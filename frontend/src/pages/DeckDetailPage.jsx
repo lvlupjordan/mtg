@@ -47,7 +47,7 @@ function DecklistPanel({ deckId }) {
   // Regroup the same cards by composition category when "Tag" is selected.
   const sections = useMemo(() => {
     if (!data) return null
-    if (groupBy === 'type' || !comp) return data.sections
+    if (groupBy === 'type' || !comp || comp.building) return data.sections
     const order = comp.categories.map(c => c.name)
     const catMap = {}
     for (const c of comp.categories) for (const n of c.cards) (catMap[n] ??= []).push(c.name)
@@ -75,8 +75,8 @@ function DecklistPanel({ deckId }) {
             <button className={`${styles.grpBtn} ${groupBy === 'type' ? styles.grpBtnOn : ''}`}
                     onClick={() => setGroupBy('type')}>by Type</button>
             <button className={`${styles.grpBtn} ${groupBy === 'tag' ? styles.grpBtnOn : ''}`}
-                    onClick={() => setGroupBy('tag')} disabled={!comp}
-                    title={comp ? '' : 'Composition still building'}>by Tag</button>
+                    onClick={() => setGroupBy('tag')} disabled={!comp || comp.building}
+                    title={comp && !comp.building ? '' : 'Composition still building'}>by Tag</button>
           </div>
         )}
       </div>
@@ -139,20 +139,27 @@ function CompositionPanel({ deckId }) {
     queryFn: () => api.deckComposition(deckId),
     staleTime: Infinity,   // snapshot-first: never auto-refetch
     retry: false,
+    // While a build is in progress elsewhere, poll until the snapshot lands.
+    refetchInterval: (query) => (query.state.data?.building ? 12000 : false),
   })
   const refresh = useMutation({
     mutationFn: () => api.deckComposition(deckId, true),
     onSuccess: (d) => qc.setQueryData(['composition', deckId], d),
   })
 
+  const building = data?.building
+  const hasData = data && data.total_cards > 0
+
   return (
     <section className={styles.section}>
       <div className={styles.compHeader}>
         <h2 className={styles.sectionTitle}>Composition</h2>
-        {data && (
+        {hasData && (
           <div className={styles.compMeta}>
-            <span className={styles.compSynced}>synced {timeAgo(data.synced_at)}</span>
-            <button className={styles.compRefreshBtn} onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+            <span className={styles.compSynced}>
+              {building ? 'rebuilding…' : `synced ${timeAgo(data.synced_at)}`}
+            </span>
+            <button className={styles.compRefreshBtn} onClick={() => refresh.mutate()} disabled={refresh.isPending || building}>
               {refresh.isPending ? 'Refreshing…' : '↻ Refresh'}
             </button>
           </div>
@@ -163,6 +170,12 @@ function CompositionPanel({ deckId }) {
         <div className={styles.decklistLoading}>
           <div className={styles.spinner} />
           <span>Analysing deck… (first build can take a minute)</span>
+        </div>
+      )}
+      {!isLoading && building && !hasData && (
+        <div className={styles.decklistLoading}>
+          <div className={styles.spinner} />
+          <span>Composition is building… it'll appear here automatically.</span>
         </div>
       )}
       {isError && (
@@ -176,7 +189,7 @@ function CompositionPanel({ deckId }) {
         <p className={styles.decklistError}>Refresh failed — busy, try again shortly.</p>
       )}
 
-      {data && (
+      {hasData && (
         <>
           <div className={styles.compBars}>
             {data.categories.map(c => (
