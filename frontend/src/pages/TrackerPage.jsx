@@ -242,6 +242,8 @@ function SaveGameOverlay({ players, deathOrder, turnCount, totalGameTime, turnCo
       variant: 'Commander',
       turn_count: turnCount ?? null,
       total_game_time: totalGameTime ?? null,
+      // TEMP diagnostic persisted to the DB — raw state to catch the per-seat desync retroactively
+      _debug: { player_ids: players.map(p => p.id), turnCounts, playerTimes },
       seats: players.map(p => ({
         is_stranger:       p.is_stranger,
         deck_id:           p.is_stranger ? null : p.deck_id,

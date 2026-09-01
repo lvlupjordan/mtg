@@ -1,6 +1,7 @@
+import json
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.models.game import Game, GameSeat
@@ -118,6 +119,11 @@ def create_game(body: dict, db: Session = Depends(get_db)):
       seats: [{ deck_id, pilot_id, placement, victory_condition, is_archenemy }]
     }
     """
+    # TEMP diagnostic: persist the raw tracker state at save time so a per-seat
+    # turn/time desync can be diagnosed retroactively from the DB (the console
+    # log is ephemeral and useless for a real phone game). Additive & idempotent.
+    db.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS debug JSONB"))
+
     game = Game(
         played_at=body["played_at"],
         variant=body.get("variant", "Commander"),
@@ -127,6 +133,10 @@ def create_game(body: dict, db: Session = Depends(get_db)):
     )
     db.add(game)
     db.flush()
+
+    if body.get("_debug") is not None:
+        db.execute(text("UPDATE games SET debug = CAST(:d AS jsonb) WHERE id = :id"),
+                   {"d": json.dumps(body["_debug"]), "id": game.id})
 
     stranger = db.query(User).filter(User.name == "Stranger").first()
     for i, seat in enumerate(body["seats"], start=1):
