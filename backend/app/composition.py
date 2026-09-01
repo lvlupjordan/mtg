@@ -21,12 +21,14 @@ log = logging.getLogger("composition")
 # across the whole app, so concurrent builds can't pile onto Scryfall/Moxfield.
 GLOBAL_BUILD_KEY = 918273645
 
-# Scryfall's `protection` tag is inconsistent for fogs and single-target
-# protection (it tagged Respite but not the near-identical Riot Control), so
-# Protection also matches the rules text.
+# Scryfall's tags are inconsistent for fogs and single-target protection (it
+# tagged Respite `protection` but not the near-identical Riot Control), so these
+# categories also match the rules text. Fog = "prevent all damage this turn";
+# Protection = protect a permanent (hexproof/indestructible/shroud, protection
+# from, phase out).
+_FOG_TEXT = re.compile(r"prevent all [^.]*damage", re.IGNORECASE)
 _PROTECTION_TEXT = re.compile(
-    r"prevent all [^.]*damage"
-    r"|gains?\b[^.]*\b(hexproof|indestructible|shroud)"
+    r"gains?\b[^.]*\b(hexproof|indestructible|shroud)"
     r"|protection from"
     r"|phases? out",
     re.IGNORECASE,
@@ -35,15 +37,19 @@ _PROTECTION_TEXT = re.compile(
 # Curated deck-composition categories. Each rule takes (type_line, oracle_text,
 # tags); a card lands in every category it satisfies.
 CATEGORY_RULES = {
-    "Ramp":          lambda tl, txt, tg: ("ramp" in tg or "mana-dork" in tg),
-    "Card Draw":     lambda tl, txt, tg: ("draw" in tg or "card-advantage" in tg),
-    "Spot Removal":  lambda tl, txt, tg: "spot-removal" in tg,
-    "Board Wipes":   lambda tl, txt, tg: "board-wipe" in tg,
-    "Counterspells": lambda tl, txt, tg: "counterspell" in tg,
+    "Ramp":           lambda tl, txt, tg: ("ramp" in tg or "mana-dork" in tg),
+    "Card Draw":      lambda tl, txt, tg: ("draw" in tg or "card-advantage" in tg),
+    "Spot Removal":   lambda tl, txt, tg: "spot-removal" in tg,
+    "Board Wipes":    lambda tl, txt, tg: "board-wipe" in tg,
+    "Counterspells":  lambda tl, txt, tg: "counterspell" in tg,
     # Real tutors only — exclude land tutors (Evolving Wilds) and mana tutors (Cultivate).
-    "Tutors":        lambda tl, txt, tg: ("tutor" in tg and "Land" not in tl and "ramp" not in tg),
-    "Recursion":     lambda tl, txt, tg: ("recursion" in tg or "reanimation" in tg),
-    "Protection":    lambda tl, txt, tg: ("protection" in tg or bool(_PROTECTION_TEXT.search(txt or ""))),
+    "Tutors":         lambda tl, txt, tg: ("tutor" in tg and "Land" not in tl and "ramp" not in tg),
+    "Recursion":      lambda tl, txt, tg: ("recursion" in tg or "reanimation" in tg),
+    # Protection = protect a permanent; a fog tagged `protection` goes to Fog, not here.
+    "Protection":     lambda tl, txt, tg: (bool(_PROTECTION_TEXT.search(txt or ""))
+                                           or ("protection" in tg and not _FOG_TEXT.search(txt or ""))),
+    "Fog":            lambda tl, txt, tg: bool(_FOG_TEXT.search(txt or "")),
+    "Graveyard Hate": lambda tl, txt, tg: "graveyard-hate" in tg,
 }
 CATEGORY_ORDER = list(CATEGORY_RULES.keys())
 
