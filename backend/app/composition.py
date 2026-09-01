@@ -17,6 +17,10 @@ from app.routers.collection import _scryfall_card_to_dict, _upsert_card, _fetch_
 
 log = logging.getLogger("composition")
 
+# App-wide advisory-lock key: at most ONE composition build runs at a time
+# across the whole app, so concurrent builds can't pile onto Scryfall/Moxfield.
+GLOBAL_BUILD_KEY = 918273645
+
 # Curated deck-composition categories → the underlying Scryfall oracle tags.
 # Each card lands in every category whose rule it satisfies.
 CATEGORY_RULES = {
@@ -205,12 +209,13 @@ def _save_snapshot(db: Session, deck_id: int, result: dict):
     db.commit()
 
 
-def _building_response(deck_id: int, row=None) -> dict:
+def _building_response(deck_id: int, row=None, queued: bool = False) -> dict:
     if row:
         resp = _snapshot_to_response(deck_id, row)
         resp["building"] = True
+        resp["queued"] = queued
         return resp
-    return {"deck_id": deck_id, "building": True, "total_cards": 0, "lands": 0,
+    return {"deck_id": deck_id, "building": True, "queued": queued, "total_cards": 0, "lands": 0,
             "nonland": 0, "synced_at": None,
             "categories": [{"name": c, "count": 0, "pct_of_nonland": 0, "cards": []}
                            for c in CATEGORY_ORDER]}
@@ -235,11 +240,21 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
     # on a DEDICATED connection for the whole build — the session's connection can
     # change across the commits below, so we must not lock/unlock through it.
     lock_conn = db.get_bind().connect()
-    got = lock_conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": deck.id}).scalar()
-    if not got:
+    got_deck = lock_conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": deck.id}).scalar()
+    if not got_deck:
         lock_conn.close()
-        log.info("composition build already in progress deck=%s — returning building status", deck.id)
-        return _building_response(deck.id, _read_snapshot(db, deck.id))
+        log.info("composition build already in progress deck=%s", deck.id)
+        return _building_response(deck.id, _read_snapshot(db, deck.id), queued=False)
+
+    # Global serialization: at most one build runs app-wide. If another deck is
+    # building, don't start a second — return a queued status and let the client
+    # poll until its turn (no concurrent builds piling onto Scryfall/Moxfield).
+    got_global = lock_conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": GLOBAL_BUILD_KEY}).scalar()
+    if not got_global:
+        lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": deck.id})
+        lock_conn.close()
+        log.info("composition build queued deck=%s (another build running)", deck.id)
+        return _building_response(deck.id, _read_snapshot(db, deck.id), queued=True)
 
     t0 = time.time()
     try:
@@ -254,8 +269,9 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         raise
     finally:
         try:
+            lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": GLOBAL_BUILD_KEY})
             lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": deck.id})
         finally:
-            lock_conn.close()  # closing the connection also releases the lock
+            lock_conn.close()  # closing the connection also releases both locks
 
     return _snapshot_to_response(deck.id, _read_snapshot(db, deck.id))

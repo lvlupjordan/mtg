@@ -175,7 +175,11 @@ function CompositionPanel({ deckId }) {
       {!isLoading && building && !hasData && (
         <div className={styles.decklistLoading}>
           <div className={styles.spinner} />
-          <span>Composition is building… it'll appear here automatically.</span>
+          <span>
+            {data.queued
+              ? 'Queued — another deck is building. Yours starts automatically when it’s free.'
+              : 'Composition is building… it’ll appear here automatically (first build can take a minute).'}
+          </span>
         </div>
       )}
       {isError && (
