@@ -21,18 +21,29 @@ log = logging.getLogger("composition")
 # across the whole app, so concurrent builds can't pile onto Scryfall/Moxfield.
 GLOBAL_BUILD_KEY = 918273645
 
-# Curated deck-composition categories → the underlying Scryfall oracle tags.
-# Each card lands in every category whose rule it satisfies.
+# Scryfall's `protection` tag is inconsistent for fogs and single-target
+# protection (it tagged Respite but not the near-identical Riot Control), so
+# Protection also matches the rules text.
+_PROTECTION_TEXT = re.compile(
+    r"prevent all [^.]*damage"
+    r"|gains?\b[^.]*\b(hexproof|indestructible|shroud)"
+    r"|protection from"
+    r"|phases? out",
+    re.IGNORECASE,
+)
+
+# Curated deck-composition categories. Each rule takes (type_line, oracle_text,
+# tags); a card lands in every category it satisfies.
 CATEGORY_RULES = {
-    "Ramp":          lambda tl, tg: ("ramp" in tg or "mana-dork" in tg),
-    "Card Draw":     lambda tl, tg: ("draw" in tg or "card-advantage" in tg),
-    "Spot Removal":  lambda tl, tg: "spot-removal" in tg,
-    "Board Wipes":   lambda tl, tg: "board-wipe" in tg,
-    "Counterspells": lambda tl, tg: "counterspell" in tg,
+    "Ramp":          lambda tl, txt, tg: ("ramp" in tg or "mana-dork" in tg),
+    "Card Draw":     lambda tl, txt, tg: ("draw" in tg or "card-advantage" in tg),
+    "Spot Removal":  lambda tl, txt, tg: "spot-removal" in tg,
+    "Board Wipes":   lambda tl, txt, tg: "board-wipe" in tg,
+    "Counterspells": lambda tl, txt, tg: "counterspell" in tg,
     # Real tutors only — exclude land tutors (Evolving Wilds) and mana tutors (Cultivate).
-    "Tutors":        lambda tl, tg: ("tutor" in tg and "Land" not in tl and "ramp" not in tg),
-    "Recursion":     lambda tl, tg: ("recursion" in tg or "reanimation" in tg),
-    "Protection":    lambda tl, tg: "protection" in tg,
+    "Tutors":        lambda tl, txt, tg: ("tutor" in tg and "Land" not in tl and "ramp" not in tg),
+    "Recursion":     lambda tl, txt, tg: ("recursion" in tg or "reanimation" in tg),
+    "Protection":    lambda tl, txt, tg: ("protection" in tg or bool(_PROTECTION_TEXT.search(txt or ""))),
 }
 CATEGORY_ORDER = list(CATEGORY_RULES.keys())
 
@@ -102,9 +113,9 @@ def _ensure_cards_tagged(db: Session, cards: list[dict]) -> dict[str, tuple[str,
     never runs its own Scryfall tagging; it just reads what that produced. Once
     a card is tagged it's cached in `cards` for every future deck."""
     names = sorted({c["name"] for c in cards if c["name"]})
-    rows = db.execute(text("SELECT name, type_line, oracle_tags FROM cards WHERE name = ANY(:ns)"),
+    rows = db.execute(text("SELECT name, type_line, oracle_text, oracle_tags FROM cards WHERE name = ANY(:ns)"),
                       {"ns": names}).fetchall()
-    known = {r.name: (r.type_line or "", set(r.oracle_tags or [])) for r in rows}
+    known = {r.name: (r.type_line or "", r.oracle_text or "", set(r.oracle_tags or [])) for r in rows}
     missing_ids = list({c["scryfall_id"] for c in cards
                         if c["name"] not in known and c.get("scryfall_id")})
     if not missing_ids:
@@ -146,10 +157,10 @@ def _ensure_cards_tagged(db: Session, cards: list[dict]) -> dict[str, tuple[str,
 
     # 3) Re-read the now-present cards into `known`.
     missing_names = [c["name"] for c in cards if c["name"] not in known]
-    rows2 = db.execute(text("SELECT name, type_line, oracle_tags FROM cards WHERE name = ANY(:ns)"),
+    rows2 = db.execute(text("SELECT name, type_line, oracle_text, oracle_tags FROM cards WHERE name = ANY(:ns)"),
                        {"ns": missing_names}).fetchall()
     for r in rows2:
-        known[r.name] = (r.type_line or "", set(r.oracle_tags or []))
+        known[r.name] = (r.type_line or "", r.oracle_text or "", set(r.oracle_tags or []))
     return known
 
 
@@ -163,10 +174,10 @@ def _compute(cards: list[dict], tagmap: dict[str, tuple[str, set]]) -> dict:
         if name in seen:
             continue
         seen.add(name)
-        tl, tg = tagmap.get(name, (c["type_line"], set()))
+        tl, txt, tg = tagmap.get(name, (c["type_line"], "", set()))
         tl = tl or c["type_line"]
         for cat, rule in CATEGORY_RULES.items():
-            if rule(tl, tg):
+            if rule(tl, txt, tg):
                 categories[cat].append(name)
     for cat in categories:
         categories[cat].sort()
