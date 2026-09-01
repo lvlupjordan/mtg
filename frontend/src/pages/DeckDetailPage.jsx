@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -30,15 +30,56 @@ function ManaCost({ cost }) {
 }
 
 function DecklistPanel({ deckId }) {
+  const [groupBy, setGroupBy] = useState('type')
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['moxfield', deckId],
     queryFn: () => api.deckMoxfield(deckId),
     staleTime: 5 * 60 * 1000,
   })
+  // Shares the composition query key with CompositionPanel (deduped — no extra fetch)
+  const { data: comp } = useQuery({
+    queryKey: ['composition', deckId],
+    queryFn: () => api.deckComposition(deckId),
+    staleTime: Infinity,
+    retry: false,
+  })
+
+  // Regroup the same cards by composition category when "Tag" is selected.
+  const sections = useMemo(() => {
+    if (!data) return null
+    if (groupBy === 'type' || !comp) return data.sections
+    const order = comp.categories.map(c => c.name)
+    const catMap = {}
+    for (const c of comp.categories) for (const n of c.cards) (catMap[n] ??= []).push(c.name)
+    const out = {}
+    for (const card of Object.values(data.sections).flat()) {
+      const cats = catMap[card.name]
+      if (cats && cats.length) {
+        for (const cat of cats) (out[cat] ??= []).push(card)
+      } else {
+        const key = (card.type_line || '').includes('Land') ? 'Lands' : 'Other'
+        ;(out[key] ??= []).push(card)
+      }
+    }
+    const ordered = {}
+    for (const k of [...order, 'Lands', 'Other']) if (out[k]) ordered[k] = out[k]
+    return ordered
+  }, [data, comp, groupBy])
 
   return (
     <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>Decklist</h2>
+      <div className={styles.compHeader}>
+        <h2 className={styles.sectionTitle}>Decklist</h2>
+        {data && (
+          <div className={styles.grpToggle}>
+            <button className={`${styles.grpBtn} ${groupBy === 'type' ? styles.grpBtnOn : ''}`}
+                    onClick={() => setGroupBy('type')}>by Type</button>
+            <button className={`${styles.grpBtn} ${groupBy === 'tag' ? styles.grpBtnOn : ''}`}
+                    onClick={() => setGroupBy('tag')} disabled={!comp}
+                    title={comp ? '' : 'Composition still building'}>by Tag</button>
+          </div>
+        )}
+      </div>
       {isLoading && (
         <div className={styles.decklistLoading}>
           <div className={styles.spinner} />
@@ -48,9 +89,9 @@ function DecklistPanel({ deckId }) {
       {isError && (
         <p className={styles.decklistError}>{error?.message || 'Failed to load decklist'}</p>
       )}
-      {data && (
+      {sections && (
         <div className={styles.decklistGrid}>
-          {Object.entries(data.sections).map(([section, cards]) => (
+          {Object.entries(sections).map(([section, cards]) => (
             <div key={section} className={styles.decklistSection}>
               <div className={styles.decklistSectionHeader}>
                 <span className={styles.decklistSectionName}>{section}</span>
@@ -73,6 +114,90 @@ function DecklistPanel({ deckId }) {
             </div>
           ))}
         </div>
+      )}
+    </section>
+  )
+}
+
+function timeAgo(iso) {
+  if (!iso) return ''
+  const t = new Date(iso.endsWith('Z') ? iso : iso + 'Z').getTime()
+  if (isNaN(t)) return ''
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000))
+  if (s < 90) return 'just now'
+  const m = Math.floor(s / 60)
+  if (m < 90) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 36) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+function CompositionPanel({ deckId }) {
+  const qc = useQueryClient()
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['composition', deckId],
+    queryFn: () => api.deckComposition(deckId),
+    staleTime: Infinity,   // snapshot-first: never auto-refetch
+    retry: false,
+  })
+  const refresh = useMutation({
+    mutationFn: () => api.deckComposition(deckId, true),
+    onSuccess: (d) => qc.setQueryData(['composition', deckId], d),
+  })
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.compHeader}>
+        <h2 className={styles.sectionTitle}>Composition</h2>
+        {data && (
+          <div className={styles.compMeta}>
+            <span className={styles.compSynced}>synced {timeAgo(data.synced_at)}</span>
+            <button className={styles.compRefreshBtn} onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+              {refresh.isPending ? 'Refreshing…' : '↻ Refresh'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {isLoading && (
+        <div className={styles.decklistLoading}>
+          <div className={styles.spinner} />
+          <span>Analysing deck… (first build can take a minute)</span>
+        </div>
+      )}
+      {isError && (
+        <p className={styles.decklistError}>
+          {/rate|502|responding/i.test(error?.message || '')
+            ? 'Moxfield/Scryfall is busy — try again shortly.'
+            : (error?.message || 'Could not build composition')}
+        </p>
+      )}
+      {refresh.isError && (
+        <p className={styles.decklistError}>Refresh failed — busy, try again shortly.</p>
+      )}
+
+      {data && (
+        <>
+          <div className={styles.compBars}>
+            {data.categories.map(c => (
+              <div key={c.name} className={styles.compRow}>
+                <span className={styles.compLabel}>{c.name}</span>
+                <div className={styles.compBarTrack}>
+                  <div className={styles.compBarFill} style={{ width: `${Math.min(c.pct_of_nonland, 100)}%` }} />
+                </div>
+                <span className={styles.compVal}>{c.count}<span className={styles.compPct}>{c.pct_of_nonland}%</span></span>
+              </div>
+            ))}
+            <div className={styles.compRow}>
+              <span className={styles.compLabel}>Lands</span>
+              <div className={styles.compBarTrack}>
+                <div className={`${styles.compBarFill} ${styles.compBarLands}`}
+                     style={{ width: `${data.total_cards ? Math.round(100 * data.lands / data.total_cards) : 0}%` }} />
+              </div>
+              <span className={styles.compVal}>{data.lands}</span>
+            </div>
+          </div>
+        </>
       )}
     </section>
   )
@@ -245,7 +370,10 @@ export default function DeckDetailPage() {
       <div className={styles.body}>
         <div className={styles.bodyMain}>
           {deck.moxfield_url
-            ? <DecklistPanel deckId={id} />
+            ? <>
+                <CompositionPanel deckId={id} />
+                <DecklistPanel deckId={id} />
+              </>
             : (
               <section className={styles.section}>
                 <h2 className={styles.sectionTitle}>Decklist</h2>

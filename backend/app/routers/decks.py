@@ -12,6 +12,7 @@ from app.models.user import User
 from app.models.deck import Deck
 from app.models.game import GameSeat
 from app.routers.stats import compute_elo_ratings
+from app import composition
 
 router = APIRouter(prefix="/api/decks", tags=["decks"])
 
@@ -520,6 +521,21 @@ def get_moxfield_decklist(deck_id: int, db: Session = Depends(get_db)):
 
     total = sum(c["quantity"] for cards in sections.values() for c in cards)
     return {"deck_name": data.get("name"), "total": total, "sections": ordered}
+
+
+@router.get("/{deck_id}/composition")
+def deck_composition(deck_id: int, refresh: bool = Query(default=False), db: Session = Depends(get_db)):
+    deck = db.get(Deck, deck_id)
+    if not deck:
+        raise HTTPException(404, "Deck not found")
+    if not deck.moxfield_url:
+        raise HTTPException(404, "No Moxfield URL set for this deck")
+    try:
+        return composition.get_composition(db, deck, refresh=refresh)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
 
 
 @router.post("")

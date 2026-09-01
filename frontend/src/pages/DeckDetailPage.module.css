@@ -322,6 +322,63 @@
   padding: 8px 0;
 }
 
+/* ── Composition panel ── */
+.compHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.compMeta { display: flex; align-items: center; gap: 12px; }
+.compSynced { color: var(--text-dim); font-size: 12px; font-style: italic; }
+.compRefreshBtn {
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.compRefreshBtn:hover:not(:disabled) { color: var(--gold-light); border-color: var(--gold-dim); }
+.compRefreshBtn:disabled { opacity: 0.5; cursor: default; }
+
+.grpToggle { display: flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+.grpBtn {
+  padding: 5px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.grpBtn + .grpBtn { border-left: 1px solid var(--border); }
+.grpBtn:hover:not(:disabled) { color: var(--text-bright); }
+.grpBtnOn { background: var(--gold-dim); color: var(--bg, #1a1000); }
+.grpBtn:disabled { opacity: 0.4; cursor: default; }
+
+.compBars { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.compRow { display: grid; grid-template-columns: 92px 1fr 62px; align-items: center; gap: 10px; }
+.compLabel { font-family: 'Cinzel', serif; font-size: 12px; color: var(--text-bright); white-space: nowrap; }
+.compBarTrack { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.compBarFill { height: 100%; background: var(--gold); border-radius: 5px; min-width: 2px; transition: width 0.3s; }
+.compBarLands { background: var(--text-dim); }
+.compVal { font-size: 12px; color: var(--text-bright); text-align: right; white-space: nowrap; }
+.compPct { color: var(--text-dim); margin-left: 5px; font-size: 11px; }
+
+.compNote { color: var(--text-dim); font-size: 11px; font-style: italic; margin: 8px 0 4px; }
+
+.compCards { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.compCardGroup { display: flex; flex-direction: column; gap: 2px; }
+.compCardGroupName { font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold-dim); letter-spacing: 0.04em; }
+.compCardList { font-family: 'Crimson Pro', serif; font-size: 13px; color: var(--text-dim); line-height: 1.4; }
+
 .noDecklist {
   color: var(--text-dim);
   font-style: italic;

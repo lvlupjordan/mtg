@@ -20,6 +20,7 @@ export const api = {
   allDecks: () => req(`/api/decks/all`),
   deck: (id) => req(`/api/decks/${id}`),
   deckMoxfield: (id) => req(`/api/decks/${id}/moxfield`),
+  deckComposition: (id, refresh = false) => req(`/api/decks/${id}/composition${refresh ? "?refresh=true" : ""}`),
   suggestDeck: (pilotId, podIds = [], excludeIds = []) =>
     req(`/api/decks/suggest?pilot_id=${pilotId}` +
         `${podIds.length ? `&pod=${podIds.join(",")}` : ""}` +
