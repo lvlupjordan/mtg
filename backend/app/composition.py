@@ -9,21 +9,13 @@ import re
 import json
 import time
 import logging
-import urllib.parse
 import httpx
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.routers.collection import _scryfall_card_to_dict, _upsert_card, _fetch_tags_for_new_cards
+
 log = logging.getLogger("composition")
-
-from app.routers.collection import _scryfall_card_to_dict, _upsert_card
-
-# Only the tags the composition rules actually use — fetching just these (not
-# the full ~47 ORACLE_TAGS) keeps card tagging ~4x cheaper against Scryfall.
-COMPOSITION_TAGS = [
-    "ramp", "mana-dork", "draw", "card-advantage", "spot-removal",
-    "board-wipe", "counterspell", "tutor", "recursion", "reanimation", "protection",
-]
 
 # Curated deck-composition categories → the underlying Scryfall oracle tags.
 # Each card lands in every category whose rule it satisfies.
@@ -97,80 +89,60 @@ def _fetch_moxfield_cards(mox_url: str) -> list[dict]:
     return out
 
 
-def _scry_get(client: httpx.Client, url: str):
-    """Scryfall GET. 404 → None (no cards match — legitimate). Persistent
-    rate-limiting → raise, so the build fails cleanly instead of caching
-    partial/wrong tags. Short capped backoff (no multi-minute stalls)."""
-    for attempt in range(4):
-        r = client.get(url)
-        if r.status_code == 200:
-            return r.json()
-        if r.status_code == 404:
-            return None
-        if r.status_code == 429:
-            log.warning("scryfall 429 (search, attempt %s)", attempt + 1)
-            time.sleep(min(5 * (attempt + 1), 20))
-            continue
-        time.sleep(2)
-    raise RuntimeError("Scryfall is rate-limiting; try the build again shortly")
-
-
 def _ensure_cards_tagged(db: Session, cards: list[dict]) -> dict[str, tuple[str, set]]:
-    """Return {name: (type_line, {tags})}. Cards already in the `cards` table are
-    read from there; unseen cards are resolved from Scryfall, tagged across the
-    full ORACLE_TAGS set, upserted (so it's a one-time cost), then included."""
+    """Return {name: (type_line, {tags})} for the deck's cards.
+
+    Cards already in `cards` are read from there. Cards we've never seen are
+    added to `cards` (invisible to the collection — no collection_entry) and
+    tagged with the SAME proven, gentle collection tagger. Composition itself
+    never runs its own Scryfall tagging; it just reads what that produced. Once
+    a card is tagged it's cached in `cards` for every future deck."""
     names = sorted({c["name"] for c in cards if c["name"]})
     rows = db.execute(text("SELECT name, type_line, oracle_tags FROM cards WHERE name = ANY(:ns)"),
                       {"ns": names}).fetchall()
     known = {r.name: (r.type_line or "", set(r.oracle_tags or [])) for r in rows}
-    missing = [c for c in cards if c["name"] not in known and c.get("scryfall_id")]
+    missing_ids = list({c["scryfall_id"] for c in cards
+                        if c["name"] not in known and c.get("scryfall_id")})
+    if not missing_ids:
+        return known
 
-    if missing:
-        with httpx.Client(timeout=25, headers={"User-Agent": "MTGTracker/1.0"}) as client:
-            # 1) resolve card data by scryfall id (batches of 75) and upsert
-            resolved = {}  # name -> card dict
-            ids = [c["scryfall_id"] for c in missing]
-            for i in range(0, len(ids), 75):
-                batch = [{"id": x} for x in ids[i:i + 75]]
-                for attempt in range(4):
-                    r = client.post("https://api.scryfall.com/cards/collection",
-                                    json={"identifiers": batch})
-                    if r.status_code == 200:
-                        for c in r.json().get("data", []):
-                            resolved[c["name"]] = _scryfall_card_to_dict(c)
-                        break
-                    if r.status_code == 429:
-                        time.sleep(min(5 * (attempt + 1), 20)); continue
-                    time.sleep(2)
-                else:
-                    raise RuntimeError("Scryfall could not resolve deck cards (rate-limited); try again shortly")
-                time.sleep(0.12)
-
-            # 2) tag the new cards via batched exact-name oracletag queries
-            new_names = sorted(resolved.keys())
-            tags_by_name = {n: set() for n in new_names}
-            for tag in COMPOSITION_TAGS:
-                for j in range(0, len(new_names), 15):
-                    grp = new_names[j:j + 15]
-                    q = f'oracletag:{tag} (' + " or ".join(f'!"{n}"' for n in grp) + ')'
-                    url = "https://api.scryfall.com/cards/search?unique=cards&q=" + urllib.parse.quote(q)
-                    while url:
-                        data = _scry_get(client, url)
-                        if not data:
-                            break
-                        for c in data.get("data", []):
-                            if c["name"] in tags_by_name:
-                                tags_by_name[c["name"]].add(tag)
-                        url = data.get("next_page")
-                        time.sleep(0.12)
-
-            # 3) upsert with tags, add to `known`
-            for name, card in resolved.items():
-                card["oracle_tags"] = sorted(tags_by_name.get(name, set()))
+    # 1) Resolve the unseen cards by Scryfall id and add them to `cards`.
+    new_oracle_to_ids: dict[str, list[str]] = {}
+    with httpx.Client(timeout=25, headers={"User-Agent": "MTGTracker/1.0"}) as client:
+        for i in range(0, len(missing_ids), 75):
+            batch = [{"id": x} for x in missing_ids[i:i + 75]]
+            resp = None
+            for attempt in range(3):
+                resp = client.post("https://api.scryfall.com/cards/collection", json={"identifiers": batch})
+                if resp.status_code != 429:
+                    break
+                log.warning("scryfall 429 (resolve, attempt %s)", attempt + 1)
+                time.sleep(3 * (attempt + 1))
+            if resp is None or resp.status_code != 200:
+                raise RuntimeError("Scryfall is busy resolving cards; try again shortly")
+            for c in resp.json().get("data", []):
+                card = _scryfall_card_to_dict(c)
                 _upsert_card(db, card)
-                known[name] = (card.get("type_line") or "", set(card["oracle_tags"]))
-        db.commit()
+                oid = card.get("oracle_id")
+                if oid:
+                    new_oracle_to_ids.setdefault(oid, []).append(card["id"])
+            time.sleep(0.1)
+    db.commit()
 
+    # 2) Tag the new cards with the proven collection tagger (gentle, tag-centric).
+    n_new = sum(len(v) for v in new_oracle_to_ids.values())
+    log.info("composition: tagging %s new cards via collection tagger", n_new)
+    tags_by_id = _fetch_tags_for_new_cards(new_oracle_to_ids)
+    for card_id, tags in tags_by_id.items():
+        db.execute(text("UPDATE cards SET oracle_tags = :t WHERE id = :id"), {"t": tags, "id": card_id})
+    db.commit()
+
+    # 3) Re-read the now-present cards into `known`.
+    missing_names = [c["name"] for c in cards if c["name"] not in known]
+    rows2 = db.execute(text("SELECT name, type_line, oracle_tags FROM cards WHERE name = ANY(:ns)"),
+                       {"ns": missing_names}).fetchall()
+    for r in rows2:
+        known[r.name] = (r.type_line or "", set(r.oracle_tags or []))
     return known
 
 
