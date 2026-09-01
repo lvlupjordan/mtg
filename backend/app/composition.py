@@ -13,13 +13,16 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.routers.collection import _scryfall_card_to_dict, _upsert_card, _fetch_tags_for_new_cards
+from app.routers.collection import _scryfall_card_to_dict, _upsert_card, ORACLE_TAGS
 
 log = logging.getLogger("composition")
 
 # App-wide advisory-lock key: at most ONE composition build runs at a time
 # across the whole app, so concurrent builds can't pile onto Scryfall/Moxfield.
 GLOBAL_BUILD_KEY = 918273645
+# Separate lock for the background tagger — only one tag pass runs at a time,
+# but it does NOT block fast builds (which no longer tag inline).
+TAGGER_LOCK_KEY = 918273646
 
 # Scryfall's tags are inconsistent for fogs and single-target protection (it
 # tagged Respite `protection` but not the near-identical Riot Control), so these
@@ -74,6 +77,8 @@ def ensure_table(db: Session):
             synced_at   TIMESTAMP NOT NULL DEFAULT now()
         )
     """))
+    # Cards awaiting background tagging at build time (0 = fully tagged).
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS pending_tags INTEGER NOT NULL DEFAULT 0"))
     db.commit()
 
 
@@ -110,64 +115,57 @@ def _fetch_moxfield_cards(mox_url: str) -> list[dict]:
     return out
 
 
-def _ensure_cards_tagged(db: Session, cards: list[dict]) -> dict[str, tuple[str, set]]:
-    """Return {name: (type_line, {tags})} for the deck's cards.
-
-    Cards already in `cards` are read from there. Cards we've never seen are
-    added to `cards` (invisible to the collection — no collection_entry) and
-    tagged with the SAME proven, gentle collection tagger. Composition itself
-    never runs its own Scryfall tagging; it just reads what that produced. Once
-    a card is tagged it's cached in `cards` for every future deck."""
-    names = sorted({c["name"] for c in cards if c["name"]})
+def _read_known(db: Session, names: list[str]) -> dict[str, tuple[str, str, set, bool]]:
+    """{name: (type_line, oracle_text, {tags}, tagged?)}. tagged? is False when
+    oracle_tags IS NULL (never tagged — awaiting the background tagger); an empty
+    array means tagged with no matching tags."""
     rows = db.execute(text("SELECT name, type_line, oracle_text, oracle_tags FROM cards WHERE name = ANY(:ns)"),
                       {"ns": names}).fetchall()
-    known = {r.name: (r.type_line or "", r.oracle_text or "", set(r.oracle_tags or [])) for r in rows}
+    return {r.name: (r.type_line or "", r.oracle_text or "",
+                     set(r.oracle_tags or []), r.oracle_tags is not None) for r in rows}
+
+
+def _ensure_cards_present(db: Session, cards: list[dict]) -> tuple[dict[str, tuple[str, str, set, bool]], int]:
+    """Make sure every deck card exists in `cards`, then return (known, pending).
+
+    Cards we've never seen are RESOLVED by Scryfall id (fast, one call) and
+    inserted with oracle_tags = NULL — i.e. present but untagged. The slow
+    47-search tagging happens later, off the request path, in the background
+    tagger. `pending` is the number of distinct deck cards still untagged, so the
+    caller can tell the client to poll until the background tagger fills them in.
+    """
+    names = sorted({c["name"] for c in cards if c["name"]})
+    known = _read_known(db, names)
     missing_ids = list({c["scryfall_id"] for c in cards
                         if c["name"] not in known and c.get("scryfall_id")})
-    if not missing_ids:
-        return known
 
-    # 1) Resolve the unseen cards by Scryfall id (don't insert yet).
-    resolved: dict[str, dict] = {}          # card_id -> card dict
-    new_oracle_to_ids: dict[str, list[str]] = {}
-    with httpx.Client(timeout=25, headers={"User-Agent": "MTGTracker/1.0"}) as client:
-        for i in range(0, len(missing_ids), 75):
-            batch = [{"id": x} for x in missing_ids[i:i + 75]]
-            resp = None
-            for attempt in range(3):
-                resp = client.post("https://api.scryfall.com/cards/collection", json={"identifiers": batch})
-                if resp.status_code != 429:
-                    break
-                log.warning("scryfall 429 (resolve, attempt %s)", attempt + 1)
-                time.sleep(3 * (attempt + 1))
-            if resp is None or resp.status_code != 200:
-                raise RuntimeError("Scryfall is busy resolving cards; try again shortly")
-            for c in resp.json().get("data", []):
-                card = _scryfall_card_to_dict(c)
-                resolved[card["id"]] = card
-                oid = card.get("oracle_id")
-                if oid:
-                    new_oracle_to_ids.setdefault(oid, []).append(card["id"])
-            time.sleep(0.1)
+    if missing_ids:
+        # Resolve unseen cards by Scryfall id and insert them UNTAGGED (NULL).
+        resolved: dict[str, dict] = {}
+        with httpx.Client(timeout=25, headers={"User-Agent": "MTGTracker/1.0"}) as client:
+            for i in range(0, len(missing_ids), 75):
+                batch = [{"id": x} for x in missing_ids[i:i + 75]]
+                resp = None
+                for attempt in range(4):
+                    resp = client.post("https://api.scryfall.com/cards/collection", json={"identifiers": batch})
+                    if resp.status_code != 429:
+                        break
+                    log.warning("scryfall 429 (resolve, attempt %s)", attempt + 1)
+                    time.sleep(3 * (attempt + 1))
+                if resp is None or resp.status_code != 200:
+                    raise RuntimeError("Scryfall is busy resolving cards; try again shortly")
+                for c in resp.json().get("data", []):
+                    resolved[c["id"]] = _scryfall_card_to_dict(c)
+                time.sleep(0.1)
+        for card in resolved.values():
+            card["oracle_tags"] = None      # NULL = untagged; the tagger will fill it
+            _upsert_card(db, card)
+        db.commit()
+        known = _read_known(db, names)
 
-    # 2) Tag them FIRST (raises on persistent 429). Doing this before inserting
-    #    means a tagging failure can't leave empty-tagged cards cached forever.
-    log.info("composition: tagging %s new cards via collection tagger", len(resolved))
-    tags_by_id = _fetch_tags_for_new_cards(new_oracle_to_ids)
-
-    # 3) Insert the cards WITH their tags.
-    for card_id, card in resolved.items():
-        card["oracle_tags"] = tags_by_id.get(card_id, [])
-        _upsert_card(db, card)
-    db.commit()
-
-    # 3) Re-read the now-present cards into `known`.
-    missing_names = [c["name"] for c in cards if c["name"] not in known]
-    rows2 = db.execute(text("SELECT name, type_line, oracle_text, oracle_tags FROM cards WHERE name = ANY(:ns)"),
-                       {"ns": missing_names}).fetchall()
-    for r in rows2:
-        known[r.name] = (r.type_line or "", r.oracle_text or "", set(r.oracle_tags or []))
-    return known
+    deck_names = {c["name"] for c in cards if c["name"]}
+    pending = sum(1 for n in deck_names if not known.get(n, ("", "", set(), True))[3])
+    return known, pending
 
 
 def _compute(cards: list[dict], tagmap: dict[str, tuple[str, set]]) -> dict:
@@ -180,7 +178,7 @@ def _compute(cards: list[dict], tagmap: dict[str, tuple[str, set]]) -> dict:
         if name in seen:
             continue
         seen.add(name)
-        tl, txt, tg = tagmap.get(name, (c["type_line"], "", set()))
+        tl, txt, tg, _tagged = tagmap.get(name, (c["type_line"], "", set(), True))
         tl = tl or c["type_line"]
         for cat, rule in CATEGORY_RULES.items():
             if rule(tl, txt, tg):
@@ -200,6 +198,7 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
         "total_cards": total,
         "lands": lands,
         "nonland": total - lands,
+        "pending_tags": getattr(row, "pending_tags", 0) or 0,
         "synced_at": row.synced_at.isoformat() if row.synced_at else None,
         "categories": [
             {"name": cat, "count": len(cats.get(cat, [])),
@@ -212,20 +211,21 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
 
 def _read_snapshot(db: Session, deck_id: int):
     return db.execute(text("""
-        SELECT total_cards, lands, categories, synced_at
+        SELECT total_cards, lands, categories, synced_at, pending_tags
         FROM deck_compositions WHERE deck_id = :id
     """), {"id": deck_id}).fetchone()
 
 
-def _save_snapshot(db: Session, deck_id: int, result: dict):
+def _save_snapshot(db: Session, deck_id: int, result: dict, pending: int = 0):
     db.execute(text("""
-        INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at)
-        VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now())
+        INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at, pending_tags)
+        VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now(), :pending)
         ON CONFLICT (deck_id) DO UPDATE SET
             total_cards = EXCLUDED.total_cards, lands = EXCLUDED.lands,
-            categories = EXCLUDED.categories, synced_at = now()
+            categories = EXCLUDED.categories, synced_at = now(),
+            pending_tags = EXCLUDED.pending_tags
     """), {"id": deck_id, "total": result["total_cards"], "lands": result["lands"],
-           "cats": json.dumps(result["categories"])})
+           "cats": json.dumps(result["categories"]), "pending": pending})
     db.commit()
 
 
@@ -236,7 +236,7 @@ def _building_response(deck_id: int, row=None, queued: bool = False) -> dict:
         resp["queued"] = queued
         return resp
     return {"deck_id": deck_id, "building": True, "queued": queued, "total_cards": 0, "lands": 0,
-            "nonland": 0, "synced_at": None,
+            "nonland": 0, "pending_tags": 0, "synced_at": None,
             "categories": [{"name": c, "count": 0, "pct_of_nonland": 0, "cards": []}
                            for c in CATEGORY_ORDER]}
 
@@ -280,9 +280,11 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
     try:
         log.info("composition build start deck=%s", deck.id)
         cards = _fetch_moxfield_cards(deck.moxfield_url)
-        tagmap = _ensure_cards_tagged(db, cards)
+        tagmap, pending = _ensure_cards_present(db, cards)
         result = _compute(cards, tagmap)
-        _save_snapshot(db, deck.id, result)
+        _save_snapshot(db, deck.id, result, pending)
+        if pending:
+            log.info("composition deck=%s has %s cards awaiting background tagging", deck.id, pending)
         log.info("composition build done deck=%s in %.1fs (total=%s)", deck.id, time.time() - t0, result["total_cards"])
     except Exception as e:
         log.warning("composition build FAILED deck=%s after %.1fs: %s", deck.id, time.time() - t0, e)
@@ -295,3 +297,124 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
             lock_conn.close()  # closing the connection also releases both locks
 
     return _snapshot_to_response(deck.id, _read_snapshot(db, deck.id))
+
+
+# ---------------------------------------------------------------------------
+# Background tagger — the slow 47-search Scryfall pass, off the request path.
+# ---------------------------------------------------------------------------
+
+def _tag_pass(db: Session) -> int:
+    """One patient pass: tag every untagged (oracle_tags IS NULL) card in `cards`,
+    then rebuild any deck snapshots that were waiting on them. Returns the number
+    of cards that gained tags. Single-flight via TAGGER_LOCK_KEY so only one pass
+    runs at a time app-wide; it does NOT hold the build lock, so fast builds keep
+    working while it runs. Tagging 1 card or 500 costs the same ~25 min (47 full
+    Scryfall searches), so batching every untagged card into one pass amortises it.
+    """
+    lock_conn = db.get_bind().connect()
+    if not lock_conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": TAGGER_LOCK_KEY}).scalar():
+        lock_conn.close()
+        return 0
+    try:
+        rows = db.execute(text(
+            "SELECT id, oracle_id FROM cards "
+            "WHERE oracle_tags IS NULL AND oracle_id IS NOT NULL")).fetchall()
+        if not rows:
+            return 0
+        oid_to_ids: dict[str, list[str]] = {}
+        for r in rows:
+            oid_to_ids.setdefault(str(r.oracle_id), []).append(str(r.id))
+        processed_ids = [str(r.id) for r in rows]
+        log.info("tagger: pass over %s untagged cards (%s oracle ids)", len(processed_ids), len(oid_to_ids))
+
+        # Patient 47-tag pass (long 429 backoffs). If ANY tag can't be fetched we
+        # abort the whole write and retry next cycle — never mark a card 'done'
+        # on partial data, which would cache wrong (empty) tags forever.
+        card_tags: dict[str, set] = {}
+        failed = False
+        t0 = time.time()
+        with httpx.Client(timeout=25, headers={"User-Agent": "MTGTracker/1.0"}) as cl:
+            for tag in ORACLE_TAGS:
+                url = f"https://api.scryfall.com/cards/search?q=oracletag%3A{tag}&unique=cards&order=name"
+                while url:
+                    resp = None
+                    not_found = False
+                    for attempt in range(25):
+                        try:
+                            resp = cl.get(url)
+                        except Exception:
+                            resp = None
+                        if resp is not None and resp.status_code == 200:
+                            break
+                        if resp is not None and resp.status_code == 404:
+                            not_found = True             # search matched nothing — legitimate
+                            resp = None
+                            break
+                        time.sleep(45 if (resp is not None and resp.status_code == 429) else 5)
+                    if resp is None:
+                        if not_found:
+                            break                        # tag has no cards, fine
+                        failed = True                    # exhausted retries = incomplete pass
+                        break
+                    data = resp.json()
+                    for c in data.get("data", []):
+                        oid = str(c.get("oracle_id"))
+                        for cid in oid_to_ids.get(oid, []):
+                            card_tags.setdefault(cid, set()).add(tag)
+                    url = data.get("next_page") if data.get("has_more") else None
+                    time.sleep(0.1)
+                if failed:
+                    break
+
+        if failed:
+            log.warning("tagger: pass incomplete after %.0fs — leaving cards untagged, will retry", time.time() - t0)
+            return 0
+
+        # Write tags. Cards processed but matched by no tag get '{}' (tagged, none)
+        # so they aren't reprocessed forever. Only touch rows still NULL, so cards
+        # added mid-pass stay NULL for the next pass.
+        for cid in processed_ids:
+            db.execute(text("UPDATE cards SET oracle_tags = :t WHERE id = :id AND oracle_tags IS NULL"),
+                       {"t": sorted(card_tags.get(cid, set())), "id": cid})
+        db.commit()
+        log.info("tagger: tagged %s of %s cards in %.0fs", len(card_tags), len(processed_ids), time.time() - t0)
+
+        # Rebuild snapshots that were waiting on these tags so pending_tags clears.
+        from app.models.deck import Deck
+        waiting = [r.deck_id for r in db.execute(
+            text("SELECT deck_id FROM deck_compositions WHERE pending_tags > 0")).fetchall()]
+        for did in waiting:
+            deck = db.get(Deck, did)
+            if not deck:
+                continue
+            try:
+                get_composition(db, deck, refresh=True)
+                log.info("tagger: rebuilt snapshot deck=%s", did)
+            except Exception as e:
+                log.warning("tagger: rebuild deck=%s failed: %s", did, e)
+        return len(card_tags)
+    finally:
+        try:
+            lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": TAGGER_LOCK_KEY})
+        finally:
+            lock_conn.close()
+
+
+def run_background_tagger(poll_idle: int = 300, poll_busy: int = 30):
+    """Long-lived loop (started at app startup): whenever `cards` has untagged
+    rows, run one patient tag pass; otherwise idle. Idempotent and restart-safe —
+    on a redeploy it simply picks up whatever is still untagged."""
+    from app.database import SessionLocal
+    log.info("background tagger started")
+    while True:
+        tagged = 0
+        try:
+            db = SessionLocal()
+            try:
+                ensure_table(db)
+                tagged = _tag_pass(db)
+            finally:
+                db.close()
+        except Exception as e:
+            log.warning("background tagger error: %s", e)
+        time.sleep(poll_busy if tagged else poll_idle)

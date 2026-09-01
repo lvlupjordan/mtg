@@ -139,8 +139,14 @@ function CompositionPanel({ deckId }) {
     queryFn: () => api.deckComposition(deckId),
     staleTime: Infinity,   // snapshot-first: never auto-refetch
     retry: false,
-    // While a build is in progress elsewhere, poll until the snapshot lands.
-    refetchInterval: (query) => (query.state.data?.building ? 12000 : false),
+    // Poll while a build is in progress (fast), or while cards are still being
+    // tagged in the background (slow — the tagger rebuilds the snapshot when done).
+    refetchInterval: (query) => {
+      const d = query.state.data
+      if (d?.building) return 12000
+      if (d?.pending_tags > 0) return 30000
+      return false
+    },
   })
   const refresh = useMutation({
     mutationFn: () => api.deckComposition(deckId, true),
@@ -187,6 +193,12 @@ function CompositionPanel({ deckId }) {
       )}
       {refresh.isError && (
         <p className={styles.decklistError}>Refresh failed — busy, try again shortly.</p>
+      )}
+
+      {hasData && data.pending_tags > 0 && (
+        <p className={styles.compPending}>
+          Tagging {data.pending_tags} new card{data.pending_tags > 1 ? 's' : ''} in the background — categories fill in automatically, no need to wait.
+        </p>
       )}
 
       {hasData && (

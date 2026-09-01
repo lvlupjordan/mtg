@@ -363,6 +363,9 @@
 .grpBtnOn { background: var(--gold-dim); color: var(--bg, #1a1000); }
 .grpBtn:disabled { opacity: 0.4; cursor: default; }
 
+.compPending { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; font-size: 12px;
+  color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent); }
 .compBars { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
 .compRow { display: grid; grid-template-columns: 108px 1fr 62px; align-items: center; gap: 10px; }
 .compLabel { font-family: 'Cinzel', serif; font-size: 11px; color: var(--text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
