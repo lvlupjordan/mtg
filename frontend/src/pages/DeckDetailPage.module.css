@@ -364,8 +364,8 @@
 .grpBtn:disabled { opacity: 0.4; cursor: default; }
 
 .compBars { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
-.compRow { display: grid; grid-template-columns: 92px 1fr 62px; align-items: center; gap: 10px; }
-.compLabel { font-family: 'Cinzel', serif; font-size: 12px; color: var(--text-bright); white-space: nowrap; }
+.compRow { display: grid; grid-template-columns: 108px 1fr 62px; align-items: center; gap: 10px; }
+.compLabel { font-family: 'Cinzel', serif; font-size: 11px; color: var(--text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .compBarTrack { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
 .compBarFill { height: 100%; background: var(--gold); border-radius: 5px; min-width: 2px; transition: width 0.3s; }
 .compBarLands { background: var(--text-dim); }
