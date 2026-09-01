@@ -179,11 +179,7 @@ function CompositionPanel({ deckId }) {
         </div>
       )}
       {isError && (
-        <p className={styles.decklistError}>
-          {/rate|502|responding/i.test(error?.message || '')
-            ? 'Moxfield/Scryfall is busy — try again shortly.'
-            : (error?.message || 'Could not build composition')}
-        </p>
+        <p className={styles.decklistError}>{error?.message || 'Could not build composition'}</p>
       )}
       {refresh.isError && (
         <p className={styles.decklistError}>Refresh failed — busy, try again shortly.</p>

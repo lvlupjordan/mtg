@@ -5,7 +5,11 @@ async function req(path, options = {}) {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json())?.detail || ""; } catch { /* non-JSON body */ }
+    throw new Error(detail || `${res.status} ${res.statusText}`);
+  }
   if (res.status === 204 || res.headers.get("content-length") === "0") return null;
   return res.json();
 }
