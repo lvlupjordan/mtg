@@ -42,6 +42,14 @@ _PROTECTION_TEXT = re.compile(
     re.IGNORECASE,
 )
 
+def _is_land(type_line: str) -> bool:
+    """True only if the card's FRONT face is a land. A modal double-faced card
+    whose back is a land — e.g. 'Legendary Creature — God // Land' (Ojer Kaslem)
+    — is cast from the front, so it's not a land for our purposes."""
+    front = (type_line or "").split("//")[0]
+    return "Land" in front
+
+
 # Curated deck-composition categories. Each rule takes (type_line, oracle_text,
 # tags); a card lands in every category it satisfies.
 CATEGORY_RULES = {
@@ -51,7 +59,7 @@ CATEGORY_RULES = {
     "Board Wipes":    lambda tl, txt, tg: "board-wipe" in tg,
     "Counterspells":  lambda tl, txt, tg: "counterspell" in tg,
     # Real tutors only — exclude land tutors (Evolving Wilds) and mana tutors (Cultivate).
-    "Tutors":         lambda tl, txt, tg: ("tutor" in tg and "Land" not in tl and "ramp" not in tg),
+    "Tutors":         lambda tl, txt, tg: ("tutor" in tg and not _is_land(tl) and "ramp" not in tg),
     "Recursion":      lambda tl, txt, tg: ("recursion" in tg or "reanimation" in tg),
     # Protection = protect a permanent; a fog tagged `protection` goes to Fog, not here.
     "Protection":     lambda tl, txt, tg: (bool(_PROTECTION_TEXT.search(txt or ""))
@@ -201,7 +209,7 @@ def _popularity_score(db: Session, nonland_names: list[str]) -> float | None:
 
 def _compute(cards: list[dict], tagmap: dict[str, tuple[str, set]]) -> dict:
     total = sum(c["quantity"] for c in cards)
-    lands = sum(c["quantity"] for c in cards if "Land" in c["type_line"])
+    lands = sum(c["quantity"] for c in cards if _is_land(c["type_line"]))
     categories = {cat: [] for cat in CATEGORY_ORDER}
     seen = set()
     for c in cards:
@@ -314,7 +322,7 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         cards = _fetch_moxfield_cards(deck.moxfield_url)
         tagmap, pending = _ensure_cards_present(db, cards)
         result = _compute(cards, tagmap)
-        nonland_names = list({c["name"] for c in cards if c["name"] and "Land" not in c["type_line"]})
+        nonland_names = list({c["name"] for c in cards if c["name"] and not _is_land(c["type_line"])})
         popularity = _popularity_score(db, nonland_names)
         _save_snapshot(db, deck.id, result, pending, popularity)
         if pending:
