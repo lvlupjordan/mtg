@@ -188,11 +188,15 @@ def _popularity_score(db: Session, nonland_names: list[str]) -> float | None:
     rows = db.execute(text("SELECT edhrec_rank FROM cards WHERE name = ANY(:ns) AND edhrec_rank IS NOT NULL"),
                       {"ns": nonland_names}).fetchall()
     denom = math.log(EDHREC_MAX)
-    scores = [max(0.0, min(100.0, 100 * (1 - math.log(r.edhrec_rank) / denom)))
+    scores = [100 * (1 - math.log(r.edhrec_rank) / denom)
               for r in rows if r.edhrec_rank and r.edhrec_rank > 0]
     if not scores:
         return None
-    return round(sum(scores) / len(scores), 1)
+    raw = sum(scores) / len(scores)
+    # Rescale so a typical deck (~30 raw) reads ~50, with wider, more legible
+    # spread; the log-percentile alone bunches real decks in the teens-to-40s.
+    adj = 50.0 + (raw - 30.0) * 2.3
+    return round(max(0.0, min(100.0, adj)), 1)
 
 
 def _compute(cards: list[dict], tagmap: dict[str, tuple[str, set]]) -> dict:
