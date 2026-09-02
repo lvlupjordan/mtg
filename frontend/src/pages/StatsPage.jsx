@@ -339,6 +339,7 @@ function IdentityGrid({ metric, apiData }) {
 // ── Deck Composition stats ─────────────────────────────────────────────────────
 
 const COMP_DIMENSIONS = [
+  { value: 'deck',     label: 'deck' },
   { value: 'brewer',   label: 'brewer' },
   { value: 'colour',   label: 'colour' },
   { value: 'identity', label: 'commander identity' },
@@ -419,7 +420,8 @@ function CompositionStats() {
       const v = isPop ? d.popularity_score : (d.categories[category] ?? 0)
       if (v == null) continue   // deck has no ranked cards — skip for popularity
       let keys
-      if (dimension === 'brewer') keys = [d.builder || '—']
+      if (dimension === 'deck') keys = [d.commander || '—']
+      else if (dimension === 'brewer') keys = [d.builder || '—']
       else if (dimension === 'colour') keys = (d.color_identity.length ? d.color_identity : ['C'])
       else keys = [sortedKey(d.color_identity)]
       for (const k of keys) {
@@ -505,7 +507,9 @@ function CompositionStats() {
               <BarChart data={breakdown} layout="vertical" margin={{ top: 8, right: isMobile ? 36 : 56, bottom: 8, left: 8 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" unit={xUnit} domain={isPop ? [0, 100] : undefined} tick={{ fill: 'var(--text-dim)', fontSize: isMobile ? 10 : 11 }} />
-                <YAxis type="category" dataKey="label" width={isMobile ? 70 : 110} tick={{ fill: 'var(--text-bright)', fontSize: isMobile ? 10 : 11, fontFamily: 'Cinzel, serif' }} />
+                <YAxis type="category" dataKey="label"
+                       width={Math.min(isMobile ? 130 : 230, Math.max(isMobile ? 70 : 100, ...breakdown.map(b => (b.label || '').length * (isMobile ? 6 : 7))))}
+                       tick={{ fill: 'var(--text-bright)', fontSize: isMobile ? 10 : 11, fontFamily: 'Cinzel, serif' }} />
                 <Tooltip content={<CompBreakdownTooltip unit={xUnit} />} />
                 <Bar dataKey="value" radius={[0, 3, 3, 0]}>
                   {breakdown.map((e, i) => <Cell key={i} fill={dimension === 'colour' ? (PIP_COLOUR[e.label] || 'var(--gold)') : 'var(--gold)'} />)}
