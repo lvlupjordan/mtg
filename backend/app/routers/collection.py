@@ -255,14 +255,22 @@ ORACLE_TAGS = [
 
 def _scryfall_card_to_dict(c: dict) -> dict:
     faces = c.get("card_faces", [])
+    f0 = faces[0] if faces else {}
     back_img = faces[1].get("image_uris", {}).get("normal") if len(faces) > 1 else None
+    # `reversible_card` printings (e.g. Secret Lair) carry no top-level
+    # name/oracle_id/type_line — both (identical) faces do. Fall back to the
+    # front face so they don't resolve to a doubled "X // X" name with null ids.
+    reversible = c.get("layout") == "reversible_card"
+    name = (f0.get("name") if reversible else None) or c["name"]
+    oracle_id = c.get("oracle_id") or (f0.get("oracle_id") if reversible else None)
+    type_line = c.get("type_line") or (f0.get("type_line") if reversible else None)
     return {
         "id": c["id"],
-        "oracle_id": c.get("oracle_id"),
-        "name": c["name"],
+        "oracle_id": oracle_id,
+        "name": name,
         "mana_cost": c.get("mana_cost") or (faces[0].get("mana_cost") if faces else None),
         "cmc": c.get("cmc"),
-        "type_line": c.get("type_line"),
+        "type_line": type_line,
         "oracle_text": c.get("oracle_text") or (faces[0].get("oracle_text") if faces else None),
         "colors": c.get("colors", []),
         "color_identity": c.get("color_identity", []),
