@@ -90,4 +90,5 @@ export const api = {
     const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))).toString()
     return req(`/api/stats/query${qs ? `?${qs}` : ""}`)
   },
+  compositionData: () => req(`/api/stats/composition-data`),
 };

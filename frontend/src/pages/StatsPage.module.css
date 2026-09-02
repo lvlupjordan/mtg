@@ -332,3 +332,57 @@
   opacity: 0.6;
   letter-spacing: 0.03em;
 }
+
+/* Deck Composition section */
+.compSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.compHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.compTitle {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.compTabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+.compTab {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.compTab:hover { color: var(--text-bright); }
+.compTabOn {
+  background: var(--gold);
+  color: #1a1206;
+}
+.compTabOn:hover { color: #1a1206; }
+.compNote {
+  margin: 14px 4px 2px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.compNote strong { color: var(--gold); }

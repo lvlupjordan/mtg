@@ -5,6 +5,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.deck import Deck
 from app.models.game import Game, GameSeat
+from app import composition
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
@@ -611,3 +612,60 @@ def elo_ratings(db: Session = Depends(get_db)):
 
     result.sort(key=lambda x: x["rating"], reverse=True)
     return result
+
+
+@router.get("/composition-data")
+def composition_data(db: Session = Depends(get_db)):
+    """Per-deck composition (category % of nonland) joined with the deck's game
+    outcomes. Feeds the Deck Composition stats — the brewer/colour breakdown and
+    the composition-vs-winning scatter — both computed client-side from this one
+    small matrix. Only decks with a built composition are included; decks without
+    a list simply don't appear. Outcomes use the same pilot exclusions as the rest
+    of the stats page so a deck's win rate matches what's shown elsewhere."""
+    outcome_rows = db.execute(text("""
+        SELECT gs.deck_id,
+               COUNT(gs.id)::int AS games,
+               SUM(CASE WHEN gs.placement = 1 THEN 1 ELSE 0 END)::int AS wins,
+               AVG(gs.placement)::float AS avg_placement
+        FROM game_seats gs
+        JOIN users u ON gs.pilot_id = u.id
+        WHERE u.name NOT IN (:excl1, :excl2) AND u.include_in_data = true
+        GROUP BY gs.deck_id
+    """), {"excl1": EXCLUDED_PLAYERS[0], "excl2": EXCLUDED_PLAYERS[1]}).fetchall()
+    outcomes = {r.deck_id: r for r in outcome_rows}
+
+    rows = db.execute(text("""
+        SELECT d.id AS deck_id, d.commander, d.color_identity,
+               bu.name AS builder, dc.total_cards, dc.lands, dc.categories
+        FROM deck_compositions dc
+        JOIN decks d ON d.id = dc.deck_id
+        LEFT JOIN users bu ON bu.id = d.builder_id
+        ORDER BY d.commander
+    """)).fetchall()
+
+    decks = []
+    for r in rows:
+        nonland = max((r.total_cards or 0) - (r.lands or 0), 1)
+        cats = r.categories or {}
+        category_pct, category_count = {}, {}
+        for cat in composition.CATEGORY_ORDER:
+            cnt = len(cats.get(cat, []))
+            category_count[cat] = cnt
+            category_pct[cat] = round(100 * cnt / nonland, 1)
+        o = outcomes.get(r.deck_id)
+        games = o.games if o else 0
+        wins = o.wins if o else 0
+        decks.append({
+            "deck_id": r.deck_id,
+            "commander": r.commander,
+            "builder": r.builder,
+            "color_identity": sorted(r.color_identity or [], key=lambda c: WUBRG_ORDER.get(c, 99)),
+            "nonland": (r.total_cards or 0) - (r.lands or 0),
+            "categories": category_pct,
+            "category_counts": category_count,
+            "games": games,
+            "wins": wins,
+            "win_rate": round(wins / games, 3) if games else None,
+            "avg_placement": round(o.avg_placement, 2) if o and o.avg_placement is not None else None,
+        })
+    return {"categories": composition.CATEGORY_ORDER, "decks": decks}
