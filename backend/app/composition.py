@@ -7,6 +7,7 @@ so the percentages can exceed 100%.
 """
 import re
 import json
+import math
 import time
 import logging
 import httpx
@@ -23,6 +24,10 @@ GLOBAL_BUILD_KEY = 918273645
 # Separate lock for the background tagger — only one tag pass runs at a time,
 # but it does NOT block fast builds (which no longer tag inline).
 TAGGER_LOCK_KEY = 918273646
+
+# Approx count of EDHREC-ranked cards — the reference for turning a card's
+# edhrec_rank (1 = most-played) into a 0-100 popularity percentile.
+EDHREC_MAX = 30000
 
 # Scryfall's tags are inconsistent for fogs and single-target protection (it
 # tagged Respite `protection` but not the near-identical Riot Control), so these
@@ -79,6 +84,10 @@ def ensure_table(db: Session):
     """))
     # Cards awaiting background tagging at build time (0 = fully tagged).
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS pending_tags INTEGER NOT NULL DEFAULT 0"))
+    # EDHREC popularity score (0-100, mean per-card percentile); NULL until computed.
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS popularity_score REAL"))
+    # cards.edhrec_rank feeds the score above; ensure it exists before any build.
+    db.execute(text("ALTER TABLE cards ADD COLUMN IF NOT EXISTS edhrec_rank INTEGER"))
     db.commit()
 
 
@@ -168,6 +177,24 @@ def _ensure_cards_present(db: Session, cards: list[dict]) -> tuple[dict[str, tup
     return known, pending
 
 
+def _popularity_score(db: Session, nonland_names: list[str]) -> float | None:
+    """A deck's 0-100 EDHREC popularity score: the mean per-card percentile of
+    its non-land cards, where a card's percentile is 100·(1 − ln(rank)/ln(MAX))
+    (rank 1 = most-played → ~100; obscure → ~0). Cards with no edhrec_rank are
+    skipped; returns None if none of the deck's cards are ranked. Higher = more
+    staple-heavy. Popularity, not raw power."""
+    if not nonland_names:
+        return None
+    rows = db.execute(text("SELECT edhrec_rank FROM cards WHERE name = ANY(:ns) AND edhrec_rank IS NOT NULL"),
+                      {"ns": nonland_names}).fetchall()
+    denom = math.log(EDHREC_MAX)
+    scores = [max(0.0, min(100.0, 100 * (1 - math.log(r.edhrec_rank) / denom)))
+              for r in rows if r.edhrec_rank and r.edhrec_rank > 0]
+    if not scores:
+        return None
+    return round(sum(scores) / len(scores), 1)
+
+
 def _compute(cards: list[dict], tagmap: dict[str, tuple[str, set]]) -> dict:
     total = sum(c["quantity"] for c in cards)
     lands = sum(c["quantity"] for c in cards if "Land" in c["type_line"])
@@ -199,6 +226,7 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
         "lands": lands,
         "nonland": total - lands,
         "pending_tags": getattr(row, "pending_tags", 0) or 0,
+        "popularity_score": getattr(row, "popularity_score", None),
         "synced_at": row.synced_at.isoformat() if row.synced_at else None,
         "categories": [
             {"name": cat, "count": len(cats.get(cat, [])),
@@ -211,21 +239,21 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
 
 def _read_snapshot(db: Session, deck_id: int):
     return db.execute(text("""
-        SELECT total_cards, lands, categories, synced_at, pending_tags
+        SELECT total_cards, lands, categories, synced_at, pending_tags, popularity_score
         FROM deck_compositions WHERE deck_id = :id
     """), {"id": deck_id}).fetchone()
 
 
-def _save_snapshot(db: Session, deck_id: int, result: dict, pending: int = 0):
+def _save_snapshot(db: Session, deck_id: int, result: dict, pending: int = 0, popularity: float | None = None):
     db.execute(text("""
-        INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at, pending_tags)
-        VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now(), :pending)
+        INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at, pending_tags, popularity_score)
+        VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now(), :pending, :popularity)
         ON CONFLICT (deck_id) DO UPDATE SET
             total_cards = EXCLUDED.total_cards, lands = EXCLUDED.lands,
             categories = EXCLUDED.categories, synced_at = now(),
-            pending_tags = EXCLUDED.pending_tags
+            pending_tags = EXCLUDED.pending_tags, popularity_score = EXCLUDED.popularity_score
     """), {"id": deck_id, "total": result["total_cards"], "lands": result["lands"],
-           "cats": json.dumps(result["categories"]), "pending": pending})
+           "cats": json.dumps(result["categories"]), "pending": pending, "popularity": popularity})
     db.commit()
 
 
@@ -236,7 +264,7 @@ def _building_response(deck_id: int, row=None, queued: bool = False) -> dict:
         resp["queued"] = queued
         return resp
     return {"deck_id": deck_id, "building": True, "queued": queued, "total_cards": 0, "lands": 0,
-            "nonland": 0, "pending_tags": 0, "synced_at": None,
+            "nonland": 0, "pending_tags": 0, "popularity_score": None, "synced_at": None,
             "categories": [{"name": c, "count": 0, "pct_of_nonland": 0, "cards": []}
                            for c in CATEGORY_ORDER]}
 
@@ -282,7 +310,9 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         cards = _fetch_moxfield_cards(deck.moxfield_url)
         tagmap, pending = _ensure_cards_present(db, cards)
         result = _compute(cards, tagmap)
-        _save_snapshot(db, deck.id, result, pending)
+        nonland_names = list({c["name"] for c in cards if c["name"] and "Land" not in c["type_line"]})
+        popularity = _popularity_score(db, nonland_names)
+        _save_snapshot(db, deck.id, result, pending, popularity)
         if pending:
             log.info("composition deck=%s has %s cards awaiting background tagging", deck.id, pending)
         log.info("composition build done deck=%s in %.1fs (total=%s)", deck.id, time.time() - t0, result["total_cards"])

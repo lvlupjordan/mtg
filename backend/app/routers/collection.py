@@ -272,6 +272,7 @@ def _scryfall_card_to_dict(c: dict) -> dict:
         "cmc": c.get("cmc"),
         "type_line": type_line,
         "oracle_text": c.get("oracle_text") or (faces[0].get("oracle_text") if faces else None),
+        "edhrec_rank": c.get("edhrec_rank"),
         "colors": c.get("colors", []),
         "color_identity": c.get("color_identity", []),
         "keywords": c.get("keywords", []),
@@ -323,12 +324,12 @@ def _upsert_card(conn, card: dict):
         INSERT INTO cards (
             id, oracle_id, name, mana_cost, cmc, type_line, oracle_text,
             colors, color_identity, keywords, produced_mana, oracle_tags,
-            power, toughness, rarity, set_code, set_name, collector_number,
+            power, toughness, edhrec_rank, rarity, set_code, set_name, collector_number,
             image_uri, image_art_crop, back_image_uri, layout, legalities
         ) VALUES (
             :id, :oracle_id, :name, :mana_cost, :cmc, :type_line, :oracle_text,
             :colors, :color_identity, :keywords, :produced_mana, :oracle_tags,
-            :power, :toughness, :rarity, :set_code, :set_name, :collector_number,
+            :power, :toughness, :edhrec_rank, :rarity, :set_code, :set_name, :collector_number,
             :image_uri, :image_art_crop, :back_image_uri, :layout, CAST(:legalities AS jsonb)
         )
         ON CONFLICT (id) DO NOTHING

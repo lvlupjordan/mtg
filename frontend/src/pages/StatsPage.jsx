@@ -370,26 +370,26 @@ function linreg(pts) {
   return { slope, intercept: my - slope * mx }
 }
 
-function CompBreakdownTooltip({ active, payload }) {
+function CompBreakdownTooltip({ active, payload, unit }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
     <div className={styles.tooltip}>
       <div className={styles.tooltipLabel}>{d.label}</div>
-      <div className={styles.tooltipValue}>{d.value}%</div>
+      <div className={styles.tooltipValue}>{d.value}{unit}</div>
       <div className={styles.tooltipGames}>avg over {d.decks} deck{d.decks !== 1 ? 's' : ''}</div>
     </div>
   )
 }
 
-function CompScatterTooltip({ active, payload, category, outcome }) {
+function CompScatterTooltip({ active, payload, category, unit, outcome }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   const y = outcome === 'win_rate' ? `${Math.round(d.y * 100)}%` : d.y.toFixed(2)
   return (
     <div className={styles.tooltip}>
       <div className={styles.tooltipLabel}>{d.commander}</div>
-      <div className={styles.tooltipRow}><span className={styles.tooltipName}>{category}</span><span className={styles.tooltipValue}>{d.x}%</span></div>
+      <div className={styles.tooltipRow}><span className={styles.tooltipName}>{category}</span><span className={styles.tooltipValue}>{d.x}{unit}</span></div>
       <div className={styles.tooltipRow}><span className={styles.tooltipName}>{outcome === 'win_rate' ? 'win rate' : 'avg place'}</span><span className={styles.tooltipValue}>{y}</span></div>
       <div className={styles.tooltipGames}>{d.z} game{d.z !== 1 ? 's' : ''}</div>
     </div>
@@ -406,20 +406,25 @@ function CompositionStats() {
 
   const categories = data?.categories ?? []
   const decks = data?.decks ?? []
-  const catOptions = categories.map(c => ({ value: c, label: c }))
+  const catOptions = [{ value: '__pop__', label: 'Popularity (EDHREC)' }, ...categories.map(c => ({ value: c, label: c }))]
+  const isPop = category === '__pop__'
+  const catLabel = isPop ? 'Popularity' : category
+  const xUnit = isPop ? '' : '%'
   const isMobile = window.innerWidth < 600
 
-  // #1 — average category % per group
+  // #1 — average category % (or popularity score) per group
   const breakdown = useMemo(() => {
     const groups = {}
     for (const d of decks) {
+      const v = isPop ? d.popularity_score : (d.categories[category] ?? 0)
+      if (v == null) continue   // deck has no ranked cards — skip for popularity
       let keys
       if (dimension === 'brewer') keys = [d.builder || '—']
       else if (dimension === 'colour') keys = (d.color_identity.length ? d.color_identity : ['C'])
       else keys = [sortedKey(d.color_identity)]
       for (const k of keys) {
         (groups[k] ??= { sum: 0, decks: 0 })
-        groups[k].sum += d.categories[category] ?? 0
+        groups[k].sum += v
         groups[k].decks += 1
       }
     }
@@ -428,13 +433,13 @@ function CompositionStats() {
       .sort((a, b) => dimension === 'colour'
         ? (COMP_COLOUR_ORDER.indexOf(a.label) - COMP_COLOUR_ORDER.indexOf(b.label))
         : (b.value - a.value))
-  }, [decks, dimension, category])
+  }, [decks, dimension, category, isPop])
 
-  // #2 — composition % vs outcome, per deck
+  // #2 — composition % (or popularity) vs outcome, per deck
   const scatter = useMemo(() => {
     const pts = decks
-      .filter(d => d.games >= minGames && d[outcome] != null)
-      .map(d => ({ x: d.categories[category] ?? 0, y: d[outcome], z: d.games, commander: d.commander }))
+      .filter(d => d.games >= minGames && d[outcome] != null && (!isPop || d.popularity_score != null))
+      .map(d => ({ x: isPop ? d.popularity_score : (d.categories[category] ?? 0), y: d[outcome], z: d.games, commander: d.commander }))
     const r = pearson(pts)
     let line = null
     if (pts.length >= 3) {
@@ -444,15 +449,16 @@ function CompositionStats() {
       line = [{ x: x0, y: slope * x0 + intercept }, { x: x1, y: slope * x1 + intercept }]
     }
     return { pts, r, line }
-  }, [decks, category, outcome, minGames])
+  }, [decks, category, outcome, minGames, isPop])
 
   const rDir = (r) => {
     if (r == null) return null
     // avg_placement: lower is better, so a negative slope means "more → wins more"
     const good = outcome === 'win_rate' ? r > 0 : r < 0
     const strength = Math.abs(r) < 0.15 ? 'no real' : Math.abs(r) < 0.35 ? 'a weak' : Math.abs(r) < 0.6 ? 'a moderate' : 'a strong'
-    if (Math.abs(r) < 0.15) return `${strength} link — more ${category} doesn't track with results`
-    return `${strength} link — more ${category} tracks with ${good ? 'better' : 'worse'} finishes`
+    const subject = isPop ? 'a more staple-heavy list' : `more ${category}`
+    if (Math.abs(r) < 0.15) return `${strength} link — ${subject} doesn't track with results`
+    return `${strength} link — ${subject} tracks with ${good ? 'better' : 'worse'} finishes`
   }
 
   if (isLoading) return <div className={styles.chartCard}><div className={styles.loadingWrap}><div className={styles.spinner} /></div></div>
@@ -498,15 +504,17 @@ function CompositionStats() {
             <ResponsiveContainer width="100%" height={Math.max(isMobile ? 200 : 300, breakdown.length * (isMobile ? 30 : 40))}>
               <BarChart data={breakdown} layout="vertical" margin={{ top: 8, right: isMobile ? 36 : 56, bottom: 8, left: 8 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" unit="%" tick={{ fill: 'var(--text-dim)', fontSize: isMobile ? 10 : 11 }} />
+                <XAxis type="number" unit={xUnit} domain={isPop ? [0, 100] : undefined} tick={{ fill: 'var(--text-dim)', fontSize: isMobile ? 10 : 11 }} />
                 <YAxis type="category" dataKey="label" width={isMobile ? 70 : 110} tick={{ fill: 'var(--text-bright)', fontSize: isMobile ? 10 : 11, fontFamily: 'Cinzel, serif' }} />
-                <Tooltip content={<CompBreakdownTooltip />} />
+                <Tooltip content={<CompBreakdownTooltip unit={xUnit} />} />
                 <Bar dataKey="value" radius={[0, 3, 3, 0]}>
                   {breakdown.map((e, i) => <Cell key={i} fill={dimension === 'colour' ? (PIP_COLOUR[e.label] || 'var(--gold)') : 'var(--gold)'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            <p className={styles.compNote}>Average share of non-land cards that are {category}, across each group's decks with a built list. A card can count in more than one category.</p>
+            <p className={styles.compNote}>{isPop
+              ? "Average EDHREC popularity score (0–100, higher = more staple-heavy) across each group's decks with a built list. Popularity, not raw power — cheap staples rank high."
+              : <>Average share of non-land cards that are {category}, across each group's decks with a built list. A card can count in more than one category.</>}</p>
           </>
         ) : scatter.pts.length < 3 ? (
           <div className={styles.empty}>Not enough decks ({scatter.pts.length}) with ≥ {minGames} games for this. Lower the games threshold.</div>
@@ -515,16 +523,16 @@ function CompositionStats() {
             <ResponsiveContainer width="100%" height={isMobile ? 260 : 340}>
               <ScatterChart margin={{ top: 12, right: 24, bottom: 32, left: 8 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="x" name={category} unit="%"
+                <XAxis type="number" dataKey="x" name={catLabel} unit={xUnit} domain={isPop ? [0, 100] : undefined}
                        tick={{ fill: 'var(--text-dim)', fontSize: 11 }}
-                       label={{ value: `${category} %`, position: 'insideBottom', offset: -18, fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'Cinzel, serif' }} />
+                       label={{ value: isPop ? 'Popularity /100' : `${category} %`, position: 'insideBottom', offset: -18, fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'Cinzel, serif' }} />
                 <YAxis type="number" dataKey="y" name={outcome}
                        reversed={outcome === 'avg_placement'}
                        domain={outcome === 'win_rate' ? [0, 1] : [1, 4]}
                        tickFormatter={v => outcome === 'win_rate' ? `${Math.round(v * 100)}%` : v.toFixed(1)}
                        tick={{ fill: 'var(--text-dim)', fontSize: 11 }} width={44} />
                 <ZAxis type="number" dataKey="z" range={[40, 360]} name="games" />
-                <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CompScatterTooltip category={category} outcome={outcome} />} />
+                <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CompScatterTooltip category={catLabel} unit={xUnit} outcome={outcome} />} />
                 {scatter.line && <ReferenceLine ifOverflow="extendDomain" segment={scatter.line} stroke="var(--gold)" strokeWidth={2} strokeDasharray="5 4" />}
                 <Scatter data={scatter.pts} fill="var(--gold)" fillOpacity={0.6} />
               </ScatterChart>

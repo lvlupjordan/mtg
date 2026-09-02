@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Text, Float, ARRAY, TIMESTAMP
+from sqlalchemy import Text, Float, Integer, ARRAY, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -22,6 +22,7 @@ class Card(Base):
     keywords: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     produced_mana: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
     oracle_tags: Mapped[list[str] | None] = mapped_column(ARRAY(Text), nullable=True)
+    edhrec_rank: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     rarity: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
     set_code: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
     set_name: Mapped[str | None] = mapped_column(Text, nullable=True)
