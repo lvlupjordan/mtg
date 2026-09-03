@@ -374,11 +374,19 @@ function linreg(pts) {
 function CompBreakdownTooltip({ active, payload, unit }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
+  const cards = d.cards
   return (
     <div className={styles.tooltip}>
       <div className={styles.tooltipLabel}>{d.label}</div>
       <div className={styles.tooltipValue}>{d.value}{unit}</div>
-      <div className={styles.tooltipGames}>avg over {d.decks} deck{d.decks !== 1 ? 's' : ''}</div>
+      {cards
+        ? (cards.length
+            ? <ul className={styles.tooltipCards}>
+                {cards.slice(0, 14).map((c, i) => <li key={i}>{c}</li>)}
+                {cards.length > 14 && <li className={styles.tooltipMore}>+{cards.length - 14} more</li>}
+              </ul>
+            : <div className={styles.tooltipGames}>none</div>)
+        : <div className={styles.tooltipGames}>avg over {d.decks} deck{d.decks !== 1 ? 's' : ''}</div>}
     </div>
   )
 }
@@ -393,6 +401,12 @@ function CompScatterTooltip({ active, payload, category, unit, outcome }) {
       <div className={styles.tooltipRow}><span className={styles.tooltipName}>{category}</span><span className={styles.tooltipValue}>{d.x}{unit}</span></div>
       <div className={styles.tooltipRow}><span className={styles.tooltipName}>{outcome === 'win_rate' ? 'win rate' : 'avg place'}</span><span className={styles.tooltipValue}>{y}</span></div>
       <div className={styles.tooltipGames}>{d.z} game{d.z !== 1 ? 's' : ''}</div>
+      {d.cards?.length > 0 && (
+        <ul className={styles.tooltipCards}>
+          {d.cards.slice(0, 12).map((c, i) => <li key={i}>{c}</li>)}
+          {d.cards.length > 12 && <li className={styles.tooltipMore}>+{d.cards.length - 12} more</li>}
+        </ul>
+      )}
     </div>
   )
 }
@@ -418,6 +432,14 @@ function CompositionStats() {
   const xUnit = isScore ? '' : '%'
   const isMobile = window.innerWidth < 600
 
+  // The cards behind a single deck's bar, for hover detail.
+  function cardsFor(d) {
+    if (!d) return null
+    if (category === '__pop__') return (d.top_popular || []).map(c => `${c.name} · #${c.rank}`)
+    if (category === '__salt__') return (d.top_salt || []).map(c => `${c.name} · ${c.salt}`)
+    return d.category_cards?.[category] || []
+  }
+
   // #1 — average category % (or Popularity/Saltiness index) per group
   const breakdown = useMemo(() => {
     const groups = {}
@@ -430,13 +452,17 @@ function CompositionStats() {
       else if (dimension === 'colour') keys = (d.color_identity.length ? d.color_identity : ['C'])
       else keys = [sortedKey(d.color_identity)]
       for (const k of keys) {
-        (groups[k] ??= { sum: 0, decks: 0 })
+        (groups[k] ??= { sum: 0, decks: 0, deck: null })
         groups[k].sum += v
         groups[k].decks += 1
+        groups[k].deck = d       // only meaningful for the by-deck view (one deck per group)
       }
     }
     return Object.entries(groups)
-      .map(([label, g]) => ({ label, value: +(g.sum / g.decks).toFixed(1), decks: g.decks }))
+      .map(([label, g]) => ({
+        label, value: +(g.sum / g.decks).toFixed(1), decks: g.decks,
+        cards: dimension === 'deck' ? cardsFor(g.deck) : null,
+      }))
       .sort((a, b) => dimension === 'colour'
         ? (COMP_COLOUR_ORDER.indexOf(a.label) - COMP_COLOUR_ORDER.indexOf(b.label))
         : (b.value - a.value))
@@ -446,7 +472,7 @@ function CompositionStats() {
   const scatter = useMemo(() => {
     const pts = decks
       .filter(d => d.games >= minGames && d[outcome] != null && (!isScore || d[scoreField] != null))
-      .map(d => ({ x: isScore ? d[scoreField] : (d.categories[category] ?? 0), y: d[outcome], z: d.games, commander: d.commander }))
+      .map(d => ({ x: isScore ? d[scoreField] : (d.categories[category] ?? 0), y: d[outcome], z: d.games, commander: d.commander, cards: cardsFor(d) }))
     const r = pearson(pts)
     let line = null
     if (pts.length >= 3) {

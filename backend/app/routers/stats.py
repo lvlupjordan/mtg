@@ -637,7 +637,7 @@ def composition_data(db: Session = Depends(get_db)):
     rows = db.execute(text("""
         SELECT d.id AS deck_id, d.commander, d.color_identity,
                bu.name AS builder, dc.total_cards, dc.lands, dc.categories,
-               dc.popularity_score, dc.salt_score
+               dc.popularity_score, dc.salt_score, dc.highlights
         FROM deck_compositions dc
         JOIN decks d ON d.id = dc.deck_id
         LEFT JOIN users bu ON bu.id = d.builder_id
@@ -648,11 +648,13 @@ def composition_data(db: Session = Depends(get_db)):
     for r in rows:
         nonland = max((r.total_cards or 0) - (r.lands or 0), 1)
         cats = r.categories or {}
-        category_pct, category_count = {}, {}
+        category_pct, category_count, category_cards = {}, {}, {}
         for cat in composition.CATEGORY_ORDER:
-            cnt = len(cats.get(cat, []))
-            category_count[cat] = cnt
-            category_pct[cat] = round(100 * cnt / nonland, 1)
+            names = cats.get(cat, [])
+            category_count[cat] = len(names)
+            category_pct[cat] = round(100 * len(names) / nonland, 1)
+            category_cards[cat] = names
+        hl = r.highlights or {}
         o = outcomes.get(r.deck_id)
         games = o.games if o else 0
         wins = o.wins if o else 0
@@ -665,6 +667,9 @@ def composition_data(db: Session = Depends(get_db)):
             "popularity_score": r.popularity_score,
             "salt_score": r.salt_score,
             "categories": category_pct,
+            "category_cards": category_cards,
+            "top_popular": hl.get("top_popular", []),
+            "top_salt": hl.get("top_salt", []),
             "category_counts": category_count,
             "games": games,
             "wins": wins,

@@ -96,6 +96,8 @@ def ensure_table(db: Session):
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS popularity_score REAL"))
     # EDHREC saltiness score (0-100, rescaled mean card salt); NULL until computed.
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS salt_score REAL"))
+    # Top cards behind the popularity/salt scores, for hover detail on the stats.
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS highlights JSONB"))
     # cards.edhrec_rank feeds popularity; ensure it exists before any build.
     db.execute(text("ALTER TABLE cards ADD COLUMN IF NOT EXISTS edhrec_rank INTEGER"))
     # card_salt: EDHREC salt per card name (pulled in bulk, not from Scryfall).
@@ -235,6 +237,30 @@ def _salt_score(db: Session, nonland_names: list[str]) -> float | None:
     return round(max(0.0, min(100.0, adj)), 1)
 
 
+def _card_highlights(db: Session, nonland_names: list[str], limit: int = 12) -> dict:
+    """The cards driving a deck's popularity/salt scores, for hover detail:
+    its most-played (lowest edhrec_rank) and saltiest (highest salt) non-land
+    cards. Deduped by name."""
+    if not nonland_names:
+        return {"top_popular": [], "top_salt": []}
+    pop_rows = db.execute(text(
+        "SELECT name, edhrec_rank FROM cards WHERE name = ANY(:ns) AND edhrec_rank IS NOT NULL"
+    ), {"ns": nonland_names}).fetchall()
+    seen, top_popular = set(), []
+    for r in sorted(pop_rows, key=lambda x: x.edhrec_rank):
+        if r.name in seen:
+            continue
+        seen.add(r.name)
+        top_popular.append({"name": r.name, "rank": r.edhrec_rank})
+        if len(top_popular) >= limit:
+            break
+    salt_rows = db.execute(text(
+        "SELECT name, salt FROM card_salt WHERE name = ANY(:ns) ORDER BY salt DESC LIMIT :lim"
+    ), {"ns": nonland_names, "lim": limit}).fetchall()
+    top_salt = [{"name": r.name, "salt": round(r.salt, 2)} for r in salt_rows]
+    return {"top_popular": top_popular, "top_salt": top_salt}
+
+
 def _compute(cards: list[dict], tagmap: dict[str, tuple[str, set]]) -> dict:
     total = sum(c["quantity"] for c in cards)
     lands = sum(c["quantity"] for c in cards if _is_land(c["type_line"]))
@@ -280,23 +306,25 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
 
 def _read_snapshot(db: Session, deck_id: int):
     return db.execute(text("""
-        SELECT total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score
+        SELECT total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score, highlights
         FROM deck_compositions WHERE deck_id = :id
     """), {"id": deck_id}).fetchone()
 
 
 def _save_snapshot(db: Session, deck_id: int, result: dict, pending: int = 0,
-                   popularity: float | None = None, salt: float | None = None):
+                   popularity: float | None = None, salt: float | None = None,
+                   highlights: dict | None = None):
     db.execute(text("""
-        INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score)
-        VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now(), :pending, :popularity, :salt)
+        INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score, highlights)
+        VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now(), :pending, :popularity, :salt, CAST(:highlights AS jsonb))
         ON CONFLICT (deck_id) DO UPDATE SET
             total_cards = EXCLUDED.total_cards, lands = EXCLUDED.lands,
             categories = EXCLUDED.categories, synced_at = now(),
             pending_tags = EXCLUDED.pending_tags, popularity_score = EXCLUDED.popularity_score,
-            salt_score = EXCLUDED.salt_score
+            salt_score = EXCLUDED.salt_score, highlights = EXCLUDED.highlights
     """), {"id": deck_id, "total": result["total_cards"], "lands": result["lands"],
-           "cats": json.dumps(result["categories"]), "pending": pending, "popularity": popularity, "salt": salt})
+           "cats": json.dumps(result["categories"]), "pending": pending, "popularity": popularity,
+           "salt": salt, "highlights": json.dumps(highlights) if highlights is not None else None})
     db.commit()
 
 
@@ -356,7 +384,8 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         nonland_names = list({c["name"] for c in cards if c["name"] and not _is_land(c["type_line"])})
         popularity = _popularity_score(db, nonland_names)
         salt = _salt_score(db, nonland_names)
-        _save_snapshot(db, deck.id, result, pending, popularity, salt)
+        highlights = _card_highlights(db, nonland_names)
+        _save_snapshot(db, deck.id, result, pending, popularity, salt, highlights)
         if pending:
             log.info("composition deck=%s has %s cards awaiting background tagging", deck.id, pending)
         log.info("composition build done deck=%s in %.1fs (total=%s)", deck.id, time.time() - t0, result["total_cards"])

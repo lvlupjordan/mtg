@@ -386,3 +386,21 @@
   color: var(--text-dim);
 }
 .compNote strong { color: var(--gold); }
+
+/* Card list inside the composition breakdown tooltip */
+.tooltipCards {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-bright);
+  max-width: 260px;
+}
+.tooltipCards li {
+  padding: 1px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tooltipMore { color: var(--text-dim); font-style: italic; }
