@@ -637,7 +637,7 @@ def composition_data(db: Session = Depends(get_db)):
     rows = db.execute(text("""
         SELECT d.id AS deck_id, d.commander, d.color_identity,
                bu.name AS builder, dc.total_cards, dc.lands, dc.categories,
-               dc.popularity_score
+               dc.popularity_score, dc.salt_score
         FROM deck_compositions dc
         JOIN decks d ON d.id = dc.deck_id
         LEFT JOIN users bu ON bu.id = d.builder_id
@@ -663,6 +663,7 @@ def composition_data(db: Session = Depends(get_db)):
             "color_identity": sorted(r.color_identity or [], key=lambda c: WUBRG_ORDER.get(c, 99)),
             "nonland": (r.total_cards or 0) - (r.lands or 0),
             "popularity_score": r.popularity_score,
+            "salt_score": r.salt_score,
             "categories": category_pct,
             "category_counts": category_count,
             "games": games,

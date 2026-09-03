@@ -94,8 +94,12 @@ def ensure_table(db: Session):
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS pending_tags INTEGER NOT NULL DEFAULT 0"))
     # EDHREC popularity score (0-100, mean per-card percentile); NULL until computed.
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS popularity_score REAL"))
-    # cards.edhrec_rank feeds the score above; ensure it exists before any build.
+    # EDHREC saltiness score (0-100, rescaled mean card salt); NULL until computed.
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS salt_score REAL"))
+    # cards.edhrec_rank feeds popularity; ensure it exists before any build.
     db.execute(text("ALTER TABLE cards ADD COLUMN IF NOT EXISTS edhrec_rank INTEGER"))
+    # card_salt: EDHREC salt per card name (pulled in bulk, not from Scryfall).
+    db.execute(text("CREATE TABLE IF NOT EXISTS card_salt (name TEXT PRIMARY KEY, salt REAL NOT NULL)"))
     db.commit()
 
 
@@ -207,6 +211,30 @@ def _popularity_score(db: Session, nonland_names: list[str]) -> float | None:
     return round(max(0.0, min(100.0, adj)), 1)
 
 
+# Rescale for the salt score: pivot a typical deck's mean card-salt (~0.22 raw)
+# to ~50 with legible spread. Calibrated against the deck pool (see _salt_score).
+SALT_PIVOT_RAW, SALT_STRETCH = 0.22, 280.0
+
+
+def _salt_score(db: Session, nonland_names: list[str]) -> float | None:
+    """A deck's 0-100 EDHREC saltiness: mean salt of its non-land cards (cards
+    not in card_salt count as 0 — they weren't salty enough to be ranked),
+    rescaled so a typical deck reads ~50. Returns None only if the salt table is
+    empty (not yet pulled)."""
+    if not nonland_names:
+        return None
+    if not db.execute(text("SELECT 1 FROM card_salt LIMIT 1")).fetchone():
+        return None                       # salt not pulled yet
+    total = db.execute(text("""
+        SELECT COALESCE(SUM(cs.salt), 0) AS s
+        FROM unnest(CAST(:ns AS text[])) AS n(name)
+        LEFT JOIN card_salt cs ON cs.name = n.name
+    """), {"ns": nonland_names}).scalar()
+    raw = float(total) / len(nonland_names)          # mean salt incl. 0s
+    adj = 50.0 + (raw - SALT_PIVOT_RAW) * SALT_STRETCH
+    return round(max(0.0, min(100.0, adj)), 1)
+
+
 def _compute(cards: list[dict], tagmap: dict[str, tuple[str, set]]) -> dict:
     total = sum(c["quantity"] for c in cards)
     lands = sum(c["quantity"] for c in cards if _is_land(c["type_line"]))
@@ -239,6 +267,7 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
         "nonland": total - lands,
         "pending_tags": getattr(row, "pending_tags", 0) or 0,
         "popularity_score": getattr(row, "popularity_score", None),
+        "salt_score": getattr(row, "salt_score", None),
         "synced_at": row.synced_at.isoformat() if row.synced_at else None,
         "categories": [
             {"name": cat, "count": len(cats.get(cat, [])),
@@ -251,21 +280,23 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
 
 def _read_snapshot(db: Session, deck_id: int):
     return db.execute(text("""
-        SELECT total_cards, lands, categories, synced_at, pending_tags, popularity_score
+        SELECT total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score
         FROM deck_compositions WHERE deck_id = :id
     """), {"id": deck_id}).fetchone()
 
 
-def _save_snapshot(db: Session, deck_id: int, result: dict, pending: int = 0, popularity: float | None = None):
+def _save_snapshot(db: Session, deck_id: int, result: dict, pending: int = 0,
+                   popularity: float | None = None, salt: float | None = None):
     db.execute(text("""
-        INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at, pending_tags, popularity_score)
-        VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now(), :pending, :popularity)
+        INSERT INTO deck_compositions (deck_id, total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score)
+        VALUES (:id, :total, :lands, CAST(:cats AS jsonb), now(), :pending, :popularity, :salt)
         ON CONFLICT (deck_id) DO UPDATE SET
             total_cards = EXCLUDED.total_cards, lands = EXCLUDED.lands,
             categories = EXCLUDED.categories, synced_at = now(),
-            pending_tags = EXCLUDED.pending_tags, popularity_score = EXCLUDED.popularity_score
+            pending_tags = EXCLUDED.pending_tags, popularity_score = EXCLUDED.popularity_score,
+            salt_score = EXCLUDED.salt_score
     """), {"id": deck_id, "total": result["total_cards"], "lands": result["lands"],
-           "cats": json.dumps(result["categories"]), "pending": pending, "popularity": popularity})
+           "cats": json.dumps(result["categories"]), "pending": pending, "popularity": popularity, "salt": salt})
     db.commit()
 
 
@@ -276,7 +307,7 @@ def _building_response(deck_id: int, row=None, queued: bool = False) -> dict:
         resp["queued"] = queued
         return resp
     return {"deck_id": deck_id, "building": True, "queued": queued, "total_cards": 0, "lands": 0,
-            "nonland": 0, "pending_tags": 0, "popularity_score": None, "synced_at": None,
+            "nonland": 0, "pending_tags": 0, "popularity_score": None, "salt_score": None, "synced_at": None,
             "categories": [{"name": c, "count": 0, "pct_of_nonland": 0, "cards": []}
                            for c in CATEGORY_ORDER]}
 
@@ -324,7 +355,8 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         result = _compute(cards, tagmap)
         nonland_names = list({c["name"] for c in cards if c["name"] and not _is_land(c["type_line"])})
         popularity = _popularity_score(db, nonland_names)
-        _save_snapshot(db, deck.id, result, pending, popularity)
+        salt = _salt_score(db, nonland_names)
+        _save_snapshot(db, deck.id, result, pending, popularity, salt)
         if pending:
             log.info("composition deck=%s has %s cards awaiting background tagging", deck.id, pending)
         log.info("composition build done deck=%s in %.1fs (total=%s)", deck.id, time.time() - t0, result["total_cards"])

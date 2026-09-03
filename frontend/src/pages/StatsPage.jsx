@@ -407,18 +407,23 @@ function CompositionStats() {
 
   const categories = data?.categories ?? []
   const decks = data?.decks ?? []
-  const catOptions = [{ value: '__pop__', label: 'Popularity (EDHREC)' }, ...categories.map(c => ({ value: c, label: c }))]
-  const isPop = category === '__pop__'
-  const catLabel = isPop ? 'Popularity' : category
-  const xUnit = isPop ? '' : '%'
+  const catOptions = [
+    { value: '__pop__', label: 'Popularity (EDHREC)' },
+    { value: '__salt__', label: 'Saltiness (EDHREC)' },
+    ...categories.map(c => ({ value: c, label: c })),
+  ]
+  const scoreField = category === '__pop__' ? 'popularity_score' : category === '__salt__' ? 'salt_score' : null
+  const isScore = !!scoreField                       // a 0-100 index (Popularity/Saltiness), not a % category
+  const catLabel = category === '__pop__' ? 'Popularity' : category === '__salt__' ? 'Saltiness' : category
+  const xUnit = isScore ? '' : '%'
   const isMobile = window.innerWidth < 600
 
-  // #1 — average category % (or popularity score) per group
+  // #1 — average category % (or Popularity/Saltiness index) per group
   const breakdown = useMemo(() => {
     const groups = {}
     for (const d of decks) {
-      const v = isPop ? d.popularity_score : (d.categories[category] ?? 0)
-      if (v == null) continue   // deck has no ranked cards — skip for popularity
+      const v = isScore ? d[scoreField] : (d.categories[category] ?? 0)
+      if (v == null) continue   // deck has no score yet — skip
       let keys
       if (dimension === 'deck') keys = [d.commander || '—']
       else if (dimension === 'brewer') keys = [d.builder || '—']
@@ -435,13 +440,13 @@ function CompositionStats() {
       .sort((a, b) => dimension === 'colour'
         ? (COMP_COLOUR_ORDER.indexOf(a.label) - COMP_COLOUR_ORDER.indexOf(b.label))
         : (b.value - a.value))
-  }, [decks, dimension, category, isPop])
+  }, [decks, dimension, category, isScore, scoreField])
 
-  // #2 — composition % (or popularity) vs outcome, per deck
+  // #2 — composition % (or Popularity/Saltiness) vs outcome, per deck
   const scatter = useMemo(() => {
     const pts = decks
-      .filter(d => d.games >= minGames && d[outcome] != null && (!isPop || d.popularity_score != null))
-      .map(d => ({ x: isPop ? d.popularity_score : (d.categories[category] ?? 0), y: d[outcome], z: d.games, commander: d.commander }))
+      .filter(d => d.games >= minGames && d[outcome] != null && (!isScore || d[scoreField] != null))
+      .map(d => ({ x: isScore ? d[scoreField] : (d.categories[category] ?? 0), y: d[outcome], z: d.games, commander: d.commander }))
     const r = pearson(pts)
     let line = null
     if (pts.length >= 3) {
@@ -451,14 +456,14 @@ function CompositionStats() {
       line = [{ x: x0, y: slope * x0 + intercept }, { x: x1, y: slope * x1 + intercept }]
     }
     return { pts, r, line }
-  }, [decks, category, outcome, minGames, isPop])
+  }, [decks, category, outcome, minGames, isScore, scoreField])
 
   const rDir = (r) => {
     if (r == null) return null
     // avg_placement: lower is better, so a negative slope means "more → wins more"
     const good = outcome === 'win_rate' ? r > 0 : r < 0
     const strength = Math.abs(r) < 0.15 ? 'no real' : Math.abs(r) < 0.35 ? 'a weak' : Math.abs(r) < 0.6 ? 'a moderate' : 'a strong'
-    const subject = isPop ? 'a more staple-heavy list' : `more ${category}`
+    const subject = category === '__pop__' ? 'a more staple-heavy list' : category === '__salt__' ? 'a saltier list' : `more ${category}`
     if (Math.abs(r) < 0.15) return `${strength} link — ${subject} doesn't track with results`
     return `${strength} link — ${subject} tracks with ${good ? 'better' : 'worse'} finishes`
   }
@@ -506,7 +511,7 @@ function CompositionStats() {
             <ResponsiveContainer width="100%" height={Math.max(isMobile ? 200 : 300, breakdown.length * (isMobile ? 30 : 40))}>
               <BarChart data={breakdown} layout="vertical" margin={{ top: 8, right: isMobile ? 36 : 56, bottom: 8, left: 8 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" unit={xUnit} domain={isPop ? [0, 100] : undefined} tick={{ fill: 'var(--text-dim)', fontSize: isMobile ? 10 : 11 }} />
+                <XAxis type="number" unit={xUnit} domain={isScore ? [0, 100] : undefined} tick={{ fill: 'var(--text-dim)', fontSize: isMobile ? 10 : 11 }} />
                 <YAxis type="category" dataKey="label"
                        width={Math.min(isMobile ? 130 : 230, Math.max(isMobile ? 70 : 100, ...breakdown.map(b => (b.label || '').length * (isMobile ? 6 : 7))))}
                        tick={{ fill: 'var(--text-bright)', fontSize: isMobile ? 10 : 11, fontFamily: 'Cinzel, serif' }} />
@@ -516,8 +521,11 @@ function CompositionStats() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            <p className={styles.compNote}>{isPop
+            <p className={styles.compNote}>{
+              category === '__pop__'
               ? "Average EDHREC popularity score (0–100, higher = more staple-heavy) across each group's decks with a built list. Popularity, not raw power — cheap staples rank high."
+              : category === '__salt__'
+              ? "Average EDHREC saltiness score (0–100, higher = more table-hated cards) across each group's decks with a built list. Based on EDHREC's community salt survey."
               : <>Average share of non-land cards that are {category}, across each group's decks with a built list. A card can count in more than one category.</>}</p>
           </>
         ) : scatter.pts.length < 3 ? (
@@ -527,9 +535,9 @@ function CompositionStats() {
             <ResponsiveContainer width="100%" height={isMobile ? 260 : 340}>
               <ScatterChart margin={{ top: 12, right: 24, bottom: 32, left: 8 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="x" name={catLabel} unit={xUnit} domain={isPop ? [0, 100] : undefined}
+                <XAxis type="number" dataKey="x" name={catLabel} unit={xUnit} domain={isScore ? [0, 100] : undefined}
                        tick={{ fill: 'var(--text-dim)', fontSize: 11 }}
-                       label={{ value: isPop ? 'Popularity /100' : `${category} %`, position: 'insideBottom', offset: -18, fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'Cinzel, serif' }} />
+                       label={{ value: isScore ? `${catLabel} /100` : `${category} %`, position: 'insideBottom', offset: -18, fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'Cinzel, serif' }} />
                 <YAxis type="number" dataKey="y" name={outcome}
                        reversed={outcome === 'avg_placement'}
                        domain={outcome === 'win_rate' ? [0, 1] : [1, 4]}
