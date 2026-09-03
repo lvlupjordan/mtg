@@ -386,6 +386,14 @@ function CompBreakdownTooltip({ active, payload, unit }) {
                 {cards.length > 14 && <li className={styles.tooltipMore}>+{cards.length - 14} more</li>}
               </ul>
             : <div className={styles.tooltipGames}>none</div>)
+        : d.topDecks
+        ? <>
+            <div className={styles.tooltipGames}>avg over {d.decks} deck{d.decks !== 1 ? 's' : ''}</div>
+            <ul className={styles.tooltipCards}>
+              {d.topDecks.slice(0, 14).map((t, i) => <li key={i}>{t.name} — {t.value}{unit}</li>)}
+              {d.topDecks.length > 14 && <li className={styles.tooltipMore}>+{d.topDecks.length - 14} more</li>}
+            </ul>
+          </>
         : <div className={styles.tooltipGames}>avg over {d.decks} deck{d.decks !== 1 ? 's' : ''}</div>}
     </div>
   )
@@ -452,16 +460,19 @@ function CompositionStats() {
       else if (dimension === 'colour') keys = (d.color_identity.length ? d.color_identity : ['C'])
       else keys = [sortedKey(d.color_identity)]
       for (const k of keys) {
-        (groups[k] ??= { sum: 0, decks: 0, deck: null })
+        (groups[k] ??= { sum: 0, decks: 0, deck: null, members: [] })
         groups[k].sum += v
         groups[k].decks += 1
         groups[k].deck = d       // only meaningful for the by-deck view (one deck per group)
+        groups[k].members.push({ name: d.commander, value: +v.toFixed(1) })
       }
     }
     return Object.entries(groups)
       .map(([label, g]) => ({
         label, value: +(g.sum / g.decks).toFixed(1), decks: g.decks,
+        // by deck: the cards behind the bar; by brewer/colour/identity: the group's top decks
         cards: dimension === 'deck' ? cardsFor(g.deck) : null,
+        topDecks: dimension === 'deck' ? null : g.members.slice().sort((a, b) => b.value - a.value),
       }))
       .sort((a, b) => dimension === 'colour'
         ? (COMP_COLOUR_ORDER.indexOf(a.label) - COMP_COLOUR_ORDER.indexOf(b.label))
