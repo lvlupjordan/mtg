@@ -349,6 +349,11 @@ const COMP_OUTCOMES = [
   { value: 'win_rate',      label: 'win rate' },
 ]
 const COMP_COLOUR_ORDER = ['W', 'U', 'B', 'R', 'G', 'C']
+const COMP_FILTERS = [
+  { value: '',       label: 'no filter' },
+  { value: 'brewer', label: 'brewer' },
+  { value: 'colour', label: 'colour' },
+]
 
 function pearson(pts) {
   const n = pts.length
@@ -426,9 +431,18 @@ function CompositionStats() {
   const [dimension, setDimension] = useState('brewer')
   const [outcome, setOutcome] = useState('avg_placement')
   const [minGames, setMinGames] = useState(3)
+  const [filterBy, setFilterBy] = useState('')
+  const [filterValue, setFilterValue] = useState('')
 
   const categories = data?.categories ?? []
-  const decks = data?.decks ?? []
+  const allDecks = data?.decks ?? []
+  const brewers = useMemo(() => [...new Set(allDecks.map(d => d.builder).filter(Boolean))].sort(), [allDecks])
+  const decks = useMemo(() => {
+    if (!filterBy || !filterValue) return allDecks
+    return allDecks.filter(d => filterBy === 'brewer'
+      ? d.builder === filterValue
+      : (d.color_identity || []).includes(filterValue))
+  }, [allDecks, filterBy, filterValue])
   const catOptions = [
     { value: '__pop__', label: 'Popularity (EDHREC)' },
     { value: '__salt__', label: 'Saltiness (EDHREC)' },
@@ -506,7 +520,19 @@ function CompositionStats() {
   }
 
   if (isLoading) return <div className={styles.chartCard}><div className={styles.loadingWrap}><div className={styles.spinner} /></div></div>
-  if (!decks.length) return null
+  if (!allDecks.length) return null
+
+  const filterUI = (
+    <>
+      <span className={styles.prose}>· filter</span>
+      <InlineSelect value={filterBy} onChange={v => { setFilterBy(v); setFilterValue('') }} options={COMP_FILTERS} />
+      {filterBy === 'brewer' && (
+        <InlineSelect value={filterValue} onChange={setFilterValue}
+                      options={[{ value: '', label: '…' }, ...brewers.map(b => ({ value: b, label: b }))]} />
+      )}
+      {filterBy === 'colour' && <ColourPicker value={filterValue} onChange={setFilterValue} />}
+    </>
+  )
 
   return (
     <div className={styles.compSection}>
@@ -525,6 +551,7 @@ function CompositionStats() {
             <InlineSelect value={category} onChange={setCategory} options={catOptions} />
             <span className={styles.prose}>by</span>
             <InlineSelect value={dimension} onChange={setDimension} options={COMP_DIMENSIONS} />
+            {filterUI}
           </div>
         </div>
       ) : (
@@ -538,12 +565,16 @@ function CompositionStats() {
                    onChange={e => setMinGames(Math.max(1, parseInt(e.target.value) || 1))}
                    className={styles.minGamesInput} />
             <span className={styles.prose}>games</span>
+            {filterUI}
           </div>
         </div>
       )}
 
       <div className={styles.chartCard}>
         {tab === 'breakdown' ? (
+          breakdown.length === 0 ? (
+            <div className={styles.empty}>No decks match this filter.</div>
+          ) : (
           <>
             <ResponsiveContainer width="100%" height={Math.max(isMobile ? 200 : 300, breakdown.length * (isMobile ? 30 : 40))}>
               <BarChart data={breakdown} layout="vertical" margin={{ top: 8, right: isMobile ? 36 : 56, bottom: 8, left: 8 }}>
@@ -565,6 +596,7 @@ function CompositionStats() {
               ? "Average EDHREC saltiness score (0–100, higher = more table-hated cards) across each group's decks with a built list. Based on EDHREC's community salt survey."
               : <>Average share of non-land cards that are {category}, across each group's decks with a built list. A card can count in more than one category.</>}</p>
           </>
+          )
         ) : scatter.pts.length < 3 ? (
           <div className={styles.empty}>Not enough decks ({scatter.pts.length}) with ≥ {minGames} games for this. Lower the games threshold.</div>
         ) : (
