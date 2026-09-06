@@ -302,6 +302,25 @@ function BracketPanel({ deckId }) {
               ))}
             </div>
           )}
+          {detail.finiteCombos?.length > 0 && (
+            <div className={styles.bracketBlock}>
+              <span className={styles.bracketSubhead}>Finite combos ({detail.finiteCombos.length})</span>
+              <span className={styles.bracketNote}>Big but finite / conditional payoffs — shown for reference; they don’t affect the bracket.</span>
+              {detail.finiteCombos.map((c, i) => (
+                <div key={i} className={styles.bracketComboRow}>
+                  <div className={styles.cardThumbs}>
+                    {(c.cards || []).map((cn, j) => (
+                      <span key={j} className={styles.cardThumbWrap}>
+                        {j > 0 && <span className={styles.comboPlus}>+</span>}
+                        <CardThumb name={cn} img={detail.images?.[cn]} />
+                      </span>
+                    ))}
+                  </div>
+                  {c.produces && <span className={styles.bracketComboProduces}>→ {c.produces}</span>}
+                </div>
+              ))}
+            </div>
+          )}
           {detail.altWins?.length > 0 && (
             <div className={styles.bracketBlock}>
               <span className={styles.bracketSubhead}>Alternate win conditions ({detail.altWins.length})</span>

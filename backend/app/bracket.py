@@ -141,6 +141,8 @@ def compute_and_store(db: Session, deck_id: int, entries: list[dict],
     img_names = list(detail.get("gameChangers", [])) + list(detail.get("altWins", []))
     for c in detail.get("combos", []):
         img_names += c.get("cards", [])
+    for c in detail.get("finiteCombos", []):
+        img_names += c.get("cards", [])
     if img_names:
         imgs = db.execute(text("SELECT DISTINCT ON (name) name, image_uri FROM cards WHERE name = ANY(:ns)"),
                           {"ns": sorted(set(img_names))}).fetchall()

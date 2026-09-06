@@ -64,34 +64,44 @@ async function analyze(d) {
     }
     return cm;
   };
-  // Commander Spellbook bracket estimate. The one enrichment we replicate from
-  // scrollvault's proxy: a combo floors as "two-card" only if it has exactly 2
-  // card-uses total (definitelyTwoCard || (arguablyTwoCard && relevant)).
+  // Only a GENUINE infinite counts toward the two-card-infinite floor. Commander
+  // Spellbook's "Near-infinite ..." results are big-but-finite and often
+  // conditional (e.g. Rionya + Terror of the Peaks scales with the instants/
+  // sorceries you've cast that turn — two cards alone do ~5 damage), yet CS still
+  // flags them definitelyTwoCard. A produced feature is a real infinite only if
+  // its name starts with "Infinite" (excludes "Near-infinite"). We drop the finite
+  // ones from the FLOOR but still surface them for display (finiteCombos), so the
+  // UI can show them clearly marked as not affecting the bracket.
+  const _feats = produces => (produces || []).map(f => (f && f.feature && f.feature.name) || '').filter(Boolean);
+  const _isInfinite = produces => _feats(produces).some(n => n.toLowerCase().startsWith('infinite'));
+  const finiteSeen = new Set(), finiteCombos = [];
+  const recordFinite = (names, produces) => {
+    if (!names || names.length !== 2) return;
+    const key = [...names].sort().join(' + ');
+    if (finiteSeen.has(key)) return;
+    finiteSeen.add(key);
+    finiteCombos.push({ cards: names, produces: _feats(produces).join(', ') });
+  };
+
   win.fetchSpellbookBracket = async () => {
     try {
       for (const c of (d.est.combos || [])) {
         const uses = (c.combo && c.combo.uses) || [];
         const cards = uses.filter(u => u.card).length, tmpl = uses.filter(u => !u.card).length;
         const two = (cards === 2 && tmpl === 0);
-        // Only a GENUINE infinite counts toward the two-card-infinite floor.
-        // Commander Spellbook's "Near-infinite ..." results are big-but-finite and
-        // often conditional (e.g. Rionya + Terror of the Peaks scales with the
-        // instants/sorceries you've cast that turn — two cards alone do ~5 damage),
-        // yet CS still flags them definitelyTwoCard. A produced feature is a real
-        // infinite only if its name starts with "Infinite" (excludes "Near-infinite").
+        const wouldFloor = c.definitelyTwoCard || (c.arguablyTwoCard && c.relevant);
         const produces = (c.combo && c.combo.produces) || [];
-        const trulyInfinite = produces.some(f =>
-          ((f && f.feature && f.feature.name) || '').toLowerCase().startsWith('infinite'));
-        c.definitelyTwoCard = two && trulyInfinite && (c.definitelyTwoCard || (c.arguablyTwoCard && c.relevant));
+        if (two && wouldFloor && !_isInfinite(produces)) {
+          recordFinite(uses.filter(u => u.card).map(u => u.card.name), produces);
+        }
+        c.definitelyTwoCard = two && wouldFloor && _isInfinite(produces);
       }
     } catch (e) {}
     return win.normalizeSpellbookEstimate(d.est);
   };
   win.fetchSpellbookCombos = async () => {
-    // Same gate on the find-my-combos path: a two-card combo that produces only a
-    // "Near-infinite ..." (finite) result shouldn't count as a two-card-infinite
-    // floor, so drop those from what the engine sees. Genuine infinites and any
-    // non-two-card combos pass through untouched.
+    // Same gate on the find-my-combos path: drop finite two-card combos from what
+    // the engine floors on, but record them for display.
     try {
       const res = d.combos && d.combos.results;
       if (res && Array.isArray(res.included)) {
@@ -99,8 +109,9 @@ async function analyze(d) {
           const uses = c.uses || [];
           const cards = uses.filter(u => u.card).length, tmpl = uses.filter(u => !u.card).length;
           if (!(cards === 2 && tmpl === 0)) return true;   // only gate two-card combos
-          return (c.produces || []).some(f =>
-            ((f && f.feature && f.feature.name) || '').toLowerCase().startsWith('infinite'));
+          if (_isInfinite(c.produces)) return true;
+          recordFinite(uses.filter(u => u.card).map(u => u.card.name), c.produces);
+          return false;
         });
       }
     } catch (e) {}
@@ -120,10 +131,15 @@ async function analyze(d) {
   const combos = (a.twoCardComboDetails || []).concat(a.fmcTwoCardInfiniteFloor || [])
     .map(c => ({ cards: c.cardNames, produces: c.producesText }))
     .filter(c => c.cards && c.cards.length);
+  // Finite ("Near-infinite") two-card combos: shown in the UI, but flagged as not
+  // affecting the bracket. Exclude any that (via another feature) also floored.
+  const flooredKeys = new Set(combos.map(c => [...(c.cards || [])].sort().join(' + ')));
+  const finiteCombosOut = finiteCombos.filter(c => !flooredKeys.has([...c.cards].sort().join(' + ')));
   const detail = {
     floorReasons: (r.floorReasons || []).map(f => f.text || f),
     gameChangers: a.gameChangerNames || [],
     combos,
+    finiteCombos: finiteCombosOut,
     altWins: ((a.altWins && a.altWins.cards) || []).map(c => c.name),
     tag: a.spellbookTag,
   };
