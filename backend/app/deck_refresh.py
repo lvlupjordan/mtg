@@ -25,7 +25,6 @@ def refresh_deck(db: Session, deck) -> dict:
     composition payload (which carries the bracket fields). If another build is
     already in progress the composition build returns a `building` status and the
     bracket step is skipped — the caller polls until it settles."""
-    composition.ensure_table(db)
     if not deck.moxfield_url:
         raise ValueError("No Moxfield URL set for this deck")
 

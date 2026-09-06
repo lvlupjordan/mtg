@@ -379,8 +379,8 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
     instantly (staleness shown via synced_at); rebuilds happen only on first-ever
     view or refresh=True. Composition only — the bracket is refreshed separately
     (see app.deck_refresh), so a background tag rebuild here doesn't recompute it.
-    Requires deck.moxfield_url."""
-    ensure_table(db)
+    Requires deck.moxfield_url. The schema is ensured once at startup (see
+    app.main), never here — DDL on the request path can stall the whole app."""
     if not deck.moxfield_url:
         raise ValueError("No Moxfield URL set for this deck")
 
@@ -567,8 +567,7 @@ def run_background_tagger(poll_idle: int = 300, poll_busy: int = 30):
         try:
             db = SessionLocal()
             try:
-                ensure_table(db)
-                tagged = _tag_pass(db)
+                tagged = _tag_pass(db)   # schema ensured at startup, not here
             finally:
                 db.close()
         except Exception as e:
