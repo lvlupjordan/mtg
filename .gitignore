@@ -4,3 +4,4 @@ __pycache__/
 .DS_Store
 backend/.venv/
 archive/
+backend/bracket_engine/node_modules/

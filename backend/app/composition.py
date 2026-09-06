@@ -105,6 +105,9 @@ def ensure_table(db: Session):
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS goldfish_clock INTEGER"))
     # Why the bracket landed where it did: floor reasons, combos, game changers.
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS bracket_detail JSONB"))
+    # Decklist hash at last bracket compute — lets a build skip recompute (and the
+    # Commander Spellbook calls) when the list is unchanged.
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS bracket_hash TEXT"))
     # cards.edhrec_rank feeds popularity; ensure it exists before any build.
     db.execute(text("ALTER TABLE cards ADD COLUMN IF NOT EXISTS edhrec_rank INTEGER"))
     # card_salt: EDHREC salt per card name (pulled in bulk, not from Scryfall).
@@ -112,8 +115,11 @@ def ensure_table(db: Session):
     db.commit()
 
 
-def _fetch_moxfield_cards(mox_url: str) -> list[dict]:
-    """Return [{name, scryfall_id, type_line, quantity}] for mainboard+commanders."""
+def _fetch_moxfield_cards(mox_url: str) -> tuple[list[dict], list[str], object]:
+    """Return (cards, commanders, mox_bracket): cards is
+    [{name, scryfall_id, type_line, quantity}] for mainboard+commanders,
+    commanders is the list of commander names, and mox_bracket is Moxfield's own
+    bracket value (or None) — the latter two feed the bracket compute."""
     m = re.search(r'moxfield\.com/decks/([A-Za-z0-9_-]+)', mox_url or "")
     if not m:
         raise ValueError("Invalid Moxfield URL")
@@ -131,18 +137,22 @@ def _fetch_moxfield_cards(mox_url: str) -> list[dict]:
         raise RuntimeError("Moxfield is not responding (it rate-limits server requests); try again shortly")
 
     out = []
+    commanders = []
     for bname, board in data.get("boards", {}).items():
         if bname not in ("mainboard", "commanders"):
             continue
         for entry in board.get("cards", {}).values():
             c = entry.get("card", {})
+            name = c.get("name", "")
             out.append({
-                "name": c.get("name", ""),
+                "name": name,
                 "scryfall_id": c.get("scryfall_id"),
                 "type_line": c.get("type_line") or "",
                 "quantity": entry.get("quantity", 1),
             })
-    return out
+            if bname == "commanders" and name:
+                commanders.append(name)
+    return out, commanders, data.get("bracket")
 
 
 def _read_known(db: Session, names: list[str]) -> dict[str, tuple[str, str, set, bool]]:
@@ -391,7 +401,7 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
     t0 = time.time()
     try:
         log.info("composition build start deck=%s", deck.id)
-        cards = _fetch_moxfield_cards(deck.moxfield_url)
+        cards, commanders, mox_bracket = _fetch_moxfield_cards(deck.moxfield_url)
         tagmap, pending = _ensure_cards_present(db, cards)
         result = _compute(cards, tagmap)
         nonland_names = list({c["name"] for c in cards if c["name"] and not _is_land(c["type_line"])})
@@ -401,6 +411,16 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         _save_snapshot(db, deck.id, result, pending, popularity, salt, highlights)
         if pending:
             log.info("composition deck=%s has %s cards awaiting background tagging", deck.id, pending)
+
+        # Recompute the Commander bracket alongside the composition. Best-effort
+        # and hash-gated (an unchanged list skips both Commander Spellbook and
+        # Node), so a failure never breaks the composition response.
+        try:
+            from app import bracket as bracket_mod
+            entries = [{"name": c["name"], "count": c["quantity"]} for c in cards]
+            bracket_mod.compute_and_store(db, deck.id, entries, commanders, mox_bracket, deck.commander)
+        except Exception as e:
+            log.warning("bracket compute failed deck=%s: %s", deck.id, e)
         log.info("composition build done deck=%s in %.1fs (total=%s)", deck.id, time.time() - t0, result["total_cards"])
     except Exception as e:
         log.warning("composition build FAILED deck=%s after %.1fs: %s", deck.id, time.time() - t0, e)

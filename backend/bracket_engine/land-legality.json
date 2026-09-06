@@ -1,0 +1,226 @@
+{
+  "updated": "2026-09-04",
+  "cycles": {
+    "original-duals": {
+      "standard": false,
+      "pioneer": false,
+      "modern": false,
+      "legacy": true,
+      "commander": true
+    },
+    "fetch-lands": {
+      "standard": false,
+      "pioneer": false,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "shock-lands": {
+      "standard": true,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "fast-lands": {
+      "standard": false,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "check-lands": {
+      "standard": false,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "pain-lands": {
+      "standard": false,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "slow-lands": {
+      "standard": false,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "pathway-lands": {
+      "standard": false,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "horizon-lands": {
+      "standard": false,
+      "pioneer": false,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "filter-lands": {
+      "standard": false,
+      "pioneer": false,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "scry-lands": {
+      "standard": true,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "triomes": {
+      "standard": false,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "battle-lands": {
+      "standard": false,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "reveal-lands": {
+      "standard": false,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "bounce-lands": {
+      "standard": false,
+      "pioneer": false,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "creature-lands": {
+      "standard": false,
+      "pioneer": false,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "survey-lands": {
+      "standard": true,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "bond-lands": {
+      "standard": false,
+      "pioneer": false,
+      "modern": false,
+      "legacy": true,
+      "commander": true
+    },
+    "restless-lands": {
+      "standard": true,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "gain-lands": {
+      "standard": true,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "guildgates": {
+      "standard": true,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "verge-lands": {
+      "standard": true,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    },
+    "haunt-lands": {
+      "standard": true,
+      "pioneer": true,
+      "modern": true,
+      "legacy": true,
+      "commander": true
+    }
+  },
+  "commanderBanned": [
+    "Amulet of Quoz",
+    "Ancestral Recall",
+    "Balance",
+    "Black Lotus",
+    "Bronze Tablet",
+    "Channel",
+    "Chaos Orb",
+    "Cleanse",
+    "Contract from Below",
+    "Crusade",
+    "Darkpact",
+    "Demonic Attorney",
+    "Dockside Extortionist",
+    "Emrakul, the Aeons Torn",
+    "Erayo, Soratami Ascendant // Erayo's Essence",
+    "Falling Star",
+    "Fastbond",
+    "Flash",
+    "Golos, Tireless Pilgrim",
+    "Griselbrand",
+    "Hullbreacher",
+    "Imprison",
+    "Invoke Prejudice",
+    "Iona, Shield of Emeria",
+    "Jeweled Bird",
+    "Jeweled Lotus",
+    "Jihad",
+    "Karakas",
+    "Leovold, Emissary of Trest",
+    "Library of Alexandria",
+    "Limited Resources",
+    "Mana Crypt",
+    "Mox Emerald",
+    "Mox Jet",
+    "Mox Pearl",
+    "Mox Ruby",
+    "Mox Sapphire",
+    "Nadu, Winged Wisdom",
+    "Paradox Engine",
+    "Pradesh Gypsies",
+    "Primeval Titan",
+    "Prophet of Kruphix",
+    "Rebirth",
+    "Recurring Nightmare",
+    "Rofellos, Llanowar Emissary",
+    "Shahrazad",
+    "Stone-Throwing Devils",
+    "Sundering Titan",
+    "Sylvan Primordial",
+    "Tempest Efreet",
+    "Time Vault",
+    "Time Walk",
+    "Timmerian Fiends",
+    "Tinker",
+    "Tolarian Academy",
+    "Trade Secrets",
+    "Upheaval",
+    "Yawgmoth's Bargain"
+  ]
+}

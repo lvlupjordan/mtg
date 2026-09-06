@@ -1,0 +1,10 @@
+# Node deps are installed in-image (see Dockerfile); never copy host's.
+backend/bracket_engine/node_modules
+**/node_modules
+backend/.venv
+**/__pycache__
+**/*.pyc
+.git
+.DS_Store
+frontend
+archive

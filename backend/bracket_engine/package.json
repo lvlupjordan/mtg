@@ -1,0 +1,10 @@
+{
+  "name": "mtg-bracket-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Headless runner for the vendored scrollvault Commander-bracket engine.",
+  "main": "run.cjs",
+  "dependencies": {
+    "jsdom": "30.0.1"
+  }
+}
