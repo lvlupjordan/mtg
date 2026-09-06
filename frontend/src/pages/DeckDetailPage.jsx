@@ -141,7 +141,6 @@ function timeAgo(iso) {
 }
 
 function CompositionPanel({ deckId }) {
-  const qc = useQueryClient()
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['composition', deckId],
     queryFn: () => api.deckComposition(deckId),
@@ -155,10 +154,6 @@ function CompositionPanel({ deckId }) {
       if (d?.pending_tags > 0) return 30000
       return false
     },
-  })
-  const refresh = useMutation({
-    mutationFn: () => api.deckComposition(deckId, true),
-    onSuccess: (d) => qc.setQueryData(['composition', deckId], d),
   })
   const [open, setOpen] = useState(true)
 
@@ -177,9 +172,6 @@ function CompositionPanel({ deckId }) {
             <span className={styles.compSynced}>
               {building ? 'rebuilding…' : `synced ${timeAgo(data.synced_at)}`}
             </span>
-            <button className={styles.compRefreshBtn} onClick={() => refresh.mutate()} disabled={refresh.isPending || building}>
-              {refresh.isPending ? 'Refreshing…' : '↻ Refresh'}
-            </button>
           </div>
         )}
       </div>
@@ -203,9 +195,6 @@ function CompositionPanel({ deckId }) {
       )}
       {isError && (
         <p className={styles.decklistError}>{error?.message || 'Could not build composition'}</p>
-      )}
-      {refresh.isError && (
-        <p className={styles.decklistError}>Refresh failed — busy, try again shortly.</p>
       )}
 
       {hasData && data.pending_tags > 0 && (
@@ -434,6 +423,17 @@ export default function DeckDetailPage() {
     },
   })
 
+  // Deck-level refresh: rebuilds composition AND recomputes the bracket from
+  // Moxfield in one go (the composition payload carries the fresh bracket, so
+  // both the Composition and Bracket panels — same query key — update).
+  const refreshDeck = useMutation({
+    mutationFn: () => api.refreshDeck(id),
+    onSuccess: (d) => {
+      qc.setQueryData(['composition', id], d)
+      qc.invalidateQueries({ queryKey: ['moxfield', id] })
+    },
+  })
+
   if (isLoading) {
     return (
       <div className={styles.state}>
@@ -510,7 +510,20 @@ export default function DeckDetailPage() {
                 Moxfield ↗
               </a>
             )}
+            {deck.moxfield_url && (
+              <button
+                className={styles.refreshBtn}
+                onClick={() => refreshDeck.mutate()}
+                disabled={refreshDeck.isPending || comp?.building}
+                title="Rebuild composition and bracket from Moxfield"
+              >
+                {refreshDeck.isPending ? 'Refreshing…' : '↻ Refresh'}
+              </button>
+            )}
           </div>
+          {refreshDeck.isError && (
+            <p className={styles.refreshError}>Refresh failed — busy, try again shortly.</p>
+          )}
 
           {deck.strategy?.length > 0 && (
             <div className={styles.tags}>

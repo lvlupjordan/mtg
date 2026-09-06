@@ -325,6 +325,17 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
     }
 
 
+def has_snapshot(db: Session, deck_id: int) -> bool:
+    """Cheap check: does a composition snapshot already exist for this deck? Used
+    to route a deck's first-ever view through a full refresh (composition +
+    bracket) while later views just read the snapshot."""
+    try:
+        return db.execute(text("SELECT 1 FROM deck_compositions WHERE deck_id = :id"),
+                          {"id": deck_id}).fetchone() is not None
+    except Exception:
+        return False  # table not created yet → treat as first build
+
+
 def _read_snapshot(db: Session, deck_id: int):
     return db.execute(text("""
         SELECT total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score, highlights,
@@ -366,9 +377,9 @@ def _building_response(deck_id: int, row=None, queued: bool = False) -> dict:
 def get_composition(db: Session, deck, refresh: bool = False) -> dict:
     """Return a deck's composition. Snapshot-first: an existing snapshot is served
     instantly (staleness shown via synced_at); rebuilds happen only on first-ever
-    view or refresh=True. Single-flight per deck via a Postgres advisory lock —
-    concurrent requests (a refresh, a second viewer) get a `building` status
-    instead of starting a duplicate build. Requires deck.moxfield_url."""
+    view or refresh=True. Composition only — the bracket is refreshed separately
+    (see app.deck_refresh), so a background tag rebuild here doesn't recompute it.
+    Requires deck.moxfield_url."""
     ensure_table(db)
     if not deck.moxfield_url:
         raise ValueError("No Moxfield URL set for this deck")
@@ -378,15 +389,29 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         if row:
             return _snapshot_to_response(deck.id, row)
 
-    # Single-flight: only one build per deck at a time. The advisory lock is held
-    # on a DEDICATED connection for the whole build — the session's connection can
-    # change across the commits below, so we must not lock/unlock through it.
+    resp, _ctx = run_build(db, deck)
+    return resp
+
+
+def run_build(db: Session, deck) -> tuple[dict, dict | None]:
+    """Rebuild the composition snapshot under the single-flight locks and return
+    (response, ctx). ctx = {"entries", "commanders", "mox_bracket"} when a build
+    actually ran, or None when it was skipped because another build already holds
+    the lock (the response is then a `building`/`queued` status). Does NOT compute
+    the bracket — that's a separate step in the deck refresh, so ctx hands the
+    already-fetched Moxfield data on without a second fetch.
+
+    Single-flight per deck via a Postgres advisory lock; concurrent requests get a
+    `building` status instead of starting a duplicate build."""
+    # The advisory lock is held on a DEDICATED connection for the whole build —
+    # the session's connection can change across the commits below, so we must not
+    # lock/unlock through it.
     lock_conn = db.get_bind().connect()
     got_deck = lock_conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": deck.id}).scalar()
     if not got_deck:
         lock_conn.close()
         log.info("composition build already in progress deck=%s", deck.id)
-        return _building_response(deck.id, _read_snapshot(db, deck.id), queued=False)
+        return _building_response(deck.id, _read_snapshot(db, deck.id), queued=False), None
 
     # Global serialization: at most one build runs app-wide. If another deck is
     # building, don't start a second — return a queued status and let the client
@@ -396,7 +421,7 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         lock_conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": deck.id})
         lock_conn.close()
         log.info("composition build queued deck=%s (another build running)", deck.id)
-        return _building_response(deck.id, _read_snapshot(db, deck.id), queued=True)
+        return _building_response(deck.id, _read_snapshot(db, deck.id), queued=True), None
 
     t0 = time.time()
     try:
@@ -411,17 +436,12 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         _save_snapshot(db, deck.id, result, pending, popularity, salt, highlights)
         if pending:
             log.info("composition deck=%s has %s cards awaiting background tagging", deck.id, pending)
-
-        # Recompute the Commander bracket alongside the composition. Best-effort
-        # and hash-gated (an unchanged list skips both Commander Spellbook and
-        # Node), so a failure never breaks the composition response.
-        try:
-            from app import bracket as bracket_mod
-            entries = [{"name": c["name"], "count": c["quantity"]} for c in cards]
-            bracket_mod.compute_and_store(db, deck.id, entries, commanders, mox_bracket, deck.commander)
-        except Exception as e:
-            log.warning("bracket compute failed deck=%s: %s", deck.id, e)
         log.info("composition build done deck=%s in %.1fs (total=%s)", deck.id, time.time() - t0, result["total_cards"])
+        ctx = {
+            "entries": [{"name": c["name"], "count": c["quantity"]} for c in cards],
+            "commanders": commanders,
+            "mox_bracket": mox_bracket,
+        }
     except Exception as e:
         log.warning("composition build FAILED deck=%s after %.1fs: %s", deck.id, time.time() - t0, e)
         raise
@@ -432,7 +452,7 @@ def get_composition(db: Session, deck, refresh: bool = False) -> dict:
         finally:
             lock_conn.close()  # closing the connection also releases both locks
 
-    return _snapshot_to_response(deck.id, _read_snapshot(db, deck.id))
+    return _snapshot_to_response(deck.id, _read_snapshot(db, deck.id)), ctx
 
 
 # ---------------------------------------------------------------------------

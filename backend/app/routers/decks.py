@@ -12,7 +12,7 @@ from app.models.user import User
 from app.models.deck import Deck
 from app.models.game import GameSeat
 from app.routers.stats import compute_elo_ratings
-from app import composition
+from app import composition, deck_refresh
 
 router = APIRouter(prefix="/api/decks", tags=["decks"])
 
@@ -524,14 +524,38 @@ def get_moxfield_decklist(deck_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{deck_id}/composition")
-def deck_composition(deck_id: int, refresh: bool = Query(default=False), db: Session = Depends(get_db)):
+def deck_composition(deck_id: int, db: Session = Depends(get_db)):
+    """Read a deck's composition (snapshot-first; builds on first-ever view).
+    A full refresh — composition + bracket — is POST /{deck_id}/refresh."""
     deck = db.get(Deck, deck_id)
     if not deck:
         raise HTTPException(404, "Deck not found")
     if not deck.moxfield_url:
         raise HTTPException(404, "No Moxfield URL set for this deck")
     try:
-        return composition.get_composition(db, deck, refresh=refresh)
+        # A deck's first-ever view builds everything (composition + bracket) so a
+        # newly added deck shows its bracket without a manual refresh; later views
+        # just read the snapshot.
+        if not composition.has_snapshot(db, deck_id):
+            return deck_refresh.refresh_deck(db, deck)
+        return composition.get_composition(db, deck)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+
+
+@router.post("/{deck_id}/refresh")
+def refresh_deck(deck_id: int, db: Session = Depends(get_db)):
+    """Refresh everything derived from the deck's Moxfield list — composition and
+    Commander bracket. Returns the fresh composition payload (bracket included)."""
+    deck = db.get(Deck, deck_id)
+    if not deck:
+        raise HTTPException(404, "Deck not found")
+    if not deck.moxfield_url:
+        raise HTTPException(404, "No Moxfield URL set for this deck")
+    try:
+        return deck_refresh.refresh_deck(db, deck)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except RuntimeError as e:

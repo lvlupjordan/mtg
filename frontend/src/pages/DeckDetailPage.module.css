@@ -588,6 +588,29 @@
 }
 .moxfieldBtn:hover { color: var(--gold-light); border-color: var(--gold-dim); }
 
+.refreshBtn {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-2);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.refreshBtn:hover:not(:disabled) { color: var(--gold-light); border-color: var(--gold-dim); }
+.refreshBtn:disabled { opacity: 0.5; cursor: default; }
+
+.refreshError {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--loss);
+}
+
 /* ── Loading / error states ──────────────────────────────────────────────── */
 
 .state {
