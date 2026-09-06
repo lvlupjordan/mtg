@@ -98,6 +98,13 @@ def ensure_table(db: Session):
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS salt_score REAL"))
     # Top cards behind the popularity/salt scores, for hover detail on the stats.
     db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS highlights JSONB"))
+    # Commander bracket (1-5), power (0-10) and goldfish clock (turn) — computed by
+    # the offline bracket batch (vendored scrollvault engine + Commander Spellbook).
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS bracket INTEGER"))
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS power REAL"))
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS goldfish_clock INTEGER"))
+    # Why the bracket landed where it did: floor reasons, combos, game changers.
+    db.execute(text("ALTER TABLE deck_compositions ADD COLUMN IF NOT EXISTS bracket_detail JSONB"))
     # cards.edhrec_rank feeds popularity; ensure it exists before any build.
     db.execute(text("ALTER TABLE cards ADD COLUMN IF NOT EXISTS edhrec_rank INTEGER"))
     # card_salt: EDHREC salt per card name (pulled in bulk, not from Scryfall).
@@ -294,6 +301,10 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
         "pending_tags": getattr(row, "pending_tags", 0) or 0,
         "popularity_score": getattr(row, "popularity_score", None),
         "salt_score": getattr(row, "salt_score", None),
+        "bracket": getattr(row, "bracket", None),
+        "power": getattr(row, "power", None),
+        "goldfish_clock": getattr(row, "goldfish_clock", None),
+        "bracket_detail": getattr(row, "bracket_detail", None),
         "synced_at": row.synced_at.isoformat() if row.synced_at else None,
         "categories": [
             {"name": cat, "count": len(cats.get(cat, [])),
@@ -306,7 +317,8 @@ def _snapshot_to_response(deck_id: int, row) -> dict:
 
 def _read_snapshot(db: Session, deck_id: int):
     return db.execute(text("""
-        SELECT total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score, highlights
+        SELECT total_cards, lands, categories, synced_at, pending_tags, popularity_score, salt_score, highlights,
+               bracket, power, goldfish_clock, bracket_detail
         FROM deck_compositions WHERE deck_id = :id
     """), {"id": deck_id}).fetchone()
 
@@ -335,7 +347,8 @@ def _building_response(deck_id: int, row=None, queued: bool = False) -> dict:
         resp["queued"] = queued
         return resp
     return {"deck_id": deck_id, "building": True, "queued": queued, "total_cards": 0, "lands": 0,
-            "nonland": 0, "pending_tags": 0, "popularity_score": None, "salt_score": None, "synced_at": None,
+            "nonland": 0, "pending_tags": 0, "popularity_score": None, "salt_score": None,
+            "bracket": None, "power": None, "goldfish_clock": None, "bracket_detail": None, "synced_at": None,
             "categories": [{"name": c, "count": 0, "pct_of_nonland": 0, "cards": []}
                            for c in CATEGORY_ORDER]}
 

@@ -637,7 +637,8 @@ def composition_data(db: Session = Depends(get_db)):
     rows = db.execute(text("""
         SELECT d.id AS deck_id, d.commander, d.color_identity,
                bu.name AS builder, dc.total_cards, dc.lands, dc.categories,
-               dc.popularity_score, dc.salt_score, dc.highlights
+               dc.popularity_score, dc.salt_score, dc.highlights,
+               dc.bracket, dc.power, dc.goldfish_clock
         FROM deck_compositions dc
         JOIN decks d ON d.id = dc.deck_id
         LEFT JOIN users bu ON bu.id = d.builder_id
@@ -666,6 +667,9 @@ def composition_data(db: Session = Depends(get_db)):
             "nonland": (r.total_cards or 0) - (r.lands or 0),
             "popularity_score": r.popularity_score,
             "salt_score": r.salt_score,
+            "bracket": r.bracket,
+            "power": r.power,
+            "goldfish_clock": r.goldfish_clock,
             "categories": category_pct,
             "category_cards": category_cards,
             "top_popular": hl.get("top_popular", []),

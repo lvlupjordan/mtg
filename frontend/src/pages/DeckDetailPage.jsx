@@ -31,6 +31,7 @@ function ManaCost({ cost }) {
 
 function DecklistPanel({ deckId }) {
   const [groupBy, setGroupBy] = useState('type')
+  const [open, setOpen] = useState(false)
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['moxfield', deckId],
     queryFn: () => api.deckMoxfield(deckId),
@@ -66,11 +67,16 @@ function DecklistPanel({ deckId }) {
     return ordered
   }, [data, comp, groupBy])
 
+  const cardCount = data ? Object.values(data.sections).flat().reduce((s, c) => s + c.quantity, 0) : null
+
   return (
     <section className={styles.section}>
       <div className={styles.compHeader}>
-        <h2 className={styles.sectionTitle}>Decklist</h2>
-        {data && (
+        <button className={styles.collapseTitle} onClick={() => setOpen(o => !o)}>
+          <span className={styles.chevron}>{open ? '▾' : '▸'}</span>
+          <span className={styles.sectionTitle}>Decklist{cardCount != null ? ` (${cardCount} cards)` : ''}</span>
+        </button>
+        {data && open && (
           <div className={styles.grpToggle}>
             <button className={`${styles.grpBtn} ${groupBy === 'type' ? styles.grpBtnOn : ''}`}
                     onClick={() => setGroupBy('type')}>by Type</button>
@@ -80,6 +86,7 @@ function DecklistPanel({ deckId }) {
           </div>
         )}
       </div>
+      {open && <>
       {isLoading && (
         <div className={styles.decklistLoading}>
           <div className={styles.spinner} />
@@ -115,6 +122,7 @@ function DecklistPanel({ deckId }) {
           ))}
         </div>
       )}
+      </>}
     </section>
   )
 }
@@ -152,6 +160,7 @@ function CompositionPanel({ deckId }) {
     mutationFn: () => api.deckComposition(deckId, true),
     onSuccess: (d) => qc.setQueryData(['composition', deckId], d),
   })
+  const [open, setOpen] = useState(true)
 
   const building = data?.building
   const hasData = data && data.total_cards > 0
@@ -159,8 +168,11 @@ function CompositionPanel({ deckId }) {
   return (
     <section className={styles.section}>
       <div className={styles.compHeader}>
-        <h2 className={styles.sectionTitle}>Composition</h2>
-        {hasData && (
+        <button className={styles.collapseTitle} onClick={() => setOpen(o => !o)}>
+          <span className={styles.chevron}>{open ? '▾' : '▸'}</span>
+          <span className={styles.sectionTitle}>Composition</span>
+        </button>
+        {hasData && open && (
           <div className={styles.compMeta}>
             <span className={styles.compSynced}>
               {building ? 'rebuilding…' : `synced ${timeAgo(data.synced_at)}`}
@@ -172,6 +184,7 @@ function CompositionPanel({ deckId }) {
         )}
       </div>
 
+      {open && <>
       {isLoading && (
         <div className={styles.decklistLoading}>
           <div className={styles.spinner} />
@@ -224,6 +237,100 @@ function CompositionPanel({ deckId }) {
           </div>
         </>
       )}
+      </>}
+    </section>
+  )
+}
+
+function PowerStat({ label, value }) {
+  return (
+    <div className={styles.powerStat}>
+      <span className={styles.powerStatValue}>{value}</span>
+      <span className={styles.powerStatLabel}>{label}</span>
+    </div>
+  )
+}
+
+function CardThumb({ name, img }) {
+  return (
+    <span className={styles.cardThumb} title={name}>
+      {img
+        ? <img src={img} alt={name} className={styles.cardThumbImg} loading="lazy" />
+        : <span className={styles.cardThumbFallback}>{name}</span>}
+      <span className={styles.cardThumbName}>{name}</span>
+    </span>
+  )
+}
+
+const BRACKET_NAMES = ['', 'Exhibition', 'Core', 'Upgraded', 'Optimized', 'cEDH']
+
+function BracketPanel({ deckId }) {
+  const { data } = useQuery({
+    queryKey: ['composition', deckId],
+    queryFn: () => api.deckComposition(deckId),
+    staleTime: Infinity,
+    retry: false,
+  })
+  const [open, setOpen] = useState(true)
+  if (!data || !data.bracket) return null
+  const detail = data.bracket_detail || {}
+  return (
+    <section className={styles.section}>
+      <div className={styles.compHeader}>
+        <button className={styles.collapseTitle} onClick={() => setOpen(o => !o)}>
+          <span className={styles.chevron}>{open ? '▾' : '▸'}</span>
+          <span className={styles.sectionTitle}>Bracket — {BRACKET_NAMES[data.bracket] || data.bracket}</span>
+        </button>
+      </div>
+      {open && (
+        <div className={styles.bracketBody}>
+          <div className={styles.powerStats}>
+            {data.power != null && <PowerStat label="Power" value={`${data.power}/10`} />}
+            {data.goldfish_clock != null && <PowerStat label="Goldfish" value={`~T${data.goldfish_clock}`} />}
+            {data.popularity_score != null && <PowerStat label="Popularity" value={data.popularity_score} />}
+            {data.salt_score != null && <PowerStat label="Saltiness" value={data.salt_score} />}
+          </div>
+          {detail.floorReasons?.length > 0 && (
+            <ul className={styles.bracketReasons}>
+              {detail.floorReasons.map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+          )}
+          {detail.combos?.length > 0 && (
+            <div className={styles.bracketBlock}>
+              <span className={styles.bracketSubhead}>Combos ({detail.combos.length})</span>
+              {detail.combos.map((c, i) => (
+                <div key={i} className={styles.bracketComboRow}>
+                  <div className={styles.cardThumbs}>
+                    {(c.cards || []).map((cn, j) => (
+                      <span key={j} className={styles.cardThumbWrap}>
+                        {j > 0 && <span className={styles.comboPlus}>+</span>}
+                        <CardThumb name={cn} img={detail.images?.[cn]} />
+                      </span>
+                    ))}
+                  </div>
+                  {c.produces && <span className={styles.bracketComboProduces}>→ {c.produces}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          {detail.altWins?.length > 0 && (
+            <div className={styles.bracketBlock}>
+              <span className={styles.bracketSubhead}>Alternate win conditions ({detail.altWins.length})</span>
+              <div className={styles.cardThumbs}>
+                {detail.altWins.map((cn, i) => <CardThumb key={i} name={cn} img={detail.images?.[cn]} />)}
+              </div>
+            </div>
+          )}
+          {detail.gameChangers?.length > 0 && (
+            <div className={styles.bracketBlock}>
+              <span className={styles.bracketSubhead}>Game Changers ({detail.gameChangers.length})</span>
+              <div className={styles.cardThumbs}>
+                {detail.gameChangers.map((cn, i) => <CardThumb key={i} name={cn} img={detail.images?.[cn]} />)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   )
 }
@@ -251,6 +358,55 @@ function StatBox({ label, value, color }) {
   )
 }
 
+function RecentGamesPanel({ games }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <section className={styles.section}>
+      <div className={styles.compHeader}>
+        <button className={styles.collapseTitle} onClick={() => setOpen(o => !o)}>
+          <span className={styles.chevron}>{open ? '▾' : '▸'}</span>
+          <span className={styles.sectionTitle}>Recent Games{games?.length ? ` (${games.length})` : ''}</span>
+        </button>
+      </div>
+      {open && (
+        <div className={styles.gameList}>
+          {games?.map(g => {
+            const { label, color } = placementLabel(g.placement)
+            return (
+              <div key={g.game_id} className={styles.gameCard}>
+                <div className={styles.gameRow}>
+                  <span className={styles.gamePlacement} style={{ color }}>{label}</span>
+                  <div className={styles.gameInfo}>
+                    <span className={styles.gamePilot}>{g.pilot}</span>
+                    {g.victory_condition && <span className={styles.gameVc}>{g.victory_condition}</span>}
+                  </div>
+                  <span className={styles.gameDate}>
+                    {new Date(g.played_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
+                  </span>
+                </div>
+                {g.opponents?.length > 0 && (
+                  <div className={styles.opponents}>
+                    {g.opponents.map(o => {
+                      const { label: oLabel, color: oColor } = placementLabel(o.placement)
+                      return (
+                        <div key={o.deck_id} className={styles.opponent}>
+                          <span className={styles.oppPlacement} style={{ color: oColor }}>{oLabel}</span>
+                          <Link to={`/decks/${o.deck_id}`} className={styles.oppCommander}>{o.commander}</Link>
+                          <span className={styles.oppPilot}>{o.pilot}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
 const PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 viewBox%3D%220 0 265 370%22%3E%3Crect width%3D%22265%22 height%3D%22370%22 fill%3D%22%231a1728%22%2F%3E%3C%2Fsvg%3E'
 
 export default function DeckDetailPage() {
@@ -259,6 +415,13 @@ export default function DeckDetailPage() {
   const { data: deck, isLoading, isError } = useQuery({
     queryKey: ['deck', id],
     queryFn: () => api.deck(id),
+  })
+  // Shared with the panels below (deduped) — used for the bracket stat box.
+  const { data: comp } = useQuery({
+    queryKey: ['composition', id],
+    queryFn: () => api.deckComposition(id),
+    staleTime: Infinity,
+    retry: false,
   })
 
   const [showEdit, setShowEdit] = useState(false)
@@ -366,6 +529,13 @@ export default function DeckDetailPage() {
                 value={deck.avg_placement ?? '—'}
                 color={deck.avg_placement <= 2 ? 'var(--win)' : deck.avg_placement >= 3 ? 'var(--loss)' : undefined}
               />
+              {comp?.bracket && (
+                <StatBox
+                  label={BRACKET_NAMES[comp.bracket] || 'Bracket'}
+                  value={comp.bracket}
+                  color={['', '#6fbf73', '#5b9bd5', 'var(--gold)', '#e08a3c', '#d9534f'][comp.bracket]}
+                />
+              )}
             </div>
 
             {deck.pilots?.length > 0 && (
@@ -391,65 +561,24 @@ export default function DeckDetailPage() {
         </div>
       </div>
 
-      {/* ── Body: decklist + recent games ── */}
+      {/* ── Body: collapsible sections ── */}
       <div className={styles.body}>
-        <div className={styles.bodyMain}>
-          {deck.moxfield_url
-            ? <>
-                <CompositionPanel deckId={id} />
-                <DecklistPanel deckId={id} />
-              </>
-            : (
-              <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>Decklist</h2>
-                <p className={styles.noDecklist}>
-                  No Moxfield URL set — edit this deck to add one.
-                </p>
-              </section>
-            )
-          }
-        </div>
-
-        <div className={styles.bodySide}>
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Recent Games</h2>
-            <div className={styles.gameList}>
-              {deck.recent_games?.map(g => {
-                const { label, color } = placementLabel(g.placement)
-                return (
-                  <div key={g.game_id} className={styles.gameCard}>
-                    <div className={styles.gameRow}>
-                      <span className={styles.gamePlacement} style={{ color }}>{label}</span>
-                      <div className={styles.gameInfo}>
-                        <span className={styles.gamePilot}>{g.pilot}</span>
-                        {g.victory_condition && (
-                          <span className={styles.gameVc}>{g.victory_condition}</span>
-                        )}
-                      </div>
-                      <span className={styles.gameDate}>
-                        {new Date(g.played_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
-                      </span>
-                    </div>
-                    {g.opponents?.length > 0 && (
-                      <div className={styles.opponents}>
-                        {g.opponents.map(o => {
-                          const { label: oLabel, color: oColor } = placementLabel(o.placement)
-                          return (
-                            <div key={o.deck_id} className={styles.opponent}>
-                              <span className={styles.oppPlacement} style={{ color: oColor }}>{oLabel}</span>
-                              <Link to={`/decks/${o.deck_id}`} className={styles.oppCommander}>{o.commander}</Link>
-                              <span className={styles.oppPilot}>{o.pilot}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        </div>
+        {deck.moxfield_url
+          ? <>
+              <BracketPanel deckId={id} />
+              <CompositionPanel deckId={id} />
+              <DecklistPanel deckId={id} />
+            </>
+          : (
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>Decklist</h2>
+              <p className={styles.noDecklist}>
+                No Moxfield URL set — edit this deck to add one.
+              </p>
+            </section>
+          )
+        }
+        <RecentGamesPanel games={deck.recent_games} />
       </div>
 
       {showEdit && <AddDeckModal deck={deck} onClose={() => setShowEdit(false)} />}
