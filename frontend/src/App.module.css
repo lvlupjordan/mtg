@@ -151,11 +151,23 @@
     gap: 4px;
     flex-wrap: wrap;
   }
+  .navGroup {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .navGroupLinks {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  .navDivider {
+    display: none;
+  }
   .navLink {
     font-size: 10px;
     padding: 5px 10px;
     letter-spacing: 0.08em;
-    flex: 1;
+    flex: 1 1 auto;
     text-align: center;
   }
   .main {
