@@ -73,12 +73,39 @@ async function analyze(d) {
         const uses = (c.combo && c.combo.uses) || [];
         const cards = uses.filter(u => u.card).length, tmpl = uses.filter(u => !u.card).length;
         const two = (cards === 2 && tmpl === 0);
-        c.definitelyTwoCard = two && (c.definitelyTwoCard || (c.arguablyTwoCard && c.relevant));
+        // Only a GENUINE infinite counts toward the two-card-infinite floor.
+        // Commander Spellbook's "Near-infinite ..." results are big-but-finite and
+        // often conditional (e.g. Rionya + Terror of the Peaks scales with the
+        // instants/sorceries you've cast that turn — two cards alone do ~5 damage),
+        // yet CS still flags them definitelyTwoCard. A produced feature is a real
+        // infinite only if its name starts with "Infinite" (excludes "Near-infinite").
+        const produces = (c.combo && c.combo.produces) || [];
+        const trulyInfinite = produces.some(f =>
+          ((f && f.feature && f.feature.name) || '').toLowerCase().startsWith('infinite'));
+        c.definitelyTwoCard = two && trulyInfinite && (c.definitelyTwoCard || (c.arguablyTwoCard && c.relevant));
       }
     } catch (e) {}
     return win.normalizeSpellbookEstimate(d.est);
   };
-  win.fetchSpellbookCombos = async () => d.combos;
+  win.fetchSpellbookCombos = async () => {
+    // Same gate on the find-my-combos path: a two-card combo that produces only a
+    // "Near-infinite ..." (finite) result shouldn't count as a two-card-infinite
+    // floor, so drop those from what the engine sees. Genuine infinites and any
+    // non-two-card combos pass through untouched.
+    try {
+      const res = d.combos && d.combos.results;
+      if (res && Array.isArray(res.included)) {
+        res.included = res.included.filter(c => {
+          const uses = c.uses || [];
+          const cards = uses.filter(u => u.card).length, tmpl = uses.filter(u => !u.card).length;
+          if (!(cards === 2 && tmpl === 0)) return true;   // only gate two-card combos
+          return (c.produces || []).some(f =>
+            ((f && f.feature && f.feature.name) || '').toLowerCase().startsWith('infinite'));
+        });
+      }
+    } catch (e) {}
+    return d.combos;
+  };
 
   let cap = null;
   if (typeof win.determineBracket === 'function') {
