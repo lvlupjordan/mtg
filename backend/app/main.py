@@ -37,6 +37,7 @@ def _startup():
         db = SessionLocal()
         try:
             composition.ensure_table(db)
+            tierlists.ensure_pairwise_tables(db)
         finally:
             db.close()
     except Exception as e:

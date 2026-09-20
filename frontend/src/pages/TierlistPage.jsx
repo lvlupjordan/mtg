@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import styles from './TierlistPage.module.css'
@@ -7,7 +7,6 @@ const TIERS = ['S', 'A', 'B', 'C', 'D', 'F']
 const WEIGHTS = [1, 2, 3, 3, 2, 1]
 const TIER_SCORE = { S: 5, A: 4, B: 3, C: 2, D: 1, F: 0 }
 const TIER_INDEX = Object.fromEntries(TIERS.map((t, i) => [t, i]))
-const STORAGE_KEY = (userId) => `wooberg-tierlist-user-${userId}`
 
 function computeCaps(n) {
   const weightSum = WEIGHTS.reduce((a, b) => a + b, 0)
@@ -56,13 +55,9 @@ export default function TierlistPage() {
   })
 
   const [viewId, setViewId] = useState(null) // user_id | 'elo' | 'composite' | null
-  const [editing, setEditing] = useState(false)
-  const [draftTiers, setDraftTiers] = useState(null)
-  const [saveStatus, setSaveStatus] = useState(null)
-  const [dragging, setDragging] = useState(null)
-  const [dropTarget, setDropTarget] = useState(null)
   const [comparing, setComparing] = useState(false)
   const [compareWith, setCompareWith] = useState(null)
+  const [ranking, setRanking] = useState(false)   // pairwise Elo builder open?
 
   const decksById = Object.fromEntries((data?.decks ?? []).map(d => [d.id, d]))
   const eloById = Object.fromEntries((eloData ?? []).map(d => [d.deck_id, d.rating]))
@@ -156,101 +151,21 @@ export default function TierlistPage() {
 
   const viewingUser = realPlayers.find(p => p.id === viewId)
 
-  // Enter edit mode: load from localStorage → published list → empty
-  function startEditing() {
-    const ids = data.decks.map(d => d.id)
-    try {
-      const local = JSON.parse(localStorage.getItem(STORAGE_KEY(viewId)))
-      if (local) { setDraftTiers(initTiers(ids, local)); setEditing(true); return }
-    } catch {}
-    const published = allTierlists?.find(t => t.user_id === viewId)
-    setDraftTiers(initTiers(ids, published?.tiers ?? null))
-    setEditing(true)
-  }
-
-  function cancelEditing() {
-    setEditing(false)
-    setDraftTiers(null)
-    setDragging(null)
-    setDropTarget(null)
-  }
-
-  // Auto-save draft to localStorage while editing
-  useEffect(() => {
-    if (editing && draftTiers && viewId !== 'elo') {
-      localStorage.setItem(STORAGE_KEY(viewId), JSON.stringify(draftTiers))
-    }
-  }, [draftTiers, editing, viewId])
-
-  const saveMutation = useMutation({
-    mutationFn: () => api.saveTierlist(viewId, draftTiers),
-    onMutate: () => setSaveStatus('saving'),
-    onSuccess: () => {
-      setSaveStatus('saved')
-      queryClient.invalidateQueries({ queryKey: ['tierlists'] })
-      setTimeout(() => setSaveStatus(null), 2000)
-    },
-    onError: () => {
-      setSaveStatus('error')
-      setTimeout(() => setSaveStatus(null), 3000)
-    },
+  const resetMutation = useMutation({
+    mutationFn: () => api.resetTierlist(viewId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tierlists'] }),
   })
-
-  // ── Drag handlers (edit mode only) ───────────────────────────────────────
-
-  function handleDragStart(e, deckId, fromTier) {
-    setDragging({ deckId, fromTier })
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  function handleDragEnd() { setDragging(null); setDropTarget(null) }
-
-  function handleCardDragOver(e, tier, beforeId) {
-    e.preventDefault(); e.stopPropagation()
-    setDropTarget(prev => prev?.tier === tier && prev?.beforeId === beforeId ? prev : { tier, beforeId })
-  }
-
-  function handleTierDragOver(e, tier) {
-    e.preventDefault()
-    setDropTarget(prev => prev?.tier === tier && prev?.beforeId == null ? prev : { tier, beforeId: null })
-  }
-
-  function handleDrop(e, tier) {
-    e.preventDefault()
-    if (!dragging) return
-    const { deckId } = dragging
-    const beforeId = dropTarget?.tier === tier ? (dropTarget?.beforeId ?? null) : null
-    setDraftTiers(prev => {
-      const next = {}
-      for (const t of [...TIERS, 'unranked']) next[t] = (prev[t] || []).filter(id => id !== deckId)
-      if (beforeId == null) {
-        next[tier] = [...next[tier], deckId]
-      } else {
-        const idx = next[tier].indexOf(beforeId)
-        next[tier].splice(idx >= 0 ? idx : next[tier].length, 0, deckId)
-      }
-      return next
-    })
-    setDragging(null); setDropTarget(null)
-  }
-
-  function handleReset() {
-    if (!data?.decks) return
-    const ids = data.decks.map(d => d.id)
-    const published = allTierlists?.find(t => t.user_id === viewId)
-    setDraftTiers(initTiers(ids, published?.tiers ?? null))
-  }
-
-  function handleEmpty() {
-    if (!data?.decks) return
-    setDraftTiers(initTiers(data.decks.map(d => d.id), null))
+  function handleResetList() {
+    if (window.confirm(`Reset ${viewingUser?.name ?? 'this player'}'s tier list? This wipes all their comparisons.`)) {
+      resetMutation.mutate()
+    }
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
 
   if (isLoading) return <div className={styles.loading}>Loading decks…</div>
 
-  const displayTiers = editing ? draftTiers : viewTiers
+  const displayTiers = viewTiers
   const canEdit = viewId !== null && viewId !== 'elo' && viewId !== 'composite'
 
   function parseId(val) {
@@ -259,12 +174,18 @@ export default function TierlistPage() {
 
   return (
     <div className={styles.page}>
+      {ranking && canEdit && (
+        <DeckRanker
+          userId={viewId}
+          userName={viewingUser?.name}
+          onClose={() => { setRanking(false); queryClient.invalidateQueries({ queryKey: ['tierlists'] }) }}
+        />
+      )}
       <div className={styles.header}>
         <select
           className={styles.viewPicker}
           value={viewId ?? ''}
           onChange={e => {
-            if (editing) cancelEditing()
             setComparing(false)
             setCompareWith(null)
             setViewId(parseId(e.target.value))
@@ -298,29 +219,21 @@ export default function TierlistPage() {
                 ← Back
               </button>
             </>
-          ) : editing ? (
-            <>
-              <button
-                className={styles.publishBtn}
-                onClick={() => saveMutation.mutate()}
-                disabled={saveStatus === 'saving'}
-              >
-                {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Error' : 'Publish'}
-              </button>
-              <button className={styles.resetBtn} onClick={handleReset}>Reset</button>
-              <button className={styles.emptyBtn} onClick={handleEmpty}>Empty</button>
-              <button className={styles.cancelBtn} onClick={cancelEditing}>Cancel</button>
-            </>
           ) : viewId !== null && (
             <>
               {canEdit && (
-                <button className={styles.editBtn} onClick={startEditing}>
-                  Edit as {viewingUser?.name ?? '…'}
+                <button className={styles.editBtn} onClick={() => setRanking(true)}>
+                  Rank decks as {viewingUser?.name ?? '…'}
                 </button>
               )}
               <button className={styles.compareBtn} onClick={() => setComparing(true)}>
-                Compare
+                Compare lists
               </button>
+              {canEdit && (
+                <button className={styles.resetListBtn} onClick={handleResetList} disabled={resetMutation.isPending}>
+                  {resetMutation.isPending ? 'Resetting…' : 'Reset'}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -343,9 +256,9 @@ export default function TierlistPage() {
               : viewId === 'composite'
                 ? 'No published tier lists yet.'
                 : <>
-                    {viewingUser?.name ?? 'This player'} hasn't published a tier list yet.
-                    <button className={styles.editBtn} style={{ marginLeft: 12 }} onClick={startEditing}>
-                      Create one
+                    {viewingUser?.name ?? 'This player'} hasn't ranked any decks yet.
+                    <button className={styles.editBtn} style={{ marginLeft: 12 }} onClick={() => setRanking(true)}>
+                      Start ranking
                     </button>
                   </>
           }
@@ -356,123 +269,52 @@ export default function TierlistPage() {
           caps={caps}
           decksById={decksById}
           eloById={eloById}
-          showRating={viewId === 'elo' && !editing}
-          editing={editing}
-          dragging={dragging}
-          dropTarget={dropTarget}
-          handleDragStart={handleDragStart}
-          handleDragEnd={handleDragEnd}
-          handleCardDragOver={handleCardDragOver}
-          handleTierDragOver={handleTierDragOver}
-          handleDrop={handleDrop}
+          showRating={viewId === 'elo'}
         />
       )}
     </div>
   )
 }
 
-// ── Tier Grid ─────────────────────────────────────────────────────────────────
+// ── Tier Grid (view-only) ───────────────────────────────────────────────────
 
-function TierGrid({ tiers, caps, decksById, eloById, showRating, editing,
-  dragging, dropTarget, handleDragStart, handleDragEnd,
-  handleCardDragOver, handleTierDragOver, handleDrop }) {
+function TierGrid({ tiers, caps, decksById, eloById, showRating }) {
   return (
-    <>
-      <div className={styles.tiers}>
-        {TIERS.map(tier => {
-          const filled = tiers[tier].length
-          const cap = caps?.[tier] ?? '?'
-          const over = caps && filled > caps[tier]
-          return (
-            <div
-              key={tier}
-              className={[
-                styles.tierRow,
-                styles[`tier${tier}`],
-                editing && dropTarget?.tier === tier ? styles.tierRowOver : '',
-              ].join(' ')}
-              onDragOver={editing ? e => handleTierDragOver(e, tier) : undefined}
-              onDrop={editing ? e => handleDrop(e, tier) : undefined}
-            >
-              <div className={styles.tierLabel}>
-                <span className={styles.tierLetter}>{tier}</span>
-                <span className={`${styles.tierCap} ${over ? styles.tierCapOver : ''}`}>{filled}/{cap}</span>
-              </div>
-              <div className={styles.tierCards}>
-                {tiers[tier].map(id => (
-                  <DeckCard
-                    key={id}
-                    deck={decksById[id]}
-                    rating={showRating ? eloById[id] : undefined}
-                    fromTier={tier}
-                    isDragging={dragging?.deckId === id}
-                    isDropBefore={editing && dropTarget?.tier === tier && dropTarget?.beforeId === id}
-                    onDragStart={editing ? handleDragStart : null}
-                    onDragEnd={editing ? handleDragEnd : null}
-                    onCardDragOver={editing ? handleCardDragOver : null}
-                  />
-                ))}
-                {tiers[tier].length === 0 && (
-                  <span className={styles.emptyHint}>{editing ? 'Drop here' : '—'}</span>
-                )}
-              </div>
+    <div className={styles.tiers}>
+      {TIERS.map(tier => {
+        const filled = tiers[tier].length
+        const cap = caps?.[tier] ?? '?'
+        return (
+          <div key={tier} className={[styles.tierRow, styles[`tier${tier}`]].join(' ')}>
+            <div className={styles.tierLabel}>
+              <span className={styles.tierLetter}>{tier}</span>
+              <span className={styles.tierCap}>{filled}/{cap}</span>
             </div>
-          )
-        })}
-      </div>
-
-      {editing && (
-        <div
-          className={styles.unranked}
-          onDragOver={e => handleTierDragOver(e, 'unranked')}
-          onDrop={e => handleDrop(e, 'unranked')}
-        >
-          <div className={styles.unrankedHeader}>
-            Unranked
-            {tiers.unranked.length > 0 && (
-              <span className={styles.unrankedCount}>{tiers.unranked.length}</span>
-            )}
-          </div>
-          <div className={styles.unrankedCards}>
-            {tiers.unranked.length === 0 ? (
-              <p className={styles.allRanked}>All decks ranked.</p>
-            ) : (
-              tiers.unranked.map(id => (
+            <div className={styles.tierCards}>
+              {tiers[tier].map(id => (
                 <DeckCard
                   key={id}
                   deck={decksById[id]}
-                  rating={undefined}
-                  fromTier="unranked"
-                  isDragging={dragging?.deckId === id}
-                  isDropBefore={dropTarget?.tier === 'unranked' && dropTarget?.beforeId === id}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onCardDragOver={handleCardDragOver}
+                  rating={showRating ? eloById[id] : undefined}
                 />
-              ))
-            )}
+              ))}
+              {tiers[tier].length === 0 && <span className={styles.emptyHint}>—</span>}
+            </div>
           </div>
-        </div>
-      )}
-    </>
+        )
+      })}
+    </div>
   )
 }
 
-// ── Deck Card ─────────────────────────────────────────────────────────────────
+// ── Deck Card (view-only) ───────────────────────────────────────────────────
 
-function DeckCard({ deck, rating, fromTier, isDragging, isDropBefore,
-  onDragStart, onDragEnd, onCardDragOver }) {
+function DeckCard({ deck, rating }) {
   if (!deck) return null
-  const interactive = !!onDragStart
   return (
     <div className={styles.cardWrap}>
-      {isDropBefore && <div className={styles.dropLine} />}
       <div
-        className={`${styles.card} ${isDragging ? styles.cardDragging : ''}`}
-        draggable={interactive}
-        onDragStart={interactive ? e => onDragStart(e, deck.id, fromTier) : undefined}
-        onDragEnd={interactive ? onDragEnd : undefined}
-        onDragOver={interactive ? e => onCardDragOver(e, fromTier, deck.id) : undefined}
+        className={styles.card}
         title={`${deck.name} — ${deck.commander}${rating != null ? ` · ${Math.round(rating)} Elo` : ''}`}
       >
         {deck.image_uri
@@ -537,6 +379,169 @@ function ComparePanel({ diffs, labelA, labelB }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── Pairwise Elo builder: "Power Duel" ──────────────────────────────────────
+// Two commanders face off across a gold VS seam. Pick the stronger (tap or ←/→):
+// the winner lights up with a medallion, then the whole round slides out and the
+// next pair slides in. Each pick updates the user's Elo + re-slices their tiers.
+
+const PIP_COLOUR = { W: '#f6f1df', U: '#3f82c9', B: '#5a5563', R: '#d4544a', G: '#4fa163' }
+function pipsOf(ci) {
+  let cols = Array.isArray(ci) ? ci : (typeof ci === 'string' ? ci.toUpperCase().split('') : [])
+  cols = [...new Set(cols)].filter(c => PIP_COLOUR[c])
+  return cols
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+function DuelSide({ deck, side, picked, onPick, disabled }) {
+  const isWon = picked != null && deck.id === picked
+  const isLost = picked != null && deck.id !== picked
+  const cls = [styles.side, styles[side], isWon ? styles.chosen : '', isLost ? styles.loser : ''].join(' ')
+  return (
+    <button className={cls} onClick={onPick} disabled={disabled}>
+      {deck.image_uri && (
+        <div className={styles.sideArt} style={{ backgroundImage: `url(${deck.image_uri})` }} />
+      )}
+      <div className={styles.sideScrim} />
+      <span className={styles.sideKbd}>{side === 'left' ? '← A' : 'B →'}</span>
+      <div className={styles.medal} aria-hidden={!isWon}>
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#eccb84"
+             strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12.5 l4.2 4.2 L19 6.5" />
+        </svg>
+      </div>
+      <div className={styles.sideCardWrap}>
+        {deck.image_uri
+          ? <img src={deck.image_uri} alt={deck.commander} className={styles.sideCard} />
+          : <div className={styles.sideCardFallback}>{deck.commander}</div>}
+      </div>
+      <div className={styles.sidePlate}>
+        <div className={styles.sideName}>{deck.commander}</div>
+        {deck.builder && <div className={styles.sideBuilder}>brewed by {deck.builder}</div>}
+        <div className={styles.sidePips}>
+          {pipsOf(deck.color_identity).map(c => (
+            <i key={c} className={styles.pip} style={{ background: PIP_COLOUR[c] }} />
+          ))}
+        </div>
+      </div>
+    </button>
+  )
+}
+
+function DuelRound({ pair, picked, onPick }) {
+  return (
+    <div className={styles.round}>
+      <DuelSide deck={pair[0]} side="left" picked={picked}
+                onPick={onPick ? () => onPick(0) : undefined} disabled={!onPick} />
+      <div className={styles.seam} />
+      <div className={styles.vs}>VS</div>
+      <DuelSide deck={pair[1]} side="right" picked={picked}
+                onPick={onPick ? () => onPick(1) : undefined} disabled={!onPick} />
+    </div>
+  )
+}
+
+function DeckRanker({ userId, userName, onClose }) {
+  const queryClient = useQueryClient()
+  const [cur, setCur] = useState(null)
+  const [incoming, setIncoming] = useState(null)   // next pair, mounted for the slide
+  const [sliding, setSliding] = useState(false)
+  const [picked, setPicked] = useState(null)       // winner deck id (drives the beat)
+  const [count, setCount] = useState(0)
+  const busy = useRef(false)
+
+  async function loadFirst() {
+    const r = await api.tierlistNextPair(userId)
+    setCur(r.pair); setCount(r.total)
+  }
+  useEffect(() => { loadFirst() /* eslint-disable-next-line */ }, [userId])
+
+  // once the incoming round is mounted (off-screen right), slide the track
+  useEffect(() => {
+    if (incoming && !sliding) {
+      const id = requestAnimationFrame(() => requestAnimationFrame(() => setSliding(true)))
+      return () => cancelAnimationFrame(id)
+    }
+  }, [incoming, sliding])
+
+  async function pick(i) {
+    if (busy.current || !cur) return
+    busy.current = true
+    const winner = cur[i], loser = cur[1 - i]
+    setPicked(winner.id)
+    try {
+      const [r] = await Promise.all([
+        api.tierlistCompare(userId, winner.id, loser.id),
+        sleep(460),   // let the medallion + glow play
+      ])
+      setCount(r.total)
+      queryClient.invalidateQueries({ queryKey: ['tierlists'] })
+      const np = await api.tierlistNextPair(userId)
+      if (np.pair) setIncoming(np.pair)
+      else { setPicked(null); busy.current = false }
+    } catch {
+      setPicked(null); busy.current = false
+    }
+  }
+
+  function onTrackEnd(e) {
+    // ignore transitionend bubbling up from child sides (the winner shove)
+    if (e.target !== e.currentTarget || e.propertyName !== 'transform' || !sliding || !incoming) return
+    setCur(incoming)
+    setIncoming(null)
+    setSliding(false)
+    setPicked(null)
+    busy.current = false
+  }
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') { onClose(); return }
+      if (busy.current || !cur) return
+      if (e.key === 'ArrowLeft') pick(0)
+      else if (e.key === 'ArrowRight') pick(1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }) // re-bind each render so cur/picked are current
+
+  return (
+    <div className={styles.arena}>
+      <div className={styles.arenaTop}>
+        <span className={styles.arenaBrand}>Wooberg <span className={styles.arenaThin}>· Power Duel</span></span>
+        <span className={styles.arenaTally}>
+          <b>{count}</b> duel{count === 1 ? '' : 's'} · {userName}
+        </span>
+        <button className={styles.arenaDone} onClick={onClose}>Done</button>
+      </div>
+
+      <div className={styles.stage}>
+        {!cur ? (
+          <p className={styles.arenaLoading}>Loading decks…</p>
+        ) : (
+          <div
+            className={styles.track}
+            style={{
+              transform: sliding ? 'translateX(-100%)' : 'translateX(0)',
+              transition: sliding ? 'transform .58s cubic-bezier(.5,0,.2,1)' : 'none',
+            }}
+            onTransitionEnd={onTrackEnd}
+          >
+            <DuelRound pair={cur} picked={picked} onPick={incoming ? null : pick} />
+            {incoming && <DuelRound pair={incoming} picked={null} onPick={null} />}
+          </div>
+        )}
+      </div>
+
+      <div className={styles.arenaFoot}>
+        <div className={styles.arenaQ}>Which commander is stronger?</div>
+        <div className={styles.arenaHints}>
+          <kbd>←</kbd> / <kbd>→</kbd> choose &nbsp;·&nbsp; <kbd>esc</kbd> done
+        </div>
+      </div>
     </div>
   )
 }

@@ -52,7 +52,11 @@ export const api = {
 
   tierlists: () => req("/api/tierlists"),
   tierlist: (userId) => req(`/api/tierlists/${userId}`),
-  saveTierlist: (userId, tiers) => req(`/api/tierlists/${userId}`, { method: "PUT", body: JSON.stringify({ tiers }) }),
+  // Pairwise (Elo) tier building
+  tierlistNextPair: (userId) => req(`/api/tierlists/${userId}/next-pair`),
+  tierlistCompare: (userId, winnerId, loserId) =>
+    req(`/api/tierlists/${userId}/compare`, { method: "POST", body: JSON.stringify({ winner_id: winnerId, loser_id: loserId }) }),
+  resetTierlist: (userId) => req(`/api/tierlists/${userId}/ranking`, { method: "DELETE" }),
 
   // Cards
   searchCardsLocal: (params = {}) => {
