@@ -13,11 +13,27 @@ router = APIRouter(prefix="/api/tierlists", tags=["tierlists"])
 # per-user Elo ratings, and the sorted ratings are sliced into S–F tiers (stored
 # in the same tier_lists.tiers JSON the display already reads).
 BASE_RATING = 1000.0
-K_FACTOR = 32
+# Provisional K: a deck's rating moves fast for its first few comparisons so it
+# reaches roughly the right place quickly, then settles so it stops jittering.
+K_PROVISIONAL = 40
+K_SETTLED = 20
+PROVISIONAL_COMPARISONS = 10
+# Confidence shrinkage: when slicing into tiers, pull a deck's rating toward the
+# mean in proportion to how little it's been compared, so a deck seen only a
+# couple of times can't rocket into S/F on thin evidence — it earns the extreme.
+SHRINKAGE = 5.0
 # S–F band shape. Kept identical to the frontend's computeCaps so a stored list,
 # the Elo-suggested view and the averaged view all bucket decks the same way.
 TIERS = ["S", "A", "B", "C", "D", "F"]
 TIER_WEIGHTS = [1, 2, 3, 3, 2, 1]
+
+
+def _k(comparisons: int) -> int:
+    return K_PROVISIONAL if comparisons < PROVISIONAL_COMPARISONS else K_SETTLED
+
+
+def _shrunk(rating: float, comparisons: int) -> float:
+    return BASE_RATING + (rating - BASE_RATING) * comparisons / (comparisons + SHRINKAGE)
 
 
 def compute_caps(n: int) -> list[int]:
@@ -66,7 +82,8 @@ def _recompute_tiers(db: Session, user_id: int):
     """Sort a user's decks by Elo rating, slice into S–F, save to tier_lists."""
     decks = _active_decks(db)
     rmap = _ratings(db, user_id)
-    ranked = sorted(((d.id, rmap[d.id][0]) for d in decks if rmap.get(d.id, (0, 0))[1] > 0),
+    ranked = sorted(((d.id, _shrunk(rmap[d.id][0], rmap[d.id][1])) for d in decks
+                     if rmap.get(d.id, (0, 0))[1] > 0),
                     key=lambda x: -x[1])
     unranked = [d.id for d in decks if rmap.get(d.id, (0, 0))[1] == 0]
     caps = compute_caps(len(decks))
@@ -123,8 +140,8 @@ def submit_comparison(user_id: int, body: dict, db: Session = Depends(get_db)):
     rw, cw = rmap.get(winner, (BASE_RATING, 0))
     rl, cl = rmap.get(loser, (BASE_RATING, 0))
     exp_w = 1 / (1 + 10 ** ((rl - rw) / 400))
-    rw2 = rw + K_FACTOR * (1 - exp_w)
-    rl2 = rl + K_FACTOR * (0 - (1 - exp_w))
+    rw2 = rw + _k(cw) * (1 - exp_w)
+    rl2 = rl + _k(cl) * (0 - (1 - exp_w))
     for did, rt, cn in ((winner, rw2, cw + 1), (loser, rl2, cl + 1)):
         db.execute(text("""
             INSERT INTO deck_ratings (user_id, deck_id, rating, comparisons) VALUES (:u, :d, :r, :c)
@@ -135,7 +152,12 @@ def submit_comparison(user_id: int, body: dict, db: Session = Depends(get_db)):
     db.commit()
     _recompute_tiers(db, user_id)
     total = db.execute(text("SELECT count(*) FROM deck_comparisons WHERE user_id = :u"), {"u": user_id}).scalar()
-    return {"ok": True, "total": total}
+    return {
+        "ok": True, "total": total,
+        # per-deck rating change, surfaced on the tiles as a debug HUD
+        "winner": {"id": winner, "before": round(rw, 1), "after": round(rw2, 1), "delta": round(rw2 - rw, 1)},
+        "loser": {"id": loser, "before": round(rl, 1), "after": round(rl2, 1), "delta": round(rl2 - rl, 1)},
+    }
 
 
 @router.delete("/{user_id}/ranking")

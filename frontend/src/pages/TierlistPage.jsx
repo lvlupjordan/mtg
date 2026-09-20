@@ -439,7 +439,17 @@ function DuelSide({ deck, side, picked, onPick, disabled }) {
   )
 }
 
-function DuelRound({ pair, picked, onPick, className = '', onAnimEnd }) {
+function RateChip({ side, info }) {
+  const up = info.delta >= 0
+  return (
+    <div className={`${styles.rateChip} ${side === 'left' ? styles.rateLeft : styles.rateRight} ${up ? styles.rateUp : styles.rateDown}`}>
+      <span className={styles.rateNow}>{Math.round(info.after)}</span>
+      <span className={styles.rateDelta}>{up ? '▲' : '▼'} {Math.abs(Math.round(info.delta))}</span>
+    </div>
+  )
+}
+
+function DuelRound({ pair, picked, deltas, onPick, className = '', onAnimEnd }) {
   return (
     <div className={`${styles.round} ${className}`} onAnimationEnd={onAnimEnd}>
       <DuelSide deck={pair[0]} side="left" picked={picked}
@@ -448,6 +458,8 @@ function DuelRound({ pair, picked, onPick, className = '', onAnimEnd }) {
       <div className={styles.vs}>VS</div>
       <DuelSide deck={pair[1]} side="right" picked={picked}
                 onPick={onPick ? () => onPick(1) : undefined} disabled={!onPick} />
+      {deltas?.[pair[0].id] && <RateChip side="left" info={deltas[pair[0].id]} />}
+      {deltas?.[pair[1].id] && <RateChip side="right" info={deltas[pair[1].id]} />}
     </div>
   )
 }
@@ -468,6 +480,7 @@ function DeckRanker({ userId, userName, onClose }) {
   const [cur, setCur] = useState(null)
   const [incoming, setIncoming] = useState(null)   // next pair, mounted for the slide
   const [picked, setPicked] = useState(null)       // winner deck id (drives the beat)
+  const [deltas, setDeltas] = useState(null)        // {deckId: {before, after, delta}} debug HUD
   const [count, setCount] = useState(0)
   const busy = useRef(false)
 
@@ -483,17 +496,16 @@ function DeckRanker({ userId, userName, onClose }) {
     const winner = cur[i], loser = cur[1 - i]
     setPicked(winner.id)
     try {
-      const [r] = await Promise.all([
-        api.tierlistCompare(userId, winner.id, loser.id),
-        sleep(460),   // let the medallion + glow play
-      ])
+      const r = await api.tierlistCompare(userId, winner.id, loser.id)
       setCount(r.total)
+      if (r.winner && r.loser) setDeltas({ [r.winner.id]: r.winner, [r.loser.id]: r.loser })
       queryClient.invalidateQueries({ queryKey: ['tierlists'] })
+      await sleep(560)   // hold the medallion + rating change
       const np = await api.tierlistNextPair(userId)
       if (np.pair) { await preloadPair(np.pair); setIncoming(np.pair) }
-      else { setPicked(null); busy.current = false }
+      else { setPicked(null); setDeltas(null); busy.current = false }
     } catch {
-      setPicked(null); busy.current = false
+      setPicked(null); setDeltas(null); busy.current = false
     }
   }
 
@@ -503,6 +515,7 @@ function DeckRanker({ userId, userName, onClose }) {
     setCur(incoming)
     setIncoming(null)
     setPicked(null)
+    setDeltas(null)
     busy.current = false
   }
 
@@ -534,7 +547,7 @@ function DeckRanker({ userId, userName, onClose }) {
           <>
             <DuelRound
               key={`${cur[0].id}-${cur[1].id}`}
-              pair={cur} picked={picked}
+              pair={cur} picked={picked} deltas={deltas}
               onPick={incoming ? null : pick}
               className={incoming ? styles.slideOut : ''}
             />
