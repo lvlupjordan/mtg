@@ -500,7 +500,7 @@ function DeckRanker({ userId, userName, onClose }) {
       setCount(r.total)
       if (r.winner && r.loser) setDeltas({ [r.winner.id]: r.winner, [r.loser.id]: r.loser })
       queryClient.invalidateQueries({ queryKey: ['tierlists'] })
-      await sleep(1200)   // hold the medallion + rating change long enough to read
+      await sleep(880)   // hold the medallion + rating change long enough to read
       const np = await api.tierlistNextPair(userId)
       if (np.pair) { await preloadPair(np.pair); setIncoming(np.pair) }
       else { setPicked(null); setDeltas(null); busy.current = false }
