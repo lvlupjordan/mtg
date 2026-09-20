@@ -379,6 +379,25 @@
   color: #1a1206;
 }
 .compTabOn:hover { color: #1a1206; }
+.compToggle {
+  margin-left: 4px;
+  padding: 3px 12px;
+  border: 1px solid var(--border-2);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.compToggle:hover { border-color: var(--gold-dim); color: var(--gold); }
+.compToggleOn {
+  background: rgba(200, 149, 58, 0.14);
+  border-color: var(--gold);
+  color: var(--gold-light);
+}
 .compNote {
   margin: 14px 4px 2px;
   font-size: 12.5px;

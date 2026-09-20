@@ -433,16 +433,20 @@ function CompositionStats() {
   const [minGames, setMinGames] = useState(3)
   const [filterBy, setFilterBy] = useState('')
   const [filterValue, setFilterValue] = useState('')
+  const [activeOnly, setActiveOnly] = useState(false)
 
   const categories = data?.categories ?? []
   const allDecks = data?.decks ?? []
   const brewers = useMemo(() => [...new Set(allDecks.map(d => d.builder).filter(Boolean))].sort(), [allDecks])
   const decks = useMemo(() => {
-    if (!filterBy || !filterValue) return allDecks
-    return allDecks.filter(d => filterBy === 'brewer'
-      ? d.builder === filterValue
-      : (d.color_identity || []).includes(filterValue))
-  }, [allDecks, filterBy, filterValue])
+    let ds = activeOnly ? allDecks.filter(d => d.active) : allDecks
+    if (filterBy && filterValue) {
+      ds = ds.filter(d => filterBy === 'brewer'
+        ? d.builder === filterValue
+        : (d.color_identity || []).includes(filterValue))
+    }
+    return ds
+  }, [allDecks, activeOnly, filterBy, filterValue])
   const catOptions = [
     { value: '__pop__', label: 'Popularity (EDHREC)' },
     { value: '__salt__', label: 'Saltiness (EDHREC)' },
@@ -531,6 +535,11 @@ function CompositionStats() {
                       options={[{ value: '', label: '…' }, ...brewers.map(b => ({ value: b, label: b }))]} />
       )}
       {filterBy === 'colour' && <ColourPicker value={filterValue} onChange={setFilterValue} />}
+      <button type="button"
+              className={`${styles.compToggle} ${activeOnly ? styles.compToggleOn : ''}`}
+              onClick={() => setActiveOnly(v => !v)}>
+        {activeOnly ? '✓ ' : ''}Active only
+      </button>
     </>
   )
 

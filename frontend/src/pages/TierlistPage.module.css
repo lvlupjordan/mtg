@@ -559,15 +559,15 @@
 /* debug HUD: Elo change per tile on a pick (rendered at round level so the
    loser's dimming doesn't wash it out) */
 .rateChip {
-  position: absolute; top: 20px; z-index: 8; transform: translateX(-50%);
-  display: flex; align-items: baseline; gap: 8px; padding: 6px 13px; border-radius: 20px;
-  background: rgba(10,9,18,0.72); border: 1px solid #2a2536; backdrop-filter: blur(6px);
-  font-family: 'JetBrains Mono', monospace; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  position: absolute; top: 22px; z-index: 8; transform: translateX(-50%);
+  display: flex; align-items: baseline; gap: 12px; padding: 10px 22px; border-radius: 26px;
+  background: rgba(10,9,18,0.78); border: 1px solid #2a2536; backdrop-filter: blur(6px);
+  font-family: 'JetBrains Mono', monospace; box-shadow: 0 8px 26px rgba(0,0,0,0.55);
   animation: chipIn 0.3s cubic-bezier(.2,.8,.3,1.3) both;
 }
 .rateLeft { left: 25%; } .rateRight { left: 75%; }
-.rateNow { font-size: 15px; font-weight: 500; color: #efe7d4; }
-.rateDelta { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+.rateNow { font-size: 26px; font-weight: 500; color: #efe7d4; }
+.rateDelta { font-size: 21px; font-weight: 700; letter-spacing: 0.02em; }
 .rateUp { border-color: rgba(79,161,99,0.55); } .rateUp .rateDelta { color: #5fd08a; }
 .rateDown { border-color: rgba(212,84,74,0.55); } .rateDown .rateDelta { color: #ec7b72; }
 @keyframes chipIn {

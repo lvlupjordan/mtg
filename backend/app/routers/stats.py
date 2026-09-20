@@ -635,7 +635,7 @@ def composition_data(db: Session = Depends(get_db)):
     outcomes = {r.deck_id: r for r in outcome_rows}
 
     rows = db.execute(text("""
-        SELECT d.id AS deck_id, d.commander, d.color_identity,
+        SELECT d.id AS deck_id, d.commander, d.color_identity, d.active,
                bu.name AS builder, dc.total_cards, dc.lands, dc.categories,
                dc.popularity_score, dc.salt_score, dc.highlights,
                dc.bracket, dc.power, dc.goldfish_clock
@@ -663,6 +663,7 @@ def composition_data(db: Session = Depends(get_db)):
             "deck_id": r.deck_id,
             "commander": r.commander,
             "builder": r.builder,
+            "active": r.active,
             "color_identity": sorted(r.color_identity or [], key=lambda c: WUBRG_ORDER.get(c, 99)),
             "nonland": (r.total_cards or 0) - (r.lands or 0),
             "popularity_score": r.popularity_score,
