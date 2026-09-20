@@ -392,9 +392,9 @@ function ComparePanel({ diffs, labelA, labelB }) {
   )
 }
 
-// ── Pairwise Elo builder: "Power Duel" ──────────────────────────────────────
-// Two commanders face off across a gold VS seam. Pick the stronger (tap or ←/→):
-// the winner lights up with a medallion, then the whole round slides out and the
+// ── Pairwise Elo builder: Deck Comparison ───────────────────────────────────
+// Two commanders sit across a gold seam. Pick the stronger (tap or ←/→): the
+// winner lights up with a medallion, then the whole round slides out and the
 // next pair slides in. Each pick updates the user's Elo + re-slices their tiers.
 
 const PIP_COLOUR = { W: '#f6f1df', U: '#3f82c9', B: '#5a5563', R: '#d4544a', G: '#4fa163' }
@@ -415,7 +415,6 @@ function DuelSide({ deck, side, picked, onPick, disabled }) {
         <div className={styles.sideArt} style={{ backgroundImage: `url(${deck.image_uri})` }} />
       )}
       <div className={styles.sideScrim} />
-      <span className={styles.sideKbd}>{side === 'left' ? '← A' : 'B →'}</span>
       <div className={styles.medal} aria-hidden={!isWon}>
         <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#eccb84"
              strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
@@ -521,9 +520,9 @@ function DeckRanker({ userId, userName, onClose }) {
   return (
     <div className={styles.arena}>
       <div className={styles.arenaTop}>
-        <span className={styles.arenaBrand}>Wooberg <span className={styles.arenaThin}>· Power Duel</span></span>
+        <span className={styles.arenaBrand}>Wooberg <span className={styles.arenaThin}>· Deck Comparison</span></span>
         <span className={styles.arenaTally}>
-          <b>{count}</b> duel{count === 1 ? '' : 's'} · {userName}
+          <b>{count}</b> comparison{count === 1 ? '' : 's'} · {userName}
         </span>
         <button className={styles.arenaDone} onClick={onClose}>Done</button>
       </div>
