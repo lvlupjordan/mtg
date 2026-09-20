@@ -474,8 +474,12 @@
 .arenaLoading { margin: auto; color: #9a92a8; font-style: italic; }
 
 .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
-.track { display: flex; flex-wrap: nowrap; height: 100%; will-change: transform; }
-.round { flex: 0 0 100%; position: relative; display: flex; height: 100%; }
+.round { position: absolute; inset: 0; display: flex; }
+/* round hand-off: current slides out left, next slides in from the right */
+.slideOut { animation: roundOut 0.55s cubic-bezier(.5,0,.2,1) both; }
+.slideIn { z-index: 2; animation: roundIn 0.55s cubic-bezier(.5,0,.2,1) both; }
+@keyframes roundOut { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@keyframes roundIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 
 .side {
   position: relative; flex: 1; min-width: 0; overflow: hidden; cursor: pointer; border: none;

@@ -59,6 +59,15 @@ export default function TierlistPage() {
   const [compareWith, setCompareWith] = useState(null)
   const [ranking, setRanking] = useState(false)   // pairwise Elo builder open?
 
+  // Land on a populated list rather than an empty page: the averaged list if any
+  // exist, otherwise the always-available Elo-suggested one.
+  const didDefault = useRef(false)
+  useEffect(() => {
+    if (didDefault.current || viewId !== null || allTierlists === undefined) return
+    didDefault.current = true
+    setViewId(allTierlists.length ? 'composite' : 'elo')
+  }, [allTierlists, viewId])
+
   const decksById = Object.fromEntries((data?.decks ?? []).map(d => [d.id, d]))
   const eloById = Object.fromEntries((eloData ?? []).map(d => [d.deck_id, d.rating]))
   const totalDecks = data?.decks?.length ?? 0
@@ -431,9 +440,9 @@ function DuelSide({ deck, side, picked, onPick, disabled }) {
   )
 }
 
-function DuelRound({ pair, picked, onPick }) {
+function DuelRound({ pair, picked, onPick, className = '', onAnimEnd }) {
   return (
-    <div className={styles.round}>
+    <div className={`${styles.round} ${className}`} onAnimationEnd={onAnimEnd}>
       <DuelSide deck={pair[0]} side="left" picked={picked}
                 onPick={onPick ? () => onPick(0) : undefined} disabled={!onPick} />
       <div className={styles.seam} />
@@ -444,11 +453,21 @@ function DuelRound({ pair, picked, onPick }) {
   )
 }
 
+// wait for a pair's art to decode so it doesn't pop in mid-slide (capped so a
+// slow image never stalls the flow)
+function preloadPair(pair) {
+  return Promise.race([
+    Promise.all(pair.filter(d => d.image_uri).map(d => new Promise(res => {
+      const im = new Image(); im.onload = im.onerror = res; im.src = d.image_uri
+    }))),
+    sleep(600),
+  ])
+}
+
 function DeckRanker({ userId, userName, onClose }) {
   const queryClient = useQueryClient()
   const [cur, setCur] = useState(null)
   const [incoming, setIncoming] = useState(null)   // next pair, mounted for the slide
-  const [sliding, setSliding] = useState(false)
   const [picked, setPicked] = useState(null)       // winner deck id (drives the beat)
   const [count, setCount] = useState(0)
   const busy = useRef(false)
@@ -459,16 +478,8 @@ function DeckRanker({ userId, userName, onClose }) {
   }
   useEffect(() => { loadFirst() /* eslint-disable-next-line */ }, [userId])
 
-  // once the incoming round is mounted (off-screen right), slide the track
-  useEffect(() => {
-    if (incoming && !sliding) {
-      const id = requestAnimationFrame(() => requestAnimationFrame(() => setSliding(true)))
-      return () => cancelAnimationFrame(id)
-    }
-  }, [incoming, sliding])
-
   async function pick(i) {
-    if (busy.current || !cur) return
+    if (busy.current || !cur || incoming) return
     busy.current = true
     const winner = cur[i], loser = cur[1 - i]
     setPicked(winner.id)
@@ -480,19 +491,18 @@ function DeckRanker({ userId, userName, onClose }) {
       setCount(r.total)
       queryClient.invalidateQueries({ queryKey: ['tierlists'] })
       const np = await api.tierlistNextPair(userId)
-      if (np.pair) setIncoming(np.pair)
+      if (np.pair) { await preloadPair(np.pair); setIncoming(np.pair) }
       else { setPicked(null); busy.current = false }
     } catch {
       setPicked(null); busy.current = false
     }
   }
 
-  function onTrackEnd(e) {
-    // ignore transitionend bubbling up from child sides (the winner shove)
-    if (e.target !== e.currentTarget || e.propertyName !== 'transform' || !sliding || !incoming) return
+  // the incoming round's slide-in finishes → it becomes the current round
+  function promote(e) {
+    if (e.target !== e.currentTarget || !incoming) return   // ignore child (medal/slam) animations
     setCur(incoming)
     setIncoming(null)
-    setSliding(false)
     setPicked(null)
     busy.current = false
   }
@@ -500,13 +510,13 @@ function DeckRanker({ userId, userName, onClose }) {
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') { onClose(); return }
-      if (busy.current || !cur) return
+      if (busy.current || incoming || !cur) return
       if (e.key === 'ArrowLeft') pick(0)
       else if (e.key === 'ArrowRight') pick(1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }) // re-bind each render so cur/picked are current
+  }) // re-bind each render so cur/incoming are current
 
   return (
     <div className={styles.arena}>
@@ -522,17 +532,21 @@ function DeckRanker({ userId, userName, onClose }) {
         {!cur ? (
           <p className={styles.arenaLoading}>Loading decks…</p>
         ) : (
-          <div
-            className={styles.track}
-            style={{
-              transform: sliding ? 'translateX(-100%)' : 'translateX(0)',
-              transition: sliding ? 'transform .58s cubic-bezier(.5,0,.2,1)' : 'none',
-            }}
-            onTransitionEnd={onTrackEnd}
-          >
-            <DuelRound pair={cur} picked={picked} onPick={incoming ? null : pick} />
-            {incoming && <DuelRound pair={incoming} picked={null} onPick={null} />}
-          </div>
+          <>
+            <DuelRound
+              key={`${cur[0].id}-${cur[1].id}`}
+              pair={cur} picked={picked}
+              onPick={incoming ? null : pick}
+              className={incoming ? styles.slideOut : ''}
+            />
+            {incoming && (
+              <DuelRound
+                key={`in-${incoming[0].id}-${incoming[1].id}`}
+                pair={incoming} picked={null} onPick={null}
+                className={styles.slideIn} onAnimEnd={promote}
+              />
+            )}
+          </>
         )}
       </div>
 
