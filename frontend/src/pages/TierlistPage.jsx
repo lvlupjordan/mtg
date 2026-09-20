@@ -398,9 +398,11 @@ function ComparePanel({ diffs, labelA, labelB }) {
 // next pair slides in. Each pick updates the user's Elo + re-slices their tiers.
 
 const PIP_COLOUR = { W: '#f6f1df', U: '#3f82c9', B: '#5a5563', R: '#d4544a', G: '#4fa163' }
+const WUBRG = ['W', 'U', 'B', 'R', 'G']
 function pipsOf(ci) {
   let cols = Array.isArray(ci) ? ci : (typeof ci === 'string' ? ci.toUpperCase().split('') : [])
   cols = [...new Set(cols)].filter(c => PIP_COLOUR[c])
+  cols.sort((a, b) => WUBRG.indexOf(a) - WUBRG.indexOf(b))   // canonical W-U-B-R-G order
   return cols
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms))
